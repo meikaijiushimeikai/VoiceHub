@@ -270,7 +270,7 @@ cd VoiceHub
 2. 安装依赖
 
 ```bash
-npm install
+pnpm install --frozen-lockfile
 ```
 
 3. 配置环境变量
@@ -300,16 +300,16 @@ NODE_ENV=development
 
 ```bash
 # 生成数据库迁移文件
-npm run db:generate
+pnpm run db:generate
 
 # 执行数据库迁移
-npm run db:migrate
+pnpm run db:migrate
 ```
 
 或使用一键部署命令（推荐）：
 
 ```bash
-npm run deploy
+pnpm run deploy
 ```
 
 5. 创建管理员账户
@@ -317,7 +317,7 @@ npm run deploy
 系统会在首次部署时自动创建管理员账户。如需手动创建：
 
 ```bash
-npm run create-admin
+pnpm run create-admin
 ```
 
 默认管理员账户：
@@ -328,7 +328,7 @@ npm run create-admin
 6. 启动开发服务器
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 应用将在 http://localhost:3000 启动。
@@ -338,35 +338,35 @@ npm run dev
 1. 构建生产版本
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 2. 启动生产服务器
 
 ```bash
-npm start
+pnpm run start
 ```
 
 ### 数据库管理命令
 
 ```bash
 # 生成迁移文件
-npm run db:generate
+pnpm run db:generate
 
 # 执行数据库迁移
-npm run db:migrate
+pnpm run db:migrate
 
 # 推送模式变更到数据库（开发环境）
-npm run db:push
+pnpm run db:push
 
 # 启动 Drizzle Studio（数据库管理界面）
-npm run db:studio
+pnpm run db:studio
 
 # 清空数据库并重新创建管理员
-npm run clear-db
+pnpm run clear-db
 
 # 安全迁移（带备份）
-npm run safe-migrate
+pnpm run safe-migrate
 ```
 
 ### 升级与迁移
@@ -453,6 +453,7 @@ VoiceHub 实现了细粒度的权限控制系统：
 | NODE_ENV     | 否  | 运行环境，development或production     | `production`                                                        |
 | REDIS_URL    | 否  | Redis缓存服务连接字符串，填写后自动启用Redis缓存功能 | `redis://default:password@host:port`                                |
 | NITRO_PRESET | 否  | Nitro预设                         | `vercel`                                                            |
+| NUXT_PUBLIC_HOST | 否  | 用于 CORS 和反向代理的主机名验证 | `your-app.com`                                                            |
 
 ## 项目结构
 
@@ -880,27 +881,24 @@ VoiceHub/
 │   │   ├── native_tx.ts    # 腾讯音乐原生API
 │   │   ├── native_wy.ts    # 网易云音乐原生API
 │   │   ├── oauth-strategies.ts # OAuth策略配置
-│   │   ├── oauth.ts        # OAuth通用工具
 │   │   ├── oauth-token.ts  # OAuth令牌工具
+│   │   ├── oauth.ts        # OAuth通用工具
 │   │   ├── open-api-cache.ts # 开放API缓存
 │   │   ├── permissions.js  # 权限系统配置
 │   │   ├── redis.ts        # Redis连接和操作工具
 │   │   ├── siteUtils.ts    # 站点工具函数
 │   │   ├── studentMask.ts  # 学生隐私工具
 │   │   ├── submissionLimit.ts # 投稿限额工具
-│   │   └── twoFactorStore.ts # 双重认证存储工具
+│   │   ├── twoFactorStore.ts # 双重认证存储工具
+│   │   ├── user.ts         # 用户相关工具函数
+│   │   ├── webauthn-config.ts # WebAuthn配置工具
+│   │   └── webauthn-token.ts # WebAuthn令牌工具
 │   ├── workers/            # 服务端工作进程
 │   │   └── audioEncoderWorker.js # 音频编码工作进程
 │   └── tsconfig.json       # 服务端TypeScript配置
 ├── types/                 # TypeScript类型定义
 │   ├── global.d.ts         # 全局类型定义
 │   └── index.ts            # 通用类型定义
-├── utils/                 # 客户端工具函数
-│   ├── __tests__/          # 工具函数测试目录
-│   ├── musicSources.ts     # 音乐源配置和管理工具
-│   ├── musicUrl.ts         # 音乐URL处理工具
-│   ├── oauth.ts            # OAuth工具函数
-│   └── url.ts              # URL处理工具（HTTPS转换等）
 ├── .env.example           # 环境变量示例文件
 ├── .gitignore             # Git忽略文件配置
 ├── .vercelignore          # Vercel部署忽略文件
@@ -1066,7 +1064,7 @@ VoiceHub/
 使用部署脚本自动完成数据库初始化：
 
 ```bash
-npm run deploy
+pnpm run deploy
 ```
 
 该命令会：
@@ -1084,25 +1082,25 @@ npm run deploy
 1. 生成迁移文件
 
 ```bash
-npm run db:generate
+pnpm run db:generate
 ```
 
 2. 执行数据库迁移
 
 ```bash
-npm run db:migrate
+pnpm run db:migrate
 ```
 
 3. 推送模式变更到数据库（开发环境）
 
 ```bash
-npm run db:push
+pnpm run db:push
 ```
 
 4. 启动 Drizzle Studio（数据库管理界面）
 
 ```bash
-npm run db:studio
+pnpm run db:studio
 ```
 
 访问 https://local.drizzle.studio 查看和管理数据库
@@ -1110,7 +1108,7 @@ npm run db:studio
 5. 清空数据库并创建管理员
 
 ```bash
-npm run clear-db
+pnpm run clear-db
 ```
 
 ### 数据库备份与恢复
@@ -1176,10 +1174,10 @@ psql -h localhost -U username -d database_name < backup.sql
 如需修改数据库模型：
 
 1. 编辑`app/drizzle/schema.ts`文件中的表结构定义
-2. 生成新的迁移文件：`npm run db:generate`
-3. 应用迁移到数据库：`npm run db:migrate`
+2. 生成新的迁移文件：`pnpm run db:generate`
+3. 应用迁移到数据库：`pnpm run db:migrate`
 4. 确保同时更新 `types/index.ts` 中的TypeScript类型定义
-5. 使用Drizzle Studio查看数据库：`npm run db:studio`
+5. 使用Drizzle Studio查看数据库：`pnpm run db:studio`
 
 ### OAuth 平台扩展指南
 
