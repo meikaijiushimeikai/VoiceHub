@@ -31,6 +31,8 @@
           {{ schedule.song.title }}
           <!-- 重播标识 -->
           <span v-if="schedule.song.replayRequestCount > 0" class="replay-badge-print"> 重播 </span>
+          <!-- 跨学期标识 -->
+          <span v-if="settings.currentSemester && schedule.song.semester && schedule.song.semester !== settings.currentSemester" class="cross-semester-badge-print"> 跨学期 </span>
         </div>
         <div v-if="settings.showArtist" class="song-artist">
           {{ schedule.song.artist }}
@@ -93,6 +95,7 @@ const handleImageError = (event) => {
   padding: 8px 0;
   border-bottom: 1px solid #e5e5e5;
   page-break-inside: avoid;
+  break-inside: avoid;
 }
 
 .item-content {
@@ -100,6 +103,7 @@ const handleImageError = (event) => {
   align-items: center;
   width: 100%;
   gap: 12px;
+  min-width: 0;
 }
 
 .sequence-number {
@@ -180,6 +184,21 @@ const handleImageError = (event) => {
   flex-shrink: 0;
 }
 
+/* 跨学期标识 */
+.cross-semester-badge-print {
+  display: inline-block;
+  padding: 1px 4px;
+  background: #f5f5f5;
+  border: 1px solid #d9d9d9;
+  color: #666;
+  font-size: 10px;
+  border-radius: 2px;
+  font-weight: normal;
+  margin-left: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 .song-artist {
   font-size: 14px;
   color: #666;
@@ -195,15 +214,21 @@ const handleImageError = (event) => {
   font-size: 12px;
   color: #666;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .label {
   font-weight: 500;
   margin-right: 4px;
+  flex-shrink: 0;
 }
 
 .value {
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 打印样式 */

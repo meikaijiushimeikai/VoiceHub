@@ -268,6 +268,12 @@
                   value-key="name"
                   @update:model-value="handleSemesterSelect"
                 />
+                <CustomSelect
+                  v-if="playTimeEnabled"
+                  v-model="selectedFilterPlayTime"
+                  label="期望时段"
+                  :options="filterPlayTimeOptions"
+                />
                 <div class="grid grid-cols-2 gap-2">
                   <CustomSelect v-model="selectedGrade" label="年级" :options="availableGrades" />
                   <CustomSelect v-model="songSortOption" label="排序" :options="sortOptions" />
@@ -338,6 +344,14 @@
                       >
                         <MessageSquare :size="12" />
                       </button>
+                      <span
+                        v-if="song.hasSubmissionNote && song.submissionNote"
+                        class="text-xs text-blue-400/80 truncate max-w-[200px] cursor-pointer hover:text-blue-400 transition-colors"
+                        title="查看备注留言"
+                        @click.stop="openSubmissionRemark(song)"
+                      >
+                        {{ song.submissionNote.length > 25 ? song.submissionNote.substring(0, 25) + '...' : song.submissionNote }}
+                      </span>
                     </div>
                     <div class="text-xs text-zinc-400 truncate">{{ song.artist }}</div>
                     <div class="text-[10px] text-zinc-500 truncate flex items-center gap-1">
@@ -597,6 +611,14 @@
                       >
                         <MessageSquare :size="12" />
                       </button>
+                      <span
+                        v-if="schedule.song.hasSubmissionNote && schedule.song.submissionNote"
+                        class="text-xs text-blue-400/80 truncate max-w-[150px] cursor-pointer hover:text-blue-400 transition-colors"
+                        title="查看备注留言"
+                        @click.stop="openSubmissionRemark(schedule.song)"
+                      >
+                        {{ schedule.song.submissionNote.length > 25 ? schedule.song.submissionNote.substring(0, 25) + '...' : schedule.song.submissionNote }}
+                      </span>
                       <!-- 重播标识 -->
                       <span
                         v-if="schedule.song.replayRequestCount > 0"
@@ -873,7 +895,9 @@
     :song-title="submissionRemarkDialog.songTitle"
     :content="submissionRemarkDialog.content"
     :is-public="submissionRemarkDialog.isPublic"
+    :is-updating-public="submissionRemarkDialog.isUpdatingPublic"
     @close="submissionRemarkDialog.show = false"
+    @update:is-public="updateSubmissionNotePublic"
   />
 </template>
 
@@ -955,9 +979,13 @@ const showMoveDateDialog = ref(false)
 const moveTargetDate = ref('')
 const submissionRemarkDialog = ref({
   show: false,
+  songId: null,
+  title: '',
+  artist: '',
   songTitle: '',
   content: '',
-  isPublic: true
+  isPublic: true,
+  isUpdatingPublic: false
 })
 
 const openReplayModal = (song) => {
@@ -978,9 +1006,57 @@ const openSubmissionRemark = (song) => {
   if (!song?.submissionNote) return
   submissionRemarkDialog.value = {
     show: true,
+    songId: song.id,
+    title: song.title,
+    artist: song.artist,
     songTitle: `${song.title} - ${song.artist}`,
     content: song.submissionNote,
     isPublic: song.submissionNotePublic === true
+  }
+}
+
+const updateSubmissionNotePublic = async (isPublic) => {
+  const dialogData = submissionRemarkDialog.value
+  if (!dialogData.songId || dialogData.isUpdatingPublic) return
+
+  dialogData.isUpdatingPublic = true
+  dialogData.isPublic = isPublic
+
+  try {
+    await adminService.updateSong(dialogData.songId, {
+      title: dialogData.title,
+      artist: dialogData.artist,
+      submissionNotePublic: isPublic
+    })
+
+    if (songsService && songsService.songs && songsService.songs.value) {
+      const songIndex = songsService.songs.value.findIndex(s => s.id === dialogData.songId)
+      if (songIndex !== -1) {
+        songsService.songs.value[songIndex].submissionNotePublic = isPublic
+      }
+    }
+
+    const localScheduledIndex = localScheduledSongs.value.findIndex(s => s.song && s.song.id === dialogData.songId)
+    if (localScheduledIndex !== -1) {
+      localScheduledSongs.value[localScheduledIndex].song.submissionNotePublic = isPublic
+    }
+
+    const publicScheduleIndex = publicSchedules.value.findIndex(s => s.song && s.song.id === dialogData.songId)
+    if (publicScheduleIndex !== -1) {
+      publicSchedules.value[publicScheduleIndex].song.submissionNotePublic = isPublic
+    }
+
+    if (window.$showNotification) {
+      window.$showNotification('备注留言可见性已更新', 'success')
+    }
+  } catch (error) {
+    console.error('更新备注可见性失败:', error)
+    if (window.$showNotification) {
+      window.$showNotification('更新备注可见性失败', 'error')
+    }
+    dialogData.isPublic = !isPublic
+  } finally {
+    dialogData.isUpdatingPublic = false
   }
 }
 
@@ -1041,6 +1117,25 @@ const isDraftMode = ref(false)
 const playTimes = ref([])
 const playTimeEnabled = ref(false)
 const selectedPlayTime = ref('')
+const selectedFilterPlayTime = ref('all')
+
+// 待排歌曲的播出时段筛选选项
+const filterPlayTimeOptions = computed(() => {
+  const options = [
+    { label: '全部时段', value: 'all' },
+    { label: '未指定时段', value: 'none' }
+  ]
+  if (playTimes.value) {
+    playTimes.value.forEach((pt) => {
+      let label = pt.name
+      if (pt.startTime || pt.endTime) {
+        label += ` (${formatPlayTimeRange(pt)})`
+      }
+      options.push({ label, value: pt.id })
+    })
+  }
+  return options
+})
 
 // 播出时段选项
 const playTimeOptions = computed(() => {
@@ -1155,12 +1250,12 @@ const allUnscheduledSongs = computed(() => {
     if (isScheduledInCurrentView) return false
 
     if (activeTab.value === 'replay' || activeTab.value === 'all') {
-      // 重播申请和所有歌曲模式不需要检查 played 状态，只要当前视图没排上就行
-      return true
-    } else {
-      // 普通投稿需未播放，且未在任何日期的排期中
-      return !song.played && !scheduledSongIds.value.has(song.id)
-    }
+            // 重播申请和所有歌曲模式不需要检查 played 状态，只要当前视图没排上就行
+            return true
+          } else {
+            // 普通投稿需未播放，且未在任何日期的排期中
+            return !song.played && !song.scheduled && !scheduledSongIds.value.has(song.id)
+          }
   })
 
   // 搜索过滤
@@ -1183,6 +1278,16 @@ const allUnscheduledSongs = computed(() => {
     unscheduledSongs = unscheduledSongs.filter(
       (song) => song.requesterGrade === selectedGrade.value
     )
+  }
+
+  // 播出时段过滤
+  if (selectedFilterPlayTime.value !== 'all') {
+    unscheduledSongs = unscheduledSongs.filter((song) => {
+      if (selectedFilterPlayTime.value === 'none') {
+        return !song.preferredPlayTimeId
+      }
+      return song.preferredPlayTimeId === selectedFilterPlayTime.value
+    })
   }
 
   return [...unscheduledSongs].sort((a, b) => {
@@ -1530,6 +1635,11 @@ watch(selectedGrade, () => {
   resetAllPages()
 })
 
+// 监听期望时段筛选变化，重置分页
+watch(selectedFilterPlayTime, () => {
+  resetAllPages()
+})
+
 // 加载重播申请
 const fetchReplayRequests = async () => {
   try {
@@ -1582,13 +1692,12 @@ const loadData = async () => {
     // 使用选中的学期过滤歌曲，如果选择"全部"则不传递学期参数
     const semester = selectedSemester.value === '全部' ? undefined : selectedSemester.value
 
-    // 播放列表应该始终显示当前学期的歌曲（或者全部，如果未设置当前学期），不受待排歌曲学期选择的影响
-    const playlistSemester = semesterService?.currentSemester?.value?.name
-
+    // 播放列表应该显示所有学期的排期，不受待排歌曲学期选择的影响
+    // 因为在界面上我们是按日期（selectedDate）来过滤显示排期的
     // 并行加载数据
     await Promise.all([
       songsService.fetchSongs(false, semester, false, true),
-      songsService.fetchPublicSchedules(false, playlistSemester, false, true),
+      songsService.fetchPublicSchedules(false, undefined, false, true),
       loadPlayTimes(),
       loadDrafts(), // 加载草稿列表
       fetchReplayRequests() // 加载重播申请
@@ -1642,7 +1751,13 @@ const formatPlayTimeRange = (playTime) => {
 const getPlayTimeName = (playTimeId) => {
   if (!playTimeId || !playTimes.value) return ''
   const playTime = playTimes.value.find((pt) => pt.id === playTimeId)
-  return playTime ? playTime.name : ''
+  if (!playTime) return ''
+  
+  let label = playTime.name
+  if (playTime.startTime || playTime.endTime) {
+    label += ` (${formatPlayTimeRange(playTime)})`
+  }
+  return label
 }
 
 // 加载学期列表

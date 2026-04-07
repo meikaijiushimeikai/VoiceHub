@@ -1,6 +1,7 @@
 import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
 import { CacheService } from '../../../services/cacheService'
+import { maskSystemSettingsSecrets } from './secretMask'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证和权限
@@ -26,7 +27,7 @@ export default defineEventHandler(async (event) => {
     let settings = await cacheService.getSystemSettings()
 
     if (settings) {
-      return settings
+      return maskSystemSettingsSecrets(settings)
     }
 
     // 缓存中没有，从数据库获取系统设置，如果不存在则创建默认设置
@@ -47,6 +48,7 @@ export default defineEventHandler(async (event) => {
           submissionGuidelines: '请遵守校园规定，提交健康向上的歌曲。',
           icpNumber: null,
           gonganNumber: null,
+          showBeianIcon: false,
           enableSubmissionLimit: false,
           dailySubmissionLimit: null,
           weeklySubmissionLimit: null,
@@ -66,12 +68,7 @@ export default defineEventHandler(async (event) => {
       console.warn('缓存系统设置失败:', cacheError)
     }
 
-    // 隐藏敏感字段
-    if (settings.smtpPassword) {
-      settings.smtpPassword = '****************'
-    }
-
-    return settings
+    return maskSystemSettingsSecrets(settings)
   } catch (error) {
     console.error('获取系统设置失败:', error)
     throw createError({

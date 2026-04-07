@@ -763,7 +763,39 @@ const scrollToDateItem = async (index) => {
   })
 }
 
+// 统一解析 YYYY-MM-DD 格式的本地日期
+const parseLocalDateParts = (dateStr) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr)
+  if (!match) return null
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+
+  return { year, month, day }
+}
+
 // 提取日期选择逻辑到独立函数
+const toLocalMidnightTimestamp = (dateStr) => {
+  const parsedDate = parseLocalDateParts(dateStr)
+  if (!parsedDate) return null
+  const { year, month, day } = parsedDate
+
+  return new Date(year, month - 1, day, 0, 0, 0, 0).getTime()
+}
+
 const findAndSelectTodayOrClosestDate = async () => {
   if (availableDates.value.length === 0) return
 
@@ -772,21 +804,25 @@ const findAndSelectTodayOrClosestDate = async () => {
 
   let selectedIndex = 0
 
-  // 在宽屏模式下，优先显示最近的日期（今天或之后最近的日期）
-  if (!isMobile.value) {
-    const todayTime = today.getTime()
+  // 统一逻辑：所有设备先尝试直接字符串匹配找"今天"
+  const todayIndex = availableDates.value.findIndex((date) => date === todayStr)
+
+  if (todayIndex >= 0) {
+    // 如果找到今天的日期，则选择它
+    selectedIndex = todayIndex
+  } else {
+    // 如果今天没有排期，用时间戳找到最接近今天的日期
+    // 使用午夜时间戳来比较，避免时间部分的影响
+    const todayMidnightTime = toLocalMidnightTimestamp(todayStr)
+    if (todayMidnightTime === null) return
     let closestFutureIndex = -1
     let minFutureDiff = Number.MAX_SAFE_INTEGER
 
     // 查找今天或之后最近的日期
     availableDates.value.forEach((dateStr, index) => {
-      const dateParts = dateStr.split('-')
-      const date = new Date(
-        parseInt(dateParts[0]),
-        parseInt(dateParts[1]) - 1,
-        parseInt(dateParts[2])
-      )
-      const diff = date.getTime() - todayTime
+      const dateTime = toLocalMidnightTimestamp(dateStr)
+      if (dateTime === null) return
+      const diff = dateTime - todayMidnightTime
 
       // 优先选择今天或未来的日期
       if (diff >= 0 && diff < minFutureDiff) {
@@ -804,13 +840,9 @@ const findAndSelectTodayOrClosestDate = async () => {
       let minPastDiff = Number.MAX_SAFE_INTEGER
 
       availableDates.value.forEach((dateStr, index) => {
-        const dateParts = dateStr.split('-')
-        const date = new Date(
-          parseInt(dateParts[0]),
-          parseInt(dateParts[1]) - 1,
-          parseInt(dateParts[2])
-        )
-        const diff = todayTime - date.getTime()
+        const dateTime = toLocalMidnightTimestamp(dateStr)
+        if (dateTime === null) return
+        const diff = todayMidnightTime - dateTime
 
         if (diff > 0 && diff < minPastDiff) {
           minPastDiff = diff
@@ -820,38 +852,6 @@ const findAndSelectTodayOrClosestDate = async () => {
 
       if (closestPastIndex >= 0) {
         selectedIndex = closestPastIndex
-      }
-    }
-  } else {
-    // 移动端保持原有逻辑：优先选择今天
-    const todayIndex = availableDates.value.findIndex((date) => date === todayStr)
-
-    if (todayIndex >= 0) {
-      // 如果找到今天的日期，则选择它
-      selectedIndex = todayIndex
-    } else {
-      // 如果今天没有排期，找到最接近今天的日期
-      const todayTime = today.getTime()
-      let closestDate = -1
-      let minDiff = Number.MAX_SAFE_INTEGER
-
-      availableDates.value.forEach((dateStr, index) => {
-        const dateParts = dateStr.split('-')
-        const date = new Date(
-          parseInt(dateParts[0]),
-          parseInt(dateParts[1]) - 1,
-          parseInt(dateParts[2])
-        )
-        const diff = Math.abs(date.getTime() - todayTime)
-
-        if (diff < minDiff) {
-          minDiff = diff
-          closestDate = index
-        }
-      })
-
-      if (closestDate >= 0) {
-        selectedIndex = closestDate
       }
     }
   }
@@ -985,15 +985,12 @@ const resetDate = () => {
 // 格式化日期
 const formatDate = (dateStr, isMobile = false) => {
   try {
-    // 解析日期字符串
-    const parts = dateStr.split('-')
-    if (parts.length !== 3) {
+    const parsedDate = parseLocalDateParts(dateStr)
+    if (!parsedDate) {
       throw new Error('无效的日期格式')
     }
 
-    const year = parseInt(parts[0])
-    const month = parseInt(parts[1])
-    const day = parseInt(parts[2])
+    const { year, month, day } = parsedDate
 
     // 创建日期对象
     const date = new Date(year, month - 1, day)
@@ -1370,69 +1367,71 @@ const togglePlaySong = async (song) => {
 
   // 如果有平台和ID信息或playUrl，动态获取URL
   if ((song.musicPlatform && song.musicId) || song.playUrl) {
+    const buildPlaylistForSong = (targetSong) => {
+      const currentTimeSlot = getCurrentTimeSlot(targetSong)
+      let playlist = []
+      let songIndex = 0
+      if (currentTimeSlot && currentTimeSlot.songs) {
+        playlist = currentTimeSlot.songs.map((s) => ({
+          id: s.id,
+          title: s.title,
+          artist: s.artist,
+          cover: s.cover,
+          musicUrl: s.musicUrl || null,
+          musicPlatform: s.musicPlatform,
+          musicId: s.musicId,
+          playUrl: s.playUrl || null,
+          sourceInfo: s.sourceInfo
+        }))
+        songIndex = playlist.findIndex((s) => s.id === targetSong.id)
+        if (songIndex === -1) songIndex = 0
+      }
+      return { playlist, songIndex }
+    }
+
     try {
       const url = await getMusicUrl(song)
       if (url || isBilibiliSong(song)) {
-        // 构建当前时段的播放列表
-        const currentTimeSlot = getCurrentTimeSlot(song)
-        let playlist = []
-        let songIndex = 0
-
-        if (currentTimeSlot && currentTimeSlot.songs) {
-          // 构建播放列表但不阻塞当前播放，后续后台预取
-          playlist = currentTimeSlot.songs.map((s) => ({
-            id: s.id,
-            title: s.title,
-            artist: s.artist,
-            cover: s.cover,
-            musicUrl: s.musicUrl || null,
-            musicPlatform: s.musicPlatform,
-            musicId: s.musicId,
-            playUrl: s.playUrl || null,
-            sourceInfo: s.sourceInfo
-          }))
-
-          // 找到当前歌曲在播放列表中的索引
-          songIndex = playlist.findIndex((s) => s.id === song.id)
-          if (songIndex === -1) songIndex = 0
-
-          // 后台预取后续歌曲的播放链接（不阻塞当前播放）
-          ;(async () => {
-            for (let i = songIndex + 1; i < playlist.length; i++) {
-              const s = playlist[i]
-              if (!s.musicUrl && ((s.musicPlatform && s.musicId) || s.playUrl)) {
-                try {
-                  s.musicUrl = await getMusicUrl(s)
-                } catch (error) {
-                  console.warn(`后台预取失败: ${s.title}`, error)
-                  s.musicUrl = null
-                }
-              }
-            }
-          })()
-        }
+        const { playlist, songIndex } = buildPlaylistForSong(song)
 
         const playableSong = {
           ...song,
           musicUrl: url || null
         }
 
-        // 更新播放列表中当前歌曲的URL
         if (playlist.length > 0 && songIndex >= 0) {
           playlist[songIndex] = playableSong
         }
+
+        // 后台预取后续歌曲的播放链接（不阻塞当前播放）
+        ;(async () => {
+          for (let i = songIndex + 1; i < playlist.length; i++) {
+            const s = playlist[i]
+            if (!s.musicUrl && ((s.musicPlatform && s.musicId) || s.playUrl)) {
+              try {
+                s.musicUrl = await getMusicUrl(s)
+              } catch (error) {
+                console.warn(`后台预取失败: ${s.title}`, error)
+                s.musicUrl = null
+              }
+            }
+          }
+        })()
 
         audioPlayer.playSong(playableSong, playlist, songIndex)
       } else {
         if (window.$showNotification) {
           window.$showNotification('无法获取音乐播放链接，请稍后再试', 'error')
         }
+        audioPlayer.playSong({ ...song, musicUrl: null }, [], -1)
       }
     } catch (error) {
       console.error('获取音乐URL失败:', error)
       if (window.$showNotification) {
         window.$showNotification('获取音乐播放链接失败', 'error')
       }
+      const { playlist, songIndex } = buildPlaylistForSong(song)
+      audioPlayer.playSong({ ...song, musicUrl: null }, playlist, songIndex)
     }
   }
 }
@@ -2910,7 +2909,7 @@ const vRipple = {
     border: 1px solid rgba(255, 255, 255, 0.1);
     padding: 4px;
     flex: 1;
-    max-width: 400px;
+    max-width: none;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   }
 

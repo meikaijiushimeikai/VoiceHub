@@ -25,13 +25,11 @@
         <div class="title">
           <!-- 封面 -->
           <div
-            class="cover-container"
+            class="cover-container clickable"
             @click.stop="
-              isMobile
-                ? isBilibiliSong(activeSong)
-                  ? openBilibiliVideo()
-                  : toggleLyrics()
-                : null
+              isBilibiliSong(activeSong)
+                ? openBilibiliVideo()
+                : toggleLyrics()
             "
           >
             <template v-if="activeSong && activeSong.cover && !coverError">
@@ -45,6 +43,11 @@
             </template>
             <div v-else class="text-cover">
               {{ getFirstChar(activeSong?.title || '') }}
+            </div>
+            
+            <!-- 悬浮展开提示遮罩 -->
+            <div class="cover-hover-overlay">
+              <Icon :name="isBilibiliSong(activeSong) ? 'video' : 'maximize-2'" size="18" />
             </div>
           </div>
 
@@ -109,18 +112,17 @@
 
           <!-- 控制按钮区域 -->
           <div class="controls-frame">
-            <!-- 左侧歌词按钮 -->
-            <span
-              v-if="isBilibiliSong(activeSong)"
-              class="lyrics-btn music-icon"
-              title="观看视频"
-              @click="openBilibiliVideo"
-            >
-              <Icon name="video" size="20" />
-            </span>
-            <span v-else class="lyrics-btn music-icon" title="歌词" @click="toggleLyrics">
-              <Icon name="music" size="20" />
-            </span>
+            <!-- 左侧播放模式切换 -->
+            <div class="left-actions-group">
+              <span
+                class="lyrics-btn music-icon"
+                :class="{ active: control.playMode.value !== 'off' }"
+                :title="playModeTitle"
+                @click="cyclePlayMode"
+              >
+                <Icon :name="playModeIcon" size="20" />
+              </span>
+            </div>
 
             <!-- 中央播放控制 -->
             <div class="center-controls">
@@ -157,15 +159,11 @@
               </span>
             </div>
 
-            <!-- 右侧播放模式切换 -->
-            <span
-              class="lyrics-btn music-icon"
-              :class="{ active: control.playMode.value !== 'off' }"
-              :title="playModeTitle"
-              @click="cyclePlayMode"
-            >
-              <Icon :name="playModeIcon" size="20" />
-            </span>
+            <!-- 右侧操作区域 -->
+            <div class="right-actions-group">
+              <!-- 音量控制 -->
+              <VolumeControl />
+            </div>
           </div>
         </div>
 
@@ -246,7 +244,7 @@
       confirm-text="立即打开"
       cancel-text="稍后处理"
       @confirm="handleFallbackDialogConfirm"
-      @close="showFallbackOpenDialog = false"
+      @cancel="handleFallbackDialogCancel"
     />
   </div>
 </template>
@@ -256,6 +254,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import AppleMusicLyrics from './AppleMusicLyrics.vue'
 import LyricsModal from './LyricsModal.vue'
 import AudioElement from './AudioPlayer/AudioElement.vue'
+import VolumeControl from './AudioPlayer/VolumeControl.vue'
 import BilibiliIframeModal from './BilibiliIframeModal.vue'
 import Icon from './Icon.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
@@ -318,6 +317,7 @@ const lastOpenedFallbackSongId = ref<string | number | null>(null)
 const showFallbackOpenDialog = ref(false)
 const fallbackOpenDialogUrl = ref('')
 const fallbackOpenDialogMessage = ref('播放地址不可直接播放，是否在新标签页打开原始链接？')
+const isFallbackHandling = ref(false) // 标记正在处理 fallback，阻止重试逻辑
 
 // 获取音频播放器引用
 const audioPlayer = computed(() => audioElementRef.value?.audioPlayer)
@@ -400,29 +400,22 @@ const openFallbackLinkForFailedSong = (): 'none' | 'dialog' | 'opened' => {
   const song = activeSong.value
   if (!song?.id) return 'none'
   if (lastOpenedFallbackSongId.value === song.id) return 'none'
+  if (showFallbackOpenDialog.value) return 'dialog'
 
   const fallbackUrl = resolveFallbackUrl()
   if (!fallbackUrl) return 'none'
 
-  lastOpenedFallbackSongId.value = song.id
-
-  const openedWindow = window.open(fallbackUrl, '_blank', 'noopener,noreferrer')
-  if (!openedWindow) {
-    fallbackOpenDialogUrl.value = fallbackUrl
-    fallbackOpenDialogMessage.value = '播放地址不可直接播放，是否在新标签页打开原始链接？'
-    showFallbackOpenDialog.value = true
-    return 'dialog'
-  }
-
-  if (window.$showNotification) {
-    window.$showNotification('播放地址不可直接播放，已为你打开原始链接', 'warning')
-  }
-  return 'opened'
+  isFallbackHandling.value = true
+  fallbackOpenDialogUrl.value = fallbackUrl
+  fallbackOpenDialogMessage.value = `播放地址不可直接播放，是否在新标签页打开原始链接？\n\n即将跳转的网址：\n${fallbackUrl}`
+  showFallbackOpenDialog.value = true
+  return 'dialog'
 }
 
 const handleFallbackDialogConfirm = () => {
   if (!fallbackOpenDialogUrl.value) {
     showFallbackOpenDialog.value = false
+    isFallbackHandling.value = false
     return
   }
 
@@ -434,11 +427,23 @@ const handleFallbackDialogConfirm = () => {
     return
   }
 
+  const song = activeSong.value
+  if (song?.id) {
+    lastOpenedFallbackSongId.value = song.id
+  }
+
   showFallbackOpenDialog.value = false
   fallbackOpenDialogUrl.value = ''
+  isFallbackHandling.value = false
   if (window.$showNotification) {
     window.$showNotification('已为你打开原始链接', 'success')
   }
+}
+
+const handleFallbackDialogCancel = () => {
+  showFallbackOpenDialog.value = false
+  fallbackOpenDialogUrl.value = ''
+  isFallbackHandling.value = false
 }
 
 watch(
@@ -446,6 +451,8 @@ watch(
   (newId, oldId) => {
     if (newId !== oldId) {
       lastOpenedFallbackSongId.value = null
+      isFallbackHandling.value = false
+      enhanced.resetRetryState()
     }
   }
 )
@@ -623,6 +630,9 @@ const handleLoaded = async () => {
 }
 
 const handleError = async (error) => {
+  // 如果正在处理 fallback，直接返回，不走重试逻辑
+  if (isFallbackHandling.value) return
+
   // 如果是哔哩哔哩视频播放失败，提供 iframe 预览选项
   if (isBilibiliSong(activeSong.value)) {
     // 如果是播放列表模式，且不是手动单曲播放模式，则自动跳过
@@ -1031,7 +1041,10 @@ const handleLyricSeek = async (time) => {
 const stopPlaying = () => {
   if (isClosing.value) return
 
-  // 立即停止音频播放和同步状态，确保用户点击关闭时音乐立即停止
+  lastOpenedFallbackSongId.value = null
+  isFallbackHandling.value = false
+  enhanced.resetRetryState()
+
   control.stop()
   sync.syncStopToGlobal()
 
@@ -1072,6 +1085,8 @@ watch(
       if (loadSuccess) {
         sync.setGlobalPlaylist(newSong, props.playlist)
         await control.play()
+      } else {
+        handleError(new Error('加载歌曲失败'))
       }
     }
   },
@@ -1086,12 +1101,48 @@ watch(
 
     isSyncingFromGlobal.value = true
 
+    if (newPlayingStatus && (isClosing.value || isClosed.value)) {
+      // 从关闭状态唤醒
+      isClosed.value = false
+      isClosing.value = false
+      
+      // 如果当前处于错误状态，尝试重新加载
+      if (control.hasError.value && props.song) {
+        control.loadSong(props.song).then((success) => {
+          if (success) {
+            control.play()
+          } else {
+            handleError(new Error('加载歌曲失败'))
+          }
+          nextTick(() => {
+            isSyncingFromGlobal.value = false
+          })
+        })
+      } else {
+        control.play()
+        nextTick(() => {
+          isSyncingFromGlobal.value = false
+        })
+      }
+      return
+    }
+
     if (!newPlayingStatus && control.isPlaying.value) {
       control.pause()
     } else if (newPlayingStatus && !control.isPlaying.value) {
       const currentGlobalSong = sync.globalAudioPlayer.getCurrentSong().value
       if (currentGlobalSong && props.song && currentGlobalSong.id === props.song.id) {
-        control.play()
+        if (control.hasError.value) {
+          control.loadSong(props.song).then((success) => {
+            if (success) {
+              control.play()
+            } else {
+              handleError(new Error('加载歌曲失败'))
+            }
+          })
+        } else {
+          control.play()
+        }
       }
     }
 
@@ -1772,10 +1823,49 @@ const getFirstChar = (text) => {
   position: relative;
 }
 
+.cover-container.clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cover-container.clickable:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.cover-container.clickable:hover .cover-hover-overlay {
+  opacity: 1;
+}
+
+.cover-container.clickable:hover .player-cover,
+.cover-container.clickable:hover .text-cover {
+  transform: scale(1.1);
+}
+
+.cover-container.clickable:active {
+  transform: scale(0.95);
+}
+
 .player-cover {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.cover-hover-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
 }
 
 .text-cover {
@@ -1792,6 +1882,7 @@ const getFirstChar = (text) => {
   font-family:
     'SF Pro', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', SimHei, Arial, Helvetica,
     sans-serif;
+  transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 /* 歌曲信息文本 */
@@ -2108,6 +2199,14 @@ const getFirstChar = (text) => {
 }
 
 /* 右侧操作区域 */
+.left-actions-group,
+.right-actions-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 39px;
+}
+
 .right-actions {
   width: 44px;
   height: 44px;

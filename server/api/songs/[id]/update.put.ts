@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     if (event.node.req.method !== 'PUT') {
       throw createError({
         statusCode: 405,
-        statusMessage: 'Method Not Allowed'
+        message: 'Method Not Allowed'
       })
     }
 
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     if (!user) {
       throw createError({
         statusCode: 401,
-        statusMessage: '未授权访问'
+        message: '未授权访问'
       })
     }
 
@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     if (!['ADMIN', 'SONG_ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
       throw createError({
         statusCode: 403,
-        statusMessage: '权限不足'
+        message: '权限不足'
       })
     }
 
@@ -36,13 +36,13 @@ export default defineEventHandler(async (event) => {
     if (!songId) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Invalid song ID'
+        message: 'Invalid song ID'
       })
     }
 
     // 获取请求体
     const body = await readBody(event)
-    const { title, artist, requester, semester, musicPlatform, musicId, cover, playUrl } = body
+    const { title, artist, requester, semester, musicPlatform, musicId, cover, playUrl, preferredPlayTimeId } = body
     const ipAddress =
       (event.node.req.headers['x-forwarded-for'] as string) || event.node.req.socket.remoteAddress
 
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     if (!title || !artist) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Title and artist are required'
+        message: 'Title and artist are required'
       })
     }
 
@@ -60,19 +60,21 @@ export default defineEventHandler(async (event) => {
     if (!existingSong) {
       throw createError({
         statusCode: 404,
-        statusMessage: '歌曲不存在'
+        message: '歌曲不存在'
       })
     }
 
-    const updateData = {
+    const updateData: Partial<typeof songs.$inferInsert> = {
       title: title.trim(),
       artist: artist.trim(),
-      semester: semester || null,
-      musicPlatform: musicPlatform || null,
-      musicId: musicId || null,
-      cover: cover || null,
-      playUrl: playUrl || null
     }
+
+    if (body.semester !== undefined) updateData.semester = body.semester || null
+    if (body.preferredPlayTimeId !== undefined) updateData.preferredPlayTimeId = body.preferredPlayTimeId || null
+    if (body.musicPlatform !== undefined) updateData.musicPlatform = body.musicPlatform || null
+    if (body.musicId !== undefined) updateData.musicId = body.musicId || null
+    if (body.cover !== undefined) updateData.cover = body.cover || null
+    if (body.playUrl !== undefined) updateData.playUrl = body.playUrl || null
 
     // 处理投稿人
     if ('requester' in body) {
@@ -99,7 +101,7 @@ export default defineEventHandler(async (event) => {
         if (requesterUser.length === 0) {
           throw createError({
             statusCode: 404,
-            statusMessage: '投稿人用户不存在'
+            message: '投稿人用户不存在'
           })
         }
 
@@ -121,6 +123,10 @@ export default defineEventHandler(async (event) => {
         typeof body.submissionNote === 'string' && body.submissionNote.trim()
           ? body.submissionNote.trim()
           : null
+    }
+
+    if ('submissionNotePublic' in body) {
+      updateData.submissionNotePublic = body.submissionNotePublic === true
     }
 
     const currentRequesterId = updateData.requesterId || existingSong.requesterId
@@ -265,7 +271,7 @@ export default defineEventHandler(async (event) => {
 
     throw createError({
       statusCode: 500,
-      statusMessage: error.message || 'Internal server error'
+      message: error.message || 'Internal server error'
     })
   }
 })

@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
     throw createError({
       statusCode: 403,
-      statusMessage: '权限不足'
+      message: '权限不足'
     })
   }
 
@@ -39,14 +39,14 @@ export default defineEventHandler(async (event) => {
   if (overwriteSuperAdmin && user.role !== 'SUPER_ADMIN') {
     throw createError({
       statusCode: 403,
-      statusMessage: '仅超级管理员可以覆盖超级管理员账号数据'
+      message: '仅超级管理员可以覆盖超级管理员账号数据'
     })
   }
 
   if (!tableName || !records || !Array.isArray(records)) {
     throw createError({
       statusCode: 400,
-      statusMessage: '无效的请求参数'
+      message: '无效的请求参数'
     })
   }
 
@@ -612,7 +612,35 @@ export default defineEventHandler(async (event) => {
               'smtpUsername',
               'smtpPassword',
               'smtpFromEmail',
-              'smtpFromName'
+              'smtpFromName',
+              'allowOAuthRegistration',
+              'oauthRedirectUri',
+              'oauthStateSecret',
+              'oauthProviders',
+              'githubOAuthEnabled',
+              'githubClientId',
+              'githubClientSecret',
+              'casdoorOAuthEnabled',
+              'casdoorServerUrl',
+              'casdoorClientId',
+              'casdoorClientSecret',
+              'casdoorOrganizationName',
+              'googleOAuthEnabled',
+              'googleClientId',
+              'googleClientSecret',
+              'customOAuthEnabled',
+              'customOAuthDisplayName',
+              'customOAuthAuthorizeUrl',
+              'customOAuthTokenUrl',
+              'customOAuthUserInfoUrl',
+              'customOAuthScope',
+              'customOAuthClientId',
+              'customOAuthClientSecret',
+              'customOAuthUserIdField',
+              'customOAuthUsernameField',
+              'customOAuthNameField',
+              'customOAuthEmailField',
+              'customOAuthAvatarField'
             ]
             fields.forEach((field) => {
               if (record.hasOwnProperty(field)) systemSettingsData[field] = record[field]

@@ -90,7 +90,7 @@
             class="w-full bg-zinc-950/50 border border-zinc-800/80 rounded-lg pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-blue-500/30 transition-all placeholder:text-zinc-800 text-zinc-200"
           >
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:flex lg:items-center gap-3 w-full lg:w-auto">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:flex lg:items-center gap-3 w-full lg:w-auto">
           <CustomSelect
             v-model="selectedSemester"
             label="学期"
@@ -98,6 +98,15 @@
             label-key="name"
             value-key="name"
             placeholder="选择学期"
+            class-name="w-full lg:w-40"
+          />
+          <CustomSelect
+            v-model="selectedPlayTime"
+            label="播出时段"
+            :options="availablePlayTimes"
+            label-key="name"
+            value-key="id"
+            placeholder="选择时段"
             class-name="w-full lg:w-40"
           />
           <CustomSelect
@@ -238,6 +247,14 @@
                 >
                   <MessageSquare :size="12" />
                 </button>
+                <span
+                  v-if="song.hasSubmissionNote && song.submissionNote"
+                  class="ml-2 text-xs text-blue-400/80 truncate max-w-[200px] cursor-pointer hover:text-blue-400 transition-colors font-normal"
+                  title="查看备注留言"
+                  @click.stop="openSubmissionRemark(song)"
+                >
+                  {{ song.submissionNote.length > 25 ? song.submissionNote.substring(0, 25) + '...' : song.submissionNote }}
+                </span>
               </h4>
               <p class="text-xs text-zinc-500 font-medium truncate mt-0.5">{{ song.artist }}</p>
               <span
@@ -252,6 +269,9 @@
             <span v-if="song.user" class="text-[10px] font-bold text-zinc-600"
               >@{{ song.user.username }}</span
             >
+            <span v-if="song.preferredPlayTimeId" class="text-[10px] font-bold text-blue-500 mt-1">
+              期望: {{ getPlayTimeName(song.preferredPlayTimeId) }}
+            </span>
             <span
               class="hidden lg:inline text-[9px] font-black text-zinc-700 uppercase tracking-widest mt-1 opacity-60"
               >{{ formatDate(song.createdAt) }}</span
@@ -363,7 +383,9 @@
       :song-title="submissionRemarkDialog.songTitle"
       :content="submissionRemarkDialog.content"
       :is-public="submissionRemarkDialog.isPublic"
+      :is-updating-public="submissionRemarkDialog.isUpdatingPublic"
       @close="submissionRemarkDialog.show = false"
+      @update:is-public="updateSubmissionNotePublic"
     />
 
     <!-- 驳回歌曲对话框 -->
@@ -685,26 +707,49 @@
               </div>
             </div>
 
-            <div class="space-y-2">
-              <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
-                >学期</label
-              >
-              <CustomSelect
-                v-if="showEditModal"
-                v-model="editForm.semester"
-                :options="availableSemesters"
-                label-key="name"
-                value-key="name"
-                placeholder="选择学期"
-              />
-              <CustomSelect
-                v-else
-                v-model="addForm.semester"
-                :options="availableSemesters"
-                label-key="name"
-                value-key="name"
-                placeholder="选择学期"
-              />
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
+                  >学期</label
+                >
+                <CustomSelect
+                  v-if="showEditModal"
+                  v-model="editForm.semester"
+                  :options="availableSemesters"
+                  label-key="name"
+                  value-key="name"
+                  placeholder="选择学期"
+                />
+                <CustomSelect
+                  v-else
+                  v-model="addForm.semester"
+                  :options="availableSemesters"
+                  label-key="name"
+                  value-key="name"
+                  placeholder="选择学期"
+                />
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
+                  >期望时段 (可选)</label
+                >
+                <CustomSelect
+                  v-if="showEditModal"
+                  v-model="editForm.preferredPlayTimeId"
+                  :options="availablePlayTimes.filter(p => p.id !== 'all')"
+                  label-key="name"
+                  value-key="id"
+                  placeholder="选择期望播出时段"
+                />
+                <CustomSelect
+                  v-else
+                  v-model="addForm.preferredPlayTimeId"
+                  :options="availablePlayTimes.filter(p => p.id !== 'all')"
+                  label-key="name"
+                  value-key="id"
+                  placeholder="选择期望播出时段"
+                />
+              </div>
             </div>
 
 
@@ -736,6 +781,27 @@
                 placeholder="填写歌曲备注"
                 class="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-4 text-sm text-zinc-200 focus:outline-none focus:border-blue-500/30 min-h-[120px] resize-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
+              <label
+                class="flex items-center gap-3 px-1 transition-opacity"
+                :class="submissionNoteClearRequested ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer group'"
+              >
+                <input
+                  v-model="editForm.submissionNotePublic"
+                  :disabled="submissionNoteClearRequested"
+                  type="checkbox"
+                  class="w-4 h-4 rounded border-zinc-800 bg-zinc-950 accent-blue-500"
+                >
+                <div>
+                  <span
+                    class="text-xs font-bold transition-colors"
+                    :class="submissionNoteClearRequested ? 'text-zinc-500' : 'text-zinc-300 group-hover:text-blue-400'"
+                    >公开备注留言</span
+                  >
+                  <p class="text-[10px] text-zinc-600 font-medium">
+                    公开后其他用户可以看到此备注留言
+                  </p>
+                </div>
+              </label>
               <div
                 v-if="submissionNoteClearRequested"
                 class="space-y-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4"
@@ -973,6 +1039,10 @@ const { playSong } = useSongPlayer()
 const selectedSemester = ref('all')
 const availableSemesters = ref([])
 
+// 时段相关
+const selectedPlayTime = ref('all')
+const availablePlayTimes = ref([])
+
 // 选项配置
 const statusOptions = [
   { label: '全部状态', value: 'all' },
@@ -1006,9 +1076,13 @@ const showDownloadDialog = ref(false)
 const selectedSongsForDownload = ref([])
 const submissionRemarkDialog = ref({
   show: false,
+  songId: null,
+  title: '',
+  artist: '',
   songTitle: '',
   content: '',
-  isPublic: false
+  isPublic: false,
+  isUpdatingPublic: false
 })
 
 // 驳回歌曲相关
@@ -1032,7 +1106,9 @@ const editForm = ref({
   artist: '',
   requester: '',
   semester: '',
+  preferredPlayTimeId: 'none',
   submissionNote: '',
+  submissionNotePublic: false,
   musicPlatform: '',
   musicId: '',
   cover: '',
@@ -1052,6 +1128,7 @@ const addForm = ref({
   artist: '',
   requester: '',
   semester: '',
+  preferredPlayTimeId: 'none',
   musicPlatform: '',
   musicId: '',
   cover: '',
@@ -1093,6 +1170,7 @@ const songs = ref([])
 let songsService = null
 let adminService = null
 let auth = null
+let formatPlayTimeDisplay = (pt) => pt?.name || ''
 
 // 计算属性
 const filteredSongs = computed(() => {
@@ -1114,6 +1192,16 @@ const filteredSongs = computed(() => {
   // 学期过滤
   if (selectedSemester.value && selectedSemester.value !== 'all') {
     filtered = filtered.filter((song) => song.semester === selectedSemester.value)
+  }
+
+  // 时段过滤
+  if (selectedPlayTime.value && selectedPlayTime.value !== 'all') {
+    filtered = filtered.filter((song) => {
+      if (selectedPlayTime.value === 'none') {
+        return !song.preferredPlayTimeId
+      }
+      return song.preferredPlayTimeId === selectedPlayTime.value
+    })
   }
 
   // 状态过滤
@@ -1232,6 +1320,14 @@ const formatDate = (dateString) => {
   return `${Math.floor(diff / 86400000)}天前`
 }
 
+const getPlayTimeName = (playTimeId) => {
+  if (!playTimeId || !availablePlayTimes.value) return ''
+  const playTime = availablePlayTimes.value.find((pt) => pt.id === playTimeId)
+  if (!playTime) return ''
+  
+  return formatPlayTimeDisplay(playTime)
+}
+
 const getStatusText = (song) => {
   if (song.played) return '已播放'
   if (song.scheduled) return '待播放'
@@ -1246,9 +1342,45 @@ const openSubmissionRemark = (song) => {
   if (!song?.submissionNote) return
   submissionRemarkDialog.value = {
     show: true,
+    songId: song.id,
+    title: song.title,
+    artist: song.artist,
     songTitle: `${song.title} - ${song.artist}`,
     content: song.submissionNote,
     isPublic: song.submissionNotePublic === true
+  }
+}
+
+const updateSubmissionNotePublic = async (isPublic) => {
+  const dialogData = submissionRemarkDialog.value
+  if (!dialogData.songId || dialogData.isUpdatingPublic) return
+
+  dialogData.isUpdatingPublic = true
+  dialogData.isPublic = isPublic
+
+  try {
+    await adminService.updateSong(dialogData.songId, {
+      title: dialogData.title,
+      artist: dialogData.artist,
+      submissionNotePublic: isPublic
+    })
+
+    const songIndex = songs.value.findIndex(s => s.id === dialogData.songId)
+    if (songIndex !== -1) {
+      songs.value[songIndex].submissionNotePublic = isPublic
+    }
+
+    if (window.$showNotification) {
+      window.$showNotification('备注留言可见性已更新', 'success')
+    }
+  } catch (error) {
+    console.error('更新备注可见性失败:', error)
+    if (window.$showNotification) {
+      window.$showNotification('更新备注可见性失败', 'error')
+    }
+    dialogData.isPublic = !isPublic
+  } finally {
+    dialogData.isUpdatingPublic = false
   }
 }
 
@@ -1480,7 +1612,9 @@ const editSong = (song) => {
     artist: song.artist || '',
     requester: song.requesterId || song.requester_id || song.requester || '',
     semester: song.semester || '',
+    preferredPlayTimeId: song.preferredPlayTimeId || 'none',
     submissionNote: song.submissionNote || '',
+    submissionNotePublic: song.submissionNotePublic === true,
     musicPlatform: song.musicPlatform || '',
     musicId: song.musicId || '',
     cover: song.cover || '',
@@ -1541,7 +1675,9 @@ const saveEditSong = async () => {
       requester: editForm.value.requester,
       collaborators: selectedEditCollaborators.value.map((u) => u.id),
       semester: editForm.value.semester,
+      preferredPlayTimeId: editForm.value.preferredPlayTimeId === 'none' ? null : (editForm.value.preferredPlayTimeId || null),
       submissionNote: submissionNoteClearRequested.value ? null : editForm.value.submissionNote,
+      submissionNotePublic: submissionNoteClearRequested.value ? false : editForm.value.submissionNotePublic,
       clearSubmissionNote: submissionNoteClearRequested.value,
       submissionNoteClearReason: submissionNoteClearReason.value.trim(),
       notifyOnSubmissionNoteClear: submissionNoteClearRequested.value && notifyOnSubmissionNoteClear.value,
@@ -1577,7 +1713,9 @@ const cancelEditSong = () => {
     artist: '',
     requester: '',
     semester: '',
+    preferredPlayTimeId: 'none',
     submissionNote: '',
+    submissionNotePublic: false,
     musicPlatform: '',
     musicId: '',
     cover: '',
@@ -1616,6 +1754,7 @@ const openAddSongModal = () => {
     artist: '',
     requester: '',
     semester: selectedSemester.value !== 'all' ? selectedSemester.value : '',
+    preferredPlayTimeId: selectedPlayTime.value !== 'all' && selectedPlayTime.value !== 'none' ? selectedPlayTime.value : 'none',
     musicPlatform: '',
     musicId: '',
     cover: ''
@@ -1669,6 +1808,7 @@ const saveAddSong = async () => {
       artist: addForm.value.artist,
       requester: addForm.value.requester,
       semester: addForm.value.semester,
+      preferredPlayTimeId: addForm.value.preferredPlayTimeId === 'none' ? null : (addForm.value.preferredPlayTimeId || null),
       musicPlatform: addForm.value.musicPlatform || null,
       musicId: addForm.value.musicId || null,
       cover: addForm.value.cover || null,
@@ -1683,6 +1823,7 @@ const saveAddSong = async () => {
       artist: '',
       requester: '',
       semester: '',
+      preferredPlayTimeId: 'none',
       musicPlatform: '',
       musicId: '',
       cover: '',
@@ -1712,6 +1853,7 @@ const cancelAddSong = () => {
     artist: '',
     requester: '',
     semester: '',
+    preferredPlayTimeId: 'none',
     musicPlatform: '',
     musicId: '',
     cover: '',
@@ -1889,7 +2031,7 @@ const handleClickOutside = (event) => {
 
 
 // 监听器
-watch([searchQuery, statusFilter, sortOption, selectedSemester], () => {
+watch([searchQuery, statusFilter, sortOption, selectedSemester, selectedPlayTime], () => {
   currentPage.value = 1
 })
 
@@ -1916,6 +2058,13 @@ onMounted(async () => {
   if (currentSemester.value) {
     selectedSemester.value = currentSemester.value.name
   }
+
+  const { fetchPlayTimes, playTimes, formatPlayTimeDisplay: formatter } = songsService
+  formatPlayTimeDisplay = formatter
+  await fetchPlayTimes()
+  availablePlayTimes.value = [...(playTimes.value || [])]
+  availablePlayTimes.value.unshift({ id: 'none', name: '未指定时段' })
+  availablePlayTimes.value.unshift({ id: 'all', name: '全部时段' })
 
   document.addEventListener('click', handleClickOutside)
 
