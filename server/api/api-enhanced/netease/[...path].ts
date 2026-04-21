@@ -16,11 +16,19 @@ const normalizeParams = (input: Record<string, any>) => {
 export default defineEventHandler(async (event) => {
   const rawPath = getRouterParam(event, 'path')
   const endpointPath = Array.isArray(rawPath) ? rawPath.join('/') : rawPath
+  const method = getMethod(event)
 
   if (!endpointPath) {
     throw createError({
       statusCode: 400,
       message: '缺少网易云接口路径'
+    })
+  }
+
+  if (!/^[a-z0-9/-]+$/i.test(endpointPath)) {
+    throw createError({
+      statusCode: 400,
+      message: '网易云接口路径不合法'
     })
   }
 
@@ -35,7 +43,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const method = getMethod(event)
   const queryParams = normalizeParams(getQuery(event))
   let bodyParams: Record<string, any> = {}
 

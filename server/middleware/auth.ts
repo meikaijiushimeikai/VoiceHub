@@ -26,6 +26,8 @@ export default defineEventHandler(async (event) => {
     '/api/auth/oauth-register',
     '/api/auth/2fa/verify',
     '/api/auth/2fa/send-email',
+    '/api/auth/forgot-password', // 找回密码
+    '/api/auth/reset-password', // 重置密码
     '/api/semesters/current',
     '/api/play-times',
     '/api/schedules/public',
@@ -139,7 +141,7 @@ export default defineEventHandler(async (event) => {
       const errorMessage = !user 
         ? '用户不存在，请重新登录' 
         : user.status === 'withdrawn' 
-          ? '该账号已注销' 
+          ? '该账号已退学，限制访问' 
           : user.status === 'graduate' 
             ? '该账号已毕业，限制访问' 
             : '该账号已被禁用'

@@ -51,6 +51,7 @@ export async function createCollaborationInvitationNotification(
       console.error('发送 MeoW 通知失败:', error)
     }
 
+    // 同步发送邮件通知
     try {
       await sendEmailNotificationToUser(
         inviteeId,
@@ -60,7 +61,7 @@ export async function createCollaborationInvitationNotification(
         'notification.collaborationInvite',
         {
           inviterName: inviter?.name || '未知用户',
-          songTitle: songTitle
+          songTitle,
         }
       )
     } catch (error) {
@@ -121,8 +122,7 @@ export async function createSongSelectedNotification(
     title: string
     artist: string
     playDate: Date
-  },
-  ipAddress?: string
+  }
 ) {
   try {
     // 获取系统设置，检查是否启用播出时段功能
@@ -205,13 +205,13 @@ export async function createSongSelectedNotification(
       console.error('发送 MeoW 通知失败:', error)
     }
 
-    // 同步发送 邮件通知
+    // 同步发送邮件通知
     try {
       await sendEmailNotificationToUser(
         userId,
         '歌曲被选中',
         message,
-        ipAddress,
+        undefined,
         'notification.songSelected',
         {
           songTitle: songInfo.title,
@@ -243,7 +243,7 @@ function formatDate(date: Date): string {
 /**
  * 创建歌曲已播放的通知
  */
-export async function createSongPlayedNotification(songId: number, ipAddress?: string) {
+export async function createSongPlayedNotification(songId: number) {
   try {
     // 获取歌曲信息
     const songResult = await db.select().from(songs).where(eq(songs.id, songId)).limit(1)
@@ -324,15 +324,17 @@ export async function createSongPlayedNotification(songId: number, ipAddress?: s
           console.error(`发送 MeoW 通知失败 (User: ${targetUserId}):`, error)
         }
 
-        // 同步发送 邮件通知
+        // 同步发送邮件通知
         try {
           await sendEmailNotificationToUser(
             targetUserId,
             '歌曲已播放',
             userMessage,
-            ipAddress,
+            undefined,
             'notification.songPlayed',
-            { songTitle: song.title }
+            {
+              songTitle: song.title,
+            }
           )
         } catch (error) {
           console.error(`发送邮件通知失败 (User: ${targetUserId}):`, error)
@@ -353,8 +355,7 @@ export async function createSongPlayedNotification(songId: number, ipAddress?: s
  */
 export async function createSongVotedNotification(
   songId: number,
-  voterId: number,
-  ipAddress?: string
+  voterId: number
 ) {
   try {
     // 获取歌曲信息
@@ -453,15 +454,18 @@ export async function createSongVotedNotification(
       console.error('发送 MeoW 通知失败:', error)
     }
 
-    // 同步发送 邮件通知
+    // 同步发送邮件通知
     try {
       await sendEmailNotificationToUser(
         song.requesterId,
         '收到新投票',
         message,
-        ipAddress,
+        undefined,
         'notification.songVoted',
-        { songTitle: song.title, votesCount: songVotes.length }
+        {
+          songTitle: song.title,
+          votesCount: songVotes.length,
+        }
       )
     } catch (error) {
       console.error('发送邮件通知失败:', error)
@@ -479,8 +483,7 @@ export async function createSongVotedNotification(
 export async function createSongRejectedNotification(
   userId: number,
   songInfo: { title: string; artist: string },
-  reason: string,
-  ipAddress?: string
+  reason: string
 ) {
   try {
     // 获取用户通知设置
@@ -528,12 +531,11 @@ export async function createSongRejectedNotification(
         userId,
         '歌曲被驳回',
         message,
-        ipAddress,
+        undefined,
         'notification.songRejected',
         {
-          songTitle: songInfo.title,
-          songArtist: songInfo.artist,
-          reason: reason
+          songTitle: `${songInfo.title} - ${songInfo.artist}`,
+          reason
         }
       )
     } catch (error) {
@@ -550,8 +552,7 @@ export async function createSongRejectedNotification(
 export async function createSubmissionNoteClearedNotification(
   userIds: number[],
   songInfo: { title: string; artist: string },
-  reason?: string,
-  ipAddress?: string
+  reason?: string
 ) {
   try {
     const uniqueUserIds = [...new Set(userIds.filter((userId) => Number.isInteger(userId) && userId > 0))]
@@ -565,7 +566,7 @@ export async function createSubmissionNoteClearedNotification(
       ? `您投稿歌曲《${songInfo.title} - ${songInfo.artist}》的备注已被管理员清空。原因：${reason.trim()}`
       : `您投稿歌曲《${songInfo.title} - ${songInfo.artist}》的备注已被管理员清空。`
 
-    return await createBatchSystemNotifications(uniqueUserIds, title, content, ipAddress)
+    return await createBatchSystemNotifications(uniqueUserIds, title, content)
   } catch (error) {
     console.error('创建歌曲备注清空通知失败:', error)
     return []
@@ -578,8 +579,7 @@ export async function createSubmissionNoteClearedNotification(
 export async function createSystemNotification(
   userId: number,
   title: string,
-  content: string,
-  ipAddress?: string
+  content: string
 ) {
   try {
     // 获取用户通知设置
@@ -618,11 +618,7 @@ export async function createSystemNotification(
       await sendEmailNotificationToUser(
         userId,
         title,
-        content,
-        undefined,
-        undefined,
-        undefined,
-        ipAddress
+        content
       )
     } catch (error) {
       console.error('发送邮件通知失败:', error)
@@ -640,8 +636,7 @@ export async function createSystemNotification(
 export async function createBatchSystemNotifications(
   userIds: number[],
   title: string,
-  content: string,
-  ipAddress?: string
+  content: string
 ) {
   try {
     if (!userIds.length) {
@@ -704,10 +699,7 @@ export async function createBatchSystemNotifications(
       emailResults = await sendBatchEmailNotifications(
         userIds,
         title,
-        content,
-        undefined,
-        undefined,
-        ipAddress
+        content
       )
     } catch (error) {
       console.error('批量发送邮件通知失败:', error)
@@ -729,8 +721,7 @@ export async function createBatchSystemNotifications(
  */
 export async function createReplayRequestRejectedNotification(
   userId: number,
-  songInfo: { title: string; artist: string },
-  ipAddress?: string
+  songInfo: { title: string; artist: string }
 ) {
   try {
     // 获取用户通知设置
@@ -774,7 +765,7 @@ export async function createReplayRequestRejectedNotification(
 
     // 同步发送邮件通知
     try {
-      await sendEmailNotificationToUser(userId, '重播申请已拒绝', message, ipAddress)
+      await sendEmailNotificationToUser(userId, '重播申请已拒绝', message)
     } catch (error) {
       console.error('发送邮件通知失败:', error)
     }

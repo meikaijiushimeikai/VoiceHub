@@ -479,9 +479,10 @@ const handleTimeUpdate = () => {
 }
 
 const handlePlay = () => {
+  control.onPlay()
+
   if (isSyncingFromGlobal.value) return
 
-  control.onPlay()
   sync.syncPlayStateToGlobal(true, props.song)
 
   // 更新 Media Session 播放状态
@@ -512,9 +513,10 @@ const handlePlay = () => {
 }
 
 const handlePause = () => {
+  control.onPause()
+
   if (isSyncingFromGlobal.value) return
 
-  control.onPause()
   sync.syncPlayStateToGlobal(false, props.song)
 
   // 更新 Media Session 播放状态
@@ -630,6 +632,12 @@ const handleLoaded = async () => {
 }
 
 const handleError = async (error) => {
+  // 忽略主动清空 src 或关闭播放器导致的错误
+  const audioEl = audioPlayer.value
+  if (!audioEl || !audioEl.src || audioEl.src === window.location.href || audioEl.src === window.location.origin + '/') {
+    return
+  }
+
   // 如果正在处理 fallback，直接返回，不走重试逻辑
   if (isFallbackHandling.value) return
 

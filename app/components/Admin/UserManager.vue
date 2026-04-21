@@ -1077,12 +1077,12 @@
                   <div
                     class="p-4 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl flex items-center justify-between"
                   >
-                    <div class="space-y-1">
+                    <div class="space-y-1 overflow-hidden pr-2">
                       <div class="text-[10px] font-black text-zinc-600 uppercase tracking-tighter">
                         密码状态
                       </div>
                       <div
-                        class="text-sm font-bold"
+                        class="text-sm font-bold truncate"
                         :class="
                           !selectedUserDetail.forcePasswordChange &&
                           selectedUserDetail.passwordChangedAt
@@ -1100,7 +1100,7 @@
                     </div>
                     <div
                       :class="[
-                        'w-8 h-8 rounded-xl flex items-center justify-center',
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
                         !selectedUserDetail.forcePasswordChange &&
                         selectedUserDetail.passwordChangedAt
                           ? 'bg-emerald-500/10 text-emerald-500'
@@ -1120,15 +1120,16 @@
                   <div
                     class="p-4 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl flex items-center justify-between"
                   >
-                    <div class="space-y-1">
+                    <div class="space-y-1 overflow-hidden pr-2">
                       <div class="text-[10px] font-black text-zinc-600 uppercase tracking-tighter">
                         MeoW 账号绑定
                       </div>
                       <div
-                        class="text-sm font-bold"
+                        class="text-sm font-bold truncate"
                         :class="
                           selectedUserDetail.meowNickname ? 'text-emerald-500' : 'text-zinc-500'
                         "
+                        :title="selectedUserDetail.meowNickname ? `已绑定: ${selectedUserDetail.meowNickname}` : '未绑定'"
                       >
                         {{
                           selectedUserDetail.meowNickname
@@ -1139,13 +1140,81 @@
                     </div>
                     <div
                       :class="[
-                        'w-8 h-8 rounded-xl flex items-center justify-center',
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
                         selectedUserDetail.meowNickname
                           ? 'bg-emerald-500/10 text-emerald-500'
                           : 'bg-zinc-800 text-zinc-600'
                       ]"
                     >
                       <AtSign :size="16" />
+                    </div>
+                  </div>
+
+                  <!-- 邮箱绑定 -->
+                  <div
+                    class="p-4 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl flex items-center justify-between"
+                  >
+                    <div class="space-y-1 overflow-hidden pr-2">
+                      <div class="text-[10px] font-black text-zinc-600 uppercase tracking-tighter">
+                        邮箱绑定
+                      </div>
+                      <div
+                        class="text-sm font-bold truncate"
+                        :class="
+                          selectedUserDetail.email ? (selectedUserDetail.emailVerified ? 'text-emerald-500' : 'text-amber-500') : 'text-zinc-500'
+                        "
+                        :title="selectedUserDetail.email ? `${selectedUserDetail.email} ${selectedUserDetail.emailVerified ? '(已验证)' : '(未验证)'}` : '未绑定'"
+                      >
+                        {{
+                          selectedUserDetail.email
+                            ? `${selectedUserDetail.email} ${selectedUserDetail.emailVerified ? '(已验证)' : '(未验证)'}`
+                            : '未绑定'
+                        }}
+                      </div>
+                    </div>
+                    <div
+                      :class="[
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
+                        selectedUserDetail.email
+                          ? (selectedUserDetail.emailVerified ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500')
+                          : 'bg-zinc-800 text-zinc-600'
+                      ]"
+                    >
+                      <Mail :size="16" />
+                    </div>
+                  </div>
+
+                  <!-- OAuth 账号绑定 -->
+                  <div
+                    class="p-4 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl flex items-center justify-between"
+                  >
+                    <div class="space-y-1 overflow-hidden pr-2">
+                      <div class="text-[10px] font-black text-zinc-600 uppercase tracking-tighter">
+                        OAuth 账号绑定
+                      </div>
+                      <div
+                        class="text-sm font-bold truncate capitalize"
+                        :class="
+                          selectedUserDetail.identities?.length > 0 ? 'text-emerald-500' : 'text-zinc-500'
+                        "
+                        :title="selectedUserDetail.identities?.length > 0 ? `已绑定: ${selectedUserDetail.identities.map(id => id.provider).join(', ')}` : '未绑定'"
+                      >
+                        {{
+                          selectedUserDetail.identities?.length > 0
+                            ? `已绑定: ${selectedUserDetail.identities.map(id => id.provider).join(', ')}`
+                            : '未绑定'
+                        }}
+                      </div>
+                    </div>
+                    <div
+                      :class="[
+                        'w-8 h-8 rounded-xl flex items-center justify-center shrink-0',
+                        selectedUserDetail.identities?.length > 0
+                          ? 'bg-emerald-500/10 text-emerald-500'
+                          : 'bg-zinc-800 text-zinc-600'
+                      ]"
+                    >
+                      <Link :size="16" />
                     </div>
                   </div>
                 </div>
@@ -1368,7 +1437,8 @@ import {
   Clock3,
   Hash,
   AtSign,
-  Briefcase
+  Briefcase,
+  Link
 } from 'lucide-vue-next'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
 import Pagination from '~/components/UI/Common/Pagination.vue'
@@ -1685,9 +1755,6 @@ const closeBatchUpdateModal = () => {
 
 const handleBatchUpdateSuccess = async () => {
   await loadUsers()
-  if (window.$showNotification) {
-    window.$showNotification('批量更新成功', 'success')
-  }
 }
 
 const closeDeleteModal = () => {
@@ -1714,11 +1781,11 @@ const confirmDelete = async () => {
       window.$showNotification('用户删除成功', 'success')
     }
   } catch (error) {
-    console.error('删除用户失败:', error)
-    if (window.$showNotification) {
-      window.$showNotification('删除用户失败: ' + error.message, 'error')
-    }
-  } finally {
+      console.error('删除用户失败:', error)
+      if (window.$showNotification) {
+        window.$showNotification('删除用户失败: ' + (error?.data?.message || error?.message || error?.statusMessage || '未知错误'), 'error')
+      }
+    } finally {
     deleting.value = false
   }
 }
@@ -1834,9 +1901,9 @@ const saveUser = async () => {
       window.$showNotification(editingUser.value ? '用户更新成功' : '用户创建成功', 'success')
     }
   } catch (error) {
-    console.error('保存用户失败:', error)
-    formError.value = error.message || '保存失败'
-  } finally {
+      console.error('保存用户失败:', error)
+      formError.value = error?.data?.message || error?.message || error?.statusMessage || '保存失败'
+    } finally {
     saving.value = false
   }
 }
@@ -1875,9 +1942,9 @@ const confirmResetPassword = async () => {
       window.$showNotification('密码重置成功', 'success')
     }
   } catch (error) {
-    console.error('重置密码失败:', error)
-    passwordError.value = error.message || '重置失败'
-  } finally {
+      console.error('重置密码失败:', error)
+      passwordError.value = error?.data?.message || error?.message || error?.statusMessage || '重置失败'
+    } finally {
     resetting.value = false
   }
 }
@@ -1913,11 +1980,11 @@ const loadUsers = async (page = 1, limit = 100) => {
       console.warn('响应中没有用户数据')
     }
   } catch (error) {
-    console.error('加载用户失败:', error)
-    if (window.$showNotification) {
-      window.$showNotification('加载用户失败: ' + error.message, 'error')
-    }
-  } finally {
+      console.error('加载用户失败:', error)
+      if (window.$showNotification) {
+        window.$showNotification('加载用户失败: ' + (error?.data?.message || error?.message || error?.statusMessage || '未知错误'), 'error')
+      }
+    } finally {
     loading.value = false
   }
 }
@@ -2246,9 +2313,9 @@ const loadStatusLogsPage = async (page) => {
       hasPrevPage: false
     }
   } catch (error) {
-    console.error('加载状态日志失败:', error)
-    statusLogsError.value = error.message || '加载状态日志失败'
-  } finally {
+      console.error('加载状态日志失败:', error)
+      statusLogsError.value = error?.data?.message || error?.message || error?.statusMessage || '加载状态日志失败'
+    } finally {
     statusLogsLoading.value = false
   }
 }

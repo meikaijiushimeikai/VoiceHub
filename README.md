@@ -474,6 +474,7 @@ VoiceHub 实现了细粒度的权限控制系统：
 | REDIS_URL    | 否  | Redis缓存服务连接字符串，填写后自动启用Redis缓存功能 | `redis://default:password@host:port`                                |
 | NITRO_PRESET | 否  | Nitro预设                         | `vercel`                                                            |
 | NUXT_PUBLIC_HOST | 否  | 用于 CORS 和反向代理的主机名验证 | `your-app.com`                                                            |
+| NUXT_PUBLIC_SEO_CONFIG | 否  | 用于自定义 PWA/SEO 配置的 JSON 字符串 | `{"title":"VoiceHub校园广播站点歌系统","shortName":"校园广播","description":"校园广播站点歌系统 - 让你的声音被听见","logo":"/images/logo.png"}` |
 
 ## OAuth 配置
 
@@ -542,6 +543,7 @@ VoiceHub/
 │   │   │   ├── ScheduleForm.vue       # 排期表单
 │   │   │   ├── ScheduleItemPrint.vue  # 排期项目打印
 │   │   │   ├── ScheduleManager.vue    # 排期管理
+│   │   │   ├── SchedulePlaylistFilterModal.vue # 排期歌单过滤器
 │   │   │   ├── SchedulePrinter.vue    # 排期打印功能
 │   │   │   ├── ScheduleTablePrint.vue # 排期表格打印功能
 │   │   │   ├── SemesterManager.vue    # 学期管理
@@ -646,7 +648,9 @@ VoiceHub/
 │   │   ├── useSiteConfig.js    # 站点配置hooks
 │   │   ├── useSongPlayer.ts    # 歌曲播放器hooks
 │   │   ├── useSongs.ts         # 歌曲管理hooks
+│   │   ├── useSyncedTime.ts    # 时间同步hooks
 │   │   ├── useToast.ts         # Toast提示hooks
+│   │   └── useUserFilters.ts  # 用户过滤器hooks
 │   ├── drizzle/               # 数据库相关
 │   │   ├── db.ts               # 数据库连接
 │   │   ├── schema.ts           # 数据库模型
@@ -662,13 +666,16 @@ VoiceHub/
 │   │   │   └── error.vue      # 认证错误页面
 │   │   ├── change-password.vue # 修改密码页面
 │   │   ├── dashboard.vue       # 用户仪表盘
+│   │   ├── forgot-password.vue # 找回密码页面
 │   │   ├── index.vue           # 首页
 │   │   ├── login.vue           # 登录页面
 │   │   ├── notification-settings.vue # 通知设置页面
+│   │   ├── reset-password.vue  # 重置密码页面
 │   │   └── year-review.vue     # 年度回顾页面
 │   ├── plugins/               # Nuxt插件
 │   │   ├── auth.client.ts      # 客户端认证插件
-│   │   └── auth.server.ts      # 服务端认证插件
+│   │   ├── auth.server.ts      # 服务端认证插件
+│   │   └── time-sync.client.ts # 客户端时间同步插件
 │   ├── public/                # 静态文件目录
 │   │   ├── images/            # 图片资源
 │   │   │   ├── logo.png       # PNG格式Logo
@@ -688,6 +695,7 @@ VoiceHub/
 │       │   ├── parseLrc.ts    # LRC格式解析
 │       │   └── qrc-parser.ts  # QRC格式解析
 │       ├── bilibiliSource.ts  # 哔哩哔哩音源
+│       ├── debounce.ts       # 防抖工具
 │       ├── lyricAdapter.ts    # 歌词适配器
 │       ├── musicSources.ts    # 音乐源配置
 │       ├── musicUrl.ts        # 音乐URL处理
@@ -803,6 +811,7 @@ VoiceHub/
 │   │   │       ├── index.get.ts     # 获取用户列表
 │   │   │       ├── index.post.ts    # 创建用户
 │   │   │       ├── index.ts         # 用户管理
+│   │   │       ├── options.ts       # 用户管理选项
 │   │   │       └── status-logs.get.ts # 用户状态日志
 │   │   ├── api-enhanced/          # 网易云音乐API
 │   │   │   └── netease/           # 网易云增强接口代理
@@ -824,10 +833,12 @@ VoiceHub/
 │   │   │   │   └── index.get.ts      # OAuth授权跳转
 │   │   │   ├── bind.post.ts          # 绑定社交账号
 │   │   │   ├── change-password.post.ts # 修改密码
+│   │   │   ├── forgot-password.post.ts # 找回密码
 │   │   │   ├── identities.get.ts     # 获取已绑定身份列表
 │   │   │   ├── login.post.ts        # 用户登录
 │   │   │   ├── logout.post.ts       # 用户登出
 │   │   │   ├── oauth-register.post.ts # OAuth用户注册
+│   │   │   ├── reset-password.post.ts # 重置密码
 │   │   │   ├── set-initial-password.post.ts # 设置初始密码
 │   │   │   ├── unbind.post.ts        # 解绑社交账号
 │   │   │   └── verify.get.ts        # 验证Token并获取用户信息
@@ -893,6 +904,8 @@ VoiceHub/
 │   │   │   ├── submission-status.get.ts # 投稿状态
 │   │   │   ├── vote.post.ts         # 投票
 │   │   │   └── withdraw.post.ts     # 撤回歌曲
+│   │   ├── sys/            # 系统辅助API
+│   │   │   └── time.get.ts          # 获取校准后的服务器时间
 │   │   ├── system/         # 系统API
 │   │   │   ├── location.get.ts      # 获取系统位置信息
 │   │   │   ├── reconnect.post.ts    # 重连数据库
@@ -935,6 +948,7 @@ VoiceHub/
 │   │   └── userService.ts # 用户服务
 │   ├── utils/              # 服务端工具函数
 │   │   ├── auth.ts         # 认证工具函数
+│   │   ├── bilibiliWbi.ts  # Bilibili WBI签名工具
 │   │   ├── cache-helpers.ts # 缓存辅助工具
 │   │   ├── database-health.ts # 数据库健康检查
 │   │   ├── database-manager.ts # 数据库管理工具
@@ -1767,9 +1781,11 @@ Thanks goes to these wonderful people:
 - [meting-api](https://github.com/injahow/meting-api)
 - [lx-music-desktop](https://github.com/lyswhut/lx-music-desktop) (搜索功能参考)
 - [the1068fm - 深中风华子衿广播站点歌系统](https://github.com/SMS-COSMO/the1068fm)
-- [Sound-of-experiment - 实验之声广播站点歌系统](https://github.com/ljk743121/Sound-of-experiment) (哔哩哔哩音源参考)
+- [Sound-of-experiment - 实验之声广播站点歌系统](https://github.com/ljk743121/Sound-of-experiment) (哔哩哔哩音源搜索功能参考)
+- [Bilibili-audio-extraction](https://github.com/rio4raki/Bilibili-audio-extraction) (哔哩哔哩音频流获取参考)
 - [SPlayer](https://github.com/imsyy/SPlayer)
 - [official-website - Sparkinit](https://github.com/Sparkinit/official-website)
+- [Netease_url](https://github.com/Suxiaoqinx/Netease_url)
 
 ## 许可证
 

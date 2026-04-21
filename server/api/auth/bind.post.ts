@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { db, eq, users, userIdentities } from '~/drizzle/db'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
 import { verifyBindingToken } from '~~/server/utils/oauth-token'
@@ -54,7 +54,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (user.status === 'withdrawn') {
-    throw createError({ statusCode: 403, message: '该账号已注销' })
+    throw createError({ statusCode: 403, message: '该账号已退学，限制访问' })
   }
 
   if (user.status === 'graduate') {
