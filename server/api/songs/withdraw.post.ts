@@ -6,9 +6,12 @@ import {
   systemSettings,
   votes,
   songCollaborators,
-  collaborationLogs
+  collaborationLogs,
+  requestTimes
 } from '~/drizzle/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
+import { getTimeRange, type LimitType } from '~~/server/utils/submissionLimit'
+import { releaseCardCodeAfterSongWithdrawal } from '~~/server/services/cardCodeLifecycleService'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证
@@ -113,67 +116,69 @@ export default defineEventHandler(async (event) => {
   }
 
   // 如果是主投稿人撤回（删除歌曲）
-
   // 获取系统设置以检查限制类型
   const settingsResult = await db.select().from(systemSettings).limit(1)
   const settings = settingsResult[0]
   const dailyLimit = settings?.dailySubmissionLimit || 0
   const weeklyLimit = settings?.weeklySubmissionLimit || 0
+  const monthlyLimit = settings?.monthlySubmissionLimit || 0
 
   // 检查撤销的歌曲是否在当前限制期间内（用于返还配额）
   let canReturnQuota = false
-  const now = new Date()
 
-  if (dailyLimit > 0) {
-    // 检查是否在同一天
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
+  const limitConfigs: { type: LimitType; value: number }[] = [
+    { type: 'daily', value: dailyLimit },
+    { type: 'weekly', value: weeklyLimit },
+    { type: 'monthly', value: monthlyLimit }
+  ]
 
-    if (song.createdAt >= startOfDay && song.createdAt < endOfDay) {
-      canReturnQuota = true
-    }
-  } else if (weeklyLimit > 0) {
-    // 检查是否在同一周（周一开始）
-    const startOfWeek = new Date(now)
-    const dayOfWeek = now.getDay()
-    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // 周一为一周开始
-    startOfWeek.setDate(now.getDate() - daysToSubtract)
-    startOfWeek.setHours(0, 0, 0, 0)
-
-    const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
-
-    if (song.createdAt >= startOfWeek && song.createdAt < endOfWeek) {
-      canReturnQuota = true
+  for (const { type, value } of limitConfigs) {
+    if (value > 0) {
+      const { start, end } = getTimeRange(type)
+      if (song.createdAt >= start && song.createdAt <= end) {
+        canReturnQuota = true
+        break
+      }
     }
   }
 
-  // 删除关联的联合投稿记录
-  await db.delete(songCollaborators).where(eq(songCollaborators.songId, body.songId))
+  // 投稿关联数据一起进入事务，避免撤回失败时只删掉一部分数据。
+  try {
+    await db.transaction(async (tx) => {
+      await tx.delete(songCollaborators).where(eq(songCollaborators.songId, body.songId))
+      await tx.delete(votes).where(eq(votes.songId, body.songId))
 
-  // 删除歌曲的所有投票
-  await db.delete(votes).where(eq(votes.songId, body.songId))
+      if (song.hitRequestId) {
+        await tx
+          .update(requestTimes)
+          .set({
+            accepted: sql`GREATEST(0, accepted - 1)`
+          })
+          .where(eq(requestTimes.id, song.hitRequestId))
+        console.log(`已减少投稿时段 ${song.hitRequestId} 的接纳数量`)
+      }
 
-  // 如果有 hitRequestId，减少对应时段的已接纳数量
-  if (song.hitRequestId) {
-    try {
-      // 需要引入 requestTimes 和 sql
-      const { requestTimes } = await import('~/drizzle/schema')
-      const { sql } = await import('drizzle-orm')
-
-      await db
-        .update(requestTimes)
-        .set({
-          accepted: sql`GREATEST(0, accepted - 1)`
+      if (song.cardCodeId) {
+        const releaseResult = await releaseCardCodeAfterSongWithdrawal(tx, {
+          songId: song.id,
+          cardCodeId: song.cardCodeId,
+          operatorId: user.id
         })
-        .where(eq(requestTimes.id, song.hitRequestId))
-      console.log(`已减少投稿时段 ${song.hitRequestId} 的接纳数量`)
-    } catch (error) {
-      console.error(`减少投稿时段接纳数量失败: ${error.message}`)
-    }
-  }
+        if (
+          !releaseResult.changed &&
+          ['CONCURRENT_CHANGE', 'MISSING_CARD_CODE'].includes(String(releaseResult.reason || ''))
+        ) {
+          throw createError({ statusCode: 409, message: '点歌券释放失败，撤回已终止' })
+        }
+      }
 
-  // 删除歌曲
-  await db.delete(songs).where(eq(songs.id, body.songId))
+      // 删除歌曲（在事务内）
+      await tx.delete(songs).where(eq(songs.id, body.songId))
+    })
+  } catch (txErr: any) {
+    console.error('撤回事务失败:', txErr)
+    throw createError({ statusCode: txErr.statusCode || 500, message: txErr.message || '撤回歌曲失败，请稍后重试' })
+  }
 
   // 清除歌曲列表缓存
   await cacheService.clearSongsCache()

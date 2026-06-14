@@ -19,6 +19,11 @@ const siteConfig = ref({
   submissionGuidelines: '',
   icpNumber: '',
   gonganNumber: '',
+  captchaEnabled: false,
+  captchaProvider: 'graphic',
+  turnstileSiteKey: '',
+  enableCardCodeRequests: false,
+  requireCardCodeForRequests: false,
   githubOAuthEnabled: false,
   casdoorOAuthEnabled: false,
   googleOAuthEnabled: false,
@@ -62,6 +67,11 @@ export const useSiteConfig = () => {
         enableCollaborativeSubmission: true,
         enableSubmissionRemarks: false,
         allowOAuthRegistration: false,
+        captchaEnabled: false,
+        captchaProvider: 'graphic',
+        turnstileSiteKey: '',
+        enableCardCodeRequests: false,
+        requireCardCodeForRequests: false,
         githubOAuthEnabled: false,
         casdoorOAuthEnabled: false,
         googleOAuthEnabled: false,
@@ -93,7 +103,12 @@ export const useSiteConfig = () => {
     () => siteConfig.value.enableCollaborativeSubmission !== false
   )
   const enableSubmissionRemarks = computed(() => siteConfig.value.enableSubmissionRemarks === true)
+  const enableCardCodeRequests = computed(() => siteConfig.value.enableCardCodeRequests === true)
+  const requireCardCodeForRequests = computed(() => siteConfig.value.requireCardCodeForRequests === true)
   const allowOAuthRegistration = computed(() => siteConfig.value.allowOAuthRegistration === true)
+  const captchaEnabled = computed(() => siteConfig.value.captchaEnabled === true)
+  const captchaProvider = computed(() => siteConfig.value.captchaProvider || 'graphic')
+  const turnstileSiteKey = computed(() => siteConfig.value.turnstileSiteKey || '')
   const smtpEnabled = computed(() => !!siteConfig.value.smtpEnabled)
   const oauth = computed(() => ({
     github: !!siteConfig.value.githubOAuthEnabled,
@@ -151,7 +166,12 @@ export const useSiteConfig = () => {
     enableReplayRequests,
     enableCollaborativeSubmission,
     enableSubmissionRemarks,
+    enableCardCodeRequests,
+    requireCardCodeForRequests,
     allowOAuthRegistration,
+    captchaEnabled,
+    captchaProvider,
+    turnstileSiteKey,
     smtpEnabled,
     oauth,
     oauthProviders,

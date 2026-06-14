@@ -94,6 +94,12 @@
       <circle cx="18" cy="16" r="3" />
     </g>
 
+    <!-- 唱片图标 -->
+    <g v-else-if="name === 'disc'">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="3" />
+    </g>
+
     <!-- 视频图标 -->
     <g v-else-if="name === 'video'">
       <path d="m22 8-6 4 6 4V8Z" />
@@ -311,6 +317,12 @@
       <line x1="5" x2="19" y1="12" y2="12" />
     </g>
 
+    <!-- 编辑图标 -->
+    <g v-else-if="name === 'edit' || name === 'pencil'">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </g>
+
     <!-- 历史记录图标 -->
     <g v-else-if="name === 'history'">
       <path d="M12 2a10 10 0 1 0 10 10 10 10 0 0 0-10-10z" />
@@ -365,11 +377,26 @@
       <line x1="21" x2="16.65" y1="21" y2="16.65" />
     </g>
 
+    <!-- 麦克风图标 -->
+    <g v-else-if="name === 'mic' || name === 'microphone'">
+      <rect width="8" height="12" x="8" y="3" rx="4" ry="4" />
+      <path d="M19 11a7 7 0 0 1-14 0" />
+      <line x1="12" x2="12" y1="18" y2="22" />
+      <line x1="8" x2="16" y1="22" y2="22" />
+    </g>
+
     <!-- 上传图标 -->
     <g v-else-if="name === 'upload'">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" x2="12" y1="3" y2="15" />
+    </g>
+
+    <!-- 外部链接图标 -->
+    <g v-else-if="name === 'external-link'">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
     </g>
 
     <!-- 云上传图标 -->

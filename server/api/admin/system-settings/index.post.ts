@@ -28,6 +28,20 @@ export default defineEventHandler(async (event) => {
     // 验证请求体
     const updateData: any = {}
 
+    // 获取当前设置，用于验证依赖配置的完整性
+    const settingsResult = await db.select().from(systemSettings).limit(1)
+    let settings = settingsResult[0]
+
+    if (body.telemetryEnabled !== undefined) {
+      if (typeof body.telemetryEnabled !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'telemetryEnabled 必须是布尔值'
+        })
+      }
+      updateData.telemetryEnabled = body.telemetryEnabled
+    }
+
     if (body.hideStudentInfo !== undefined) {
       if (typeof body.hideStudentInfo !== 'boolean') {
         throw createError({
@@ -98,6 +112,27 @@ export default defineEventHandler(async (event) => {
         })
       }
       updateData.enableSubmissionLimit = body.enableSubmissionLimit
+    }
+
+    // 点歌券点歌相关设置
+    if (body.enableCardCodeRequests !== undefined) {
+      if (typeof body.enableCardCodeRequests !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'enableCardCodeRequests 必须是布尔值'
+        })
+      }
+      updateData.enableCardCodeRequests = body.enableCardCodeRequests
+    }
+
+    if (body.requireCardCodeForRequests !== undefined) {
+      if (typeof body.requireCardCodeForRequests !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'requireCardCodeForRequests 必须是布尔值'
+        })
+      }
+      updateData.requireCardCodeForRequests = body.requireCardCodeForRequests
     }
 
     if (body.dailySubmissionLimit !== undefined) {
@@ -179,6 +214,55 @@ export default defineEventHandler(async (event) => {
       updateData.enableSubmissionRemarks = body.enableSubmissionRemarks
     }
 
+    if (body.captchaEnabled !== undefined) {
+      if (typeof body.captchaEnabled !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'captchaEnabled 必须是布尔值'
+        })
+      }
+      updateData.captchaEnabled = body.captchaEnabled
+    }
+
+    if (body.captchaMaxFailures !== undefined) {
+      if (!Number.isInteger(body.captchaMaxFailures) || body.captchaMaxFailures < 1) {
+        throw createError({
+          statusCode: 400,
+          message: 'captchaMaxFailures 必须是正整数'
+        })
+      }
+      updateData.captchaMaxFailures = body.captchaMaxFailures
+    }
+
+    if (body.captchaProvider !== undefined) {
+      if (body.captchaProvider !== 'graphic' && body.captchaProvider !== 'turnstile') {
+        throw createError({
+          statusCode: 400,
+          message: 'captchaProvider 必须是 graphic 或 turnstile'
+        })
+      }
+
+      const nextTurnstileSiteKey = body.turnstileSiteKey !== undefined ? body.turnstileSiteKey : settings?.turnstileSiteKey
+      const nextTurnstileSecretKey = body.turnstileSecretKey !== undefined && body.turnstileSecretKey !== SECRET_FIELD_MASK ? body.turnstileSecretKey : settings?.turnstileSecretKey
+
+      if (body.captchaProvider === 'turnstile' && (!nextTurnstileSiteKey || !nextTurnstileSecretKey)) {
+        throw createError({
+          statusCode: 400,
+          message: '启用 Turnstile 验证前，请先配置 Site Key 和 Secret Key'
+        })
+      }
+
+      updateData.captchaProvider = body.captchaProvider
+    }
+
+    if (body.turnstileSiteKey !== undefined) {
+      updateData.turnstileSiteKey = body.turnstileSiteKey
+    }
+
+    if (body.turnstileSecretKey !== undefined && body.turnstileSecretKey !== SECRET_FIELD_MASK) {
+      updateData.turnstileSecretKey = body.turnstileSecretKey
+    }
+
     if (body.enableRequestTimeLimitation !== undefined) {
       if (typeof body.enableRequestTimeLimitation !== 'boolean') {
         throw createError({
@@ -252,10 +336,6 @@ export default defineEventHandler(async (event) => {
     if (body.smtpFromName !== undefined) {
       updateData.smtpFromName = body.smtpFromName
     }
-
-    // 获取当前设置，用于验证更新后的 OAuth 组合配置
-    const settingsResult = await db.select().from(systemSettings).limit(1)
-    let settings = settingsResult[0]
 
     // OAuth 配置字段
     if (body.allowOAuthRegistration !== undefined) {
@@ -553,6 +633,15 @@ export default defineEventHandler(async (event) => {
       console.log('[Cache] 系统设置缓存已清除（更新系统设置）')
     } catch (cacheError) {
       console.warn('清除系统设置缓存失败:', cacheError)
+    }
+
+    if (updateData.telemetryEnabled !== undefined) {
+      try {
+        const { setTelemetryEnabledCache } = await import('~~/server/utils/telemetry')
+        setTelemetryEnabledCache(updateData.telemetryEnabled)
+      } catch (telemetryError) {
+        console.warn('[Telemetry] 遥测开关缓存更新失败:', telemetryError)
+      }
     }
 
     try {

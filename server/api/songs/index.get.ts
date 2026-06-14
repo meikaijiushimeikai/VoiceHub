@@ -34,6 +34,7 @@ interface SongResponse {
   cover: string | null
   musicPlatform: string | null
   musicId: string | null
+  cardCodeId?: number | null
   playUrl: string | null
   requesterGrade: string | null
   requesterClass: string | null
@@ -79,7 +80,7 @@ export default defineEventHandler(async (event) => {
 
     // 获取系统设置
     const systemSettingsData = await db
-      .select()
+      .select({ hideStudentInfo: systemSettings.hideStudentInfo })
       .from(systemSettings)
       .limit(1)
       .then((result) => result[0])
@@ -225,6 +226,7 @@ export default defineEventHandler(async (event) => {
         cover: songs.cover,
         musicPlatform: songs.musicPlatform,
         musicId: songs.musicId,
+        cardCodeId: songs.cardCodeId,
         playUrl: songs.playUrl,
         submissionNote: songs.submissionNote,
         submissionNotePublic: songs.submissionNotePublic,
@@ -481,8 +483,7 @@ export default defineEventHandler(async (event) => {
       const isRequester = Boolean(user && song.requester?.id === user.id)
       const canViewSubmissionNote =
         Boolean(song.submissionNote) &&
-        Boolean(user) &&
-        (Boolean(isAdmin) || isRequester || song.submissionNotePublic)
+        (!!song.submissionNotePublic || (user && (isAdmin || isRequester)))
 
       // 创建基本歌曲对象
       const songObject: SongResponse = {
@@ -501,6 +502,7 @@ export default defineEventHandler(async (event) => {
         requestedAt: formatDateTime(song.createdAt), // 添加请求时间的格式化字符串
         scheduled: scheduledSongs.has(song.id), // 是否存在已发布排期
         cover: song.cover || null, // 添加封面字段
+        cardCodeId: song.cardCodeId || null,
         musicPlatform: song.musicPlatform || null, // 添加音乐平台字段
         musicId: song.musicId || null, // 添加音乐ID字段
         playUrl: song.playUrl || null, // 添加播放地址字段

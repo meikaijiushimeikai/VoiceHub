@@ -4,6 +4,8 @@ import {
   apiKeyPermissions,
   apiKeys,
   apiLogs,
+  cardCodeRedeemLogs,
+  cardCodes,
   collaborationLogs,
   emailTemplates,
   notificationSettings,
@@ -32,10 +34,10 @@ export default defineEventHandler(async (event) => {
   try {
     // 验证管理员权限
     const user = event.context.user
-    if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+    if (!user || user.role !== 'SUPER_ADMIN') {
       throw createError({
         statusCode: 403,
-        message: '权限不足'
+        message: '只有超级管理员可以恢复备份'
       })
     }
 
@@ -181,12 +183,14 @@ export default defineEventHandler(async (event) => {
           await db.delete(apiKeys)
           await db.delete(notifications)
           await db.delete(notificationSettings)
+          await db.delete(cardCodeRedeemLogs)
           await db.delete(collaborationLogs)
           await db.delete(songCollaborators)
           await db.delete(songReplayRequests)
           await db.delete(schedules)
           await db.delete(votes)
           await db.delete(songs)
+          await db.delete(cardCodes)
           await db.delete(songBlacklists)
           await db.delete(userStatusLogs)
           await db.delete(emailTemplates)
@@ -227,15 +231,23 @@ export default defineEventHandler(async (event) => {
           }
 
           if (preservedUserIdList.length > 0) {
+            await db.delete(cardCodeRedeemLogs)
             await db.delete(apiKeys).where(notInArray(apiKeys.createdByUserId, preservedUserIdList))
-            await db.delete(notifications).where(notInArray(notifications.userId, preservedUserIdList))
+            await db
+              .delete(notifications)
+              .where(notInArray(notifications.userId, preservedUserIdList))
             await db
               .delete(notificationSettings)
               .where(notInArray(notificationSettings.userId, preservedUserIdList))
-            await db.delete(userStatusLogs).where(notInArray(userStatusLogs.userId, preservedUserIdList))
-            await db.delete(userIdentities).where(notInArray(userIdentities.userId, preservedUserIdList))
+            await db
+              .delete(userStatusLogs)
+              .where(notInArray(userStatusLogs.userId, preservedUserIdList))
+            await db
+              .delete(userIdentities)
+              .where(notInArray(userIdentities.userId, preservedUserIdList))
             await db.delete(users).where(notInArray(users.id, preservedUserIdList))
           } else {
+            await db.delete(cardCodeRedeemLogs)
             await db.delete(apiKeys)
             await db.delete(notifications)
             await db.delete(notificationSettings)
@@ -248,8 +260,10 @@ export default defineEventHandler(async (event) => {
           await db.delete(songCollaborators)
           await db.delete(songReplayRequests)
           await db.delete(schedules)
+          await db.delete(cardCodeRedeemLogs)
           await db.delete(votes)
           await db.delete(songs)
+          await db.delete(cardCodes)
           await db.delete(songBlacklists)
           await db.delete(emailTemplates)
           await db.delete(playTimes)
@@ -267,6 +281,7 @@ export default defineEventHandler(async (event) => {
     // 建立ID映射表
     const userIdMapping = new Map() // 备份ID -> 当前数据库ID
     const songIdMapping = new Map() // 备份ID -> 当前数据库ID
+    const cardCodeIdMapping = new Map() // 备份ID -> 当前数据库ID
 
     // 定义恢复顺序（考虑外键依赖）
     const restoreOrder = [
@@ -279,12 +294,14 @@ export default defineEventHandler(async (event) => {
       'emailTemplates',
       'userStatusLogs',
       'songBlacklist',
+      'cardCodes',
       'songs',
       'songCollaborators',
       'collaborationLogs',
       'songReplayRequests',
       'votes',
       'schedules',
+      'cardCodeRedeemLogs',
       'notificationSettings',
       'notifications',
       'apiKeys',
@@ -449,7 +466,8 @@ export default defineEventHandler(async (event) => {
                           }
                         } else {
                           const isBackupSuperAdminRecord =
-                            record.role === 'SUPER_ADMIN' || preservedSuperAdminIds.has(Number(record.id))
+                            record.role === 'SUPER_ADMIN' ||
+                            preservedSuperAdminIds.has(Number(record.id))
                           if (!shouldOverwriteSuperAdmin && isBackupSuperAdminRecord) {
                             if (record.id) {
                               const existingProtectedUser = await tx
@@ -459,12 +477,12 @@ export default defineEventHandler(async (event) => {
                                 .limit(1)
                               if (existingProtectedUser.length > 0) {
                                 userIdMapping.set(record.id, existingProtectedUser[0].id)
+                                restoreResults.details.warnings.push(
+                                  `已保留超级管理员账户 ${record.username || `#${record.id}`}`
+                                )
+                                break
                               }
                             }
-                            restoreResults.details.warnings.push(
-                              `已保留超级管理员账户 ${record.username || `#${record.id}`}`
-                            )
-                            break
                           }
 
                           // 完全恢复模式，检查ID是否已存在
@@ -678,6 +696,87 @@ export default defineEventHandler(async (event) => {
                         }
                         break
 
+                      case 'cardCodes': {
+                        const cardCodeData: any = {}
+                        const cardCodeFields = ['code', 'status', 'note']
+                        cardCodeFields.forEach((field) => {
+                          if (record.hasOwnProperty(field)) {
+                            cardCodeData[field] = record[field]
+                          }
+                        })
+
+                        if (!cardCodeData.code) {
+                          console.warn('点歌券缺少 code，跳过此记录')
+                          return
+                        }
+
+                        const mapUserId = async (field: 'lockedBy' | 'redeemedBy') => {
+                          if (!record[field]) return null
+                          const mappedUserId = userIdMapping.get(record[field])
+                          if (mappedUserId) return mappedUserId
+                          if (mode === 'merge') return null
+                          const userExists = await tx
+                            .select({ id: users.id })
+                            .from(users)
+                            .where(eq(users.id, record[field]))
+                            .limit(1)
+                          return userExists.length > 0 ? record[field] : null
+                        }
+
+                        cardCodeData.lockedBy = await mapUserId('lockedBy')
+                        cardCodeData.redeemedBy = await mapUserId('redeemedBy')
+                        cardCodeData.lockedAt = record.lockedAt ? new Date(record.lockedAt) : null
+                        cardCodeData.redeemedAt = record.redeemedAt ? new Date(record.redeemedAt) : null
+                        cardCodeData.createdAt = record.createdAt ? new Date(record.createdAt) : new Date()
+                        cardCodeData.updatedAt = record.updatedAt ? new Date(record.updatedAt) : new Date()
+
+                        let restoredCardCode
+                        if (mode === 'merge') {
+                          const existingCardCode = await tx
+                            .select()
+                            .from(cardCodes)
+                            .where(eq(cardCodes.code, cardCodeData.code))
+                            .limit(1)
+
+                          if (existingCardCode.length > 0) {
+                            restoredCardCode = (
+                              await tx
+                                .update(cardCodes)
+                                .set(cardCodeData)
+                                .where(eq(cardCodes.id, existingCardCode[0].id))
+                                .returning()
+                            )[0]
+                          } else {
+                            restoredCardCode = (await tx.insert(cardCodes).values(cardCodeData).returning())[0]
+                          }
+                        } else {
+                          const existingCardCodeWithId = await tx
+                            .select()
+                            .from(cardCodes)
+                            .where(eq(cardCodes.id, record.id))
+                            .limit(1)
+
+                          if (existingCardCodeWithId.length > 0) {
+                            restoredCardCode = (
+                              await tx
+                                .update(cardCodes)
+                                .set(cardCodeData)
+                                .where(eq(cardCodes.id, record.id))
+                                .returning()
+                            )[0]
+                          } else {
+                            restoredCardCode = (
+                              await tx.insert(cardCodes).values({ ...cardCodeData, id: record.id }).returning()
+                            )[0]
+                          }
+                        }
+
+                        if (record.id && restoredCardCode?.id) {
+                          cardCodeIdMapping.set(record.id, restoredCardCode.id)
+                        }
+                        break
+                      }
+
                       case 'songs':
                         // 验证外键约束
                         let validRequesterId = record.requesterId
@@ -722,10 +821,31 @@ export default defineEventHandler(async (event) => {
                           }
                         }
 
+                        let validCardCodeId = record.cardCodeId || null
+                        if (record.cardCodeId) {
+                          const mappedCardCodeId = cardCodeIdMapping.get(record.cardCodeId)
+                          if (mappedCardCodeId) {
+                            validCardCodeId = mappedCardCodeId
+                          } else {
+                            const cardCodeExists = await tx
+                              .select({ id: cardCodes.id })
+                              .from(cardCodes)
+                              .where(eq(cardCodes.id, record.cardCodeId))
+                              .limit(1)
+                            if (cardCodeExists.length === 0) {
+                              console.warn(
+                                `歌曲 ${record.title} 的点歌券ID ${record.cardCodeId} 不存在，将设为null`
+                              )
+                              validCardCodeId = null
+                            }
+                          }
+                        }
+
                         // 动态构建歌曲数据，自动跳过不存在的字段
                         const songData = {
                           requesterId: validRequesterId, // 必需字段
-                          preferredPlayTimeId: validPreferredPlayTimeId // 已验证的字段
+                          preferredPlayTimeId: validPreferredPlayTimeId, // 已验证的字段
+                          cardCodeId: validCardCodeId
                         }
 
                         // 基本字段
@@ -986,6 +1106,8 @@ export default defineEventHandler(async (event) => {
                         const systemSettingsData = {}
                         const systemSettingsFields = [
                           'enablePlayTimeSelection',
+                          'instanceId',
+                          'telemetryEnabled',
                           'siteTitle',
                           'siteLogoUrl',
                           'schoolLogoHomeUrl',
@@ -1005,6 +1127,8 @@ export default defineEventHandler(async (event) => {
                           'enableReplayRequests',
                           'enableCollaborativeSubmission',
                           'enableSubmissionRemarks',
+                          'enableCardCodeRequests',
+                          'requireCardCodeForRequests',
                           'hideStudentInfo',
                           'smtpEnabled',
                           'smtpHost',
@@ -1041,7 +1165,9 @@ export default defineEventHandler(async (event) => {
                           'customOAuthUsernameField',
                           'customOAuthNameField',
                           'customOAuthEmailField',
-                          'customOAuthAvatarField'
+                          'customOAuthAvatarField',
+                          'captchaEnabled',
+                          'captchaMaxFailures'
                         ]
 
                         // 只添加备份数据中存在的字段
@@ -1590,6 +1716,101 @@ export default defineEventHandler(async (event) => {
                           }
                         }
                         break
+
+                      case 'cardCodeRedeemLogs': {
+                        let validCardCodeId = record.cardCodeId
+                        if (record.cardCodeId) {
+                          const mappedCardCodeId = cardCodeIdMapping.get(record.cardCodeId)
+                          if (mappedCardCodeId) {
+                            validCardCodeId = mappedCardCodeId
+                          } else {
+                            const cardCodeExists = await tx
+                              .select({ id: cardCodes.id })
+                              .from(cardCodes)
+                              .where(eq(cardCodes.id, record.cardCodeId))
+                              .limit(1)
+                            if (cardCodeExists.length === 0) {
+                              console.warn(`点歌券日志的点歌券ID ${record.cardCodeId} 不存在，跳过此记录`)
+                              return
+                            }
+                          }
+                        } else {
+                          console.warn('点歌券日志缺少cardCodeId，跳过此记录')
+                          return
+                        }
+
+                        let validRedeemedBy = record.redeemedBy
+                        if (record.redeemedBy) {
+                          const mappedUserId = userIdMapping.get(record.redeemedBy)
+                          if (mappedUserId) {
+                            validRedeemedBy = mappedUserId
+                          } else {
+                            const userExists = await tx
+                              .select({ id: users.id })
+                              .from(users)
+                              .where(eq(users.id, record.redeemedBy))
+                              .limit(1)
+                            if (userExists.length === 0) {
+                              console.warn(`点歌券日志的操作用户ID ${record.redeemedBy} 不存在，跳过此记录`)
+                              return
+                            }
+                          }
+                        } else {
+                          console.warn('点歌券日志缺少redeemedBy，跳过此记录')
+                          return
+                        }
+
+                        let validLogSongId = record.songId || null
+                        if (record.songId) {
+                          const mappedSongId = songIdMapping.get(record.songId)
+                          if (mappedSongId) {
+                            validLogSongId = mappedSongId
+                          } else {
+                            const songExists = await tx
+                              .select({ id: songs.id })
+                              .from(songs)
+                              .where(eq(songs.id, record.songId))
+                              .limit(1)
+                            if (songExists.length === 0) {
+                              validLogSongId = null
+                            }
+                          }
+                        }
+
+                        const logData = {
+                          cardCodeId: validCardCodeId,
+                          codeSnapshot: record.codeSnapshot,
+                          redeemedBy: validRedeemedBy,
+                          redeemedAt: record.redeemedAt ? new Date(record.redeemedAt) : new Date(),
+                          source: record.source || 'UNKNOWN',
+                          songId: validLogSongId,
+                          createdAt: record.createdAt ? new Date(record.createdAt) : new Date()
+                        }
+
+                        if (!logData.codeSnapshot) {
+                          console.warn('点歌券日志缺少codeSnapshot，跳过此记录')
+                          return
+                        }
+
+                        if (mode === 'merge') {
+                          await tx.insert(cardCodeRedeemLogs).values(logData)
+                        } else {
+                          const existingLogWithId = await tx
+                            .select()
+                            .from(cardCodeRedeemLogs)
+                            .where(eq(cardCodeRedeemLogs.id, record.id))
+                            .limit(1)
+                          if (existingLogWithId.length > 0) {
+                            await tx
+                              .update(cardCodeRedeemLogs)
+                              .set(logData)
+                              .where(eq(cardCodeRedeemLogs.id, record.id))
+                          } else {
+                            await tx.insert(cardCodeRedeemLogs).values({ ...logData, id: record.id })
+                          }
+                        }
+                        break
+                      }
 
                       case 'votes':
                         // 验证外键约束
