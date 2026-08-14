@@ -1,8 +1,8 @@
 import { db } from '~/drizzle/db'
 import { playTimes, schedules, songs, songReplayRequests } from '~/drizzle/schema'
 import { and, desc, eq, gte, lte } from 'drizzle-orm'
-import { cacheService } from '~~/server/services/cacheService'
 import { getClientIP } from '~~/server/utils/ip-utils'
+import { createApiError } from '~~/server/utils/apiError'
 
 // 输入验证函数
 function validateInput(body: any) {
@@ -111,6 +111,24 @@ export default defineEventHandler(async (event) => {
         }
       }
 
+      // 校验重播申请绑定（草稿仅记录绑定关系，不修改申请状态）
+      let replayRequestId: number | null = null
+      const requestedReplayId = Number(body.replayRequestId)
+      if (body.replayRequestId != null && Number.isInteger(requestedReplayId) && requestedReplayId > 0) {
+        const replayRequestResult = await tx
+          .select({ id: songReplayRequests.id, songId: songReplayRequests.songId, status: songReplayRequests.status })
+          .from(songReplayRequests)
+          .where(eq(songReplayRequests.id, requestedReplayId))
+          .limit(1)
+
+        const replayRequest = replayRequestResult[0]
+        if (!replayRequest || replayRequest.songId !== song.id || replayRequest.status !== 'PENDING') {
+          throw createApiError(400, 'SONG_REPLAY_INVALID_REQUEST', '重播申请无效或已被处理')
+        }
+
+        replayRequestId = replayRequest.id
+      }
+
       // 获取序号，如果未提供则查找当天最大序号+1
       let sequence = body.sequence || 1
 
@@ -131,9 +149,8 @@ export default defineEventHandler(async (event) => {
           .orderBy(desc(schedules.sequence))
           .limit(1)
 
-        if (sameDaySchedules.length > 0) {
-          sequence = (sameDaySchedules[0].sequence || 0) + 1
-        }
+        const latestSchedule = sameDaySchedules[0]
+        if (latestSchedule) sequence = (latestSchedule.sequence || 0) + 1
       }
 
       // 解析输入的日期字符串，确保日期正确
@@ -151,6 +168,7 @@ export default defineEventHandler(async (event) => {
           playDate: playDate,
           sequence: sequence,
           playTimeId: body.playTimeId || null,
+          replayRequestId,
           isDraft: true, // 标记为草稿
           publishedAt: null // 草稿状态下没有发布时间
         })
@@ -167,16 +185,6 @@ export default defineEventHandler(async (event) => {
         }
       }
     })
-
-    // 清除相关缓存（在事务外执行，避免影响事务性能）
-    try {
-      await cacheService.clearSchedulesCache()
-      await cacheService.clearSongsCache()
-      console.log('[Cache] 排期缓存和歌曲列表缓存已清除（保存草稿）')
-    } catch (cacheError) {
-      console.error('[Cache] 清除缓存失败:', cacheError)
-      // 缓存清除失败不应该影响主要操作的成功
-    }
 
     const responseData = {
       ...result.schedule,

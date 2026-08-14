@@ -2,13 +2,13 @@
   <section class="song-comments" @click.stop>
     <header class="comments-header">
       <div>
-        <p class="comments-eyebrow">网易云评论</p>
-        <h2 class="comments-title">听友评论</h2>
+        <p class="comments-eyebrow">{{ locale.eyebrow }}</p>
+        <h2 class="comments-title">{{ locale.title }}</h2>
       </div>
       <button
         class="refresh-button"
         :disabled="isLoading || !canFetchComments"
-        title="刷新评论"
+        :title="locale.refresh"
         @click="refreshComments"
       >
         <Icon name="refresh" size="18" />
@@ -17,29 +17,29 @@
 
     <div v-if="!canFetchComments" class="comments-state">
       <Icon name="message-circle" size="28" />
-      <p>当前歌曲暂无网易云评论来源</p>
+      <p>{{ locale.noSource }}</p>
     </div>
 
     <div v-else-if="isLoading && !commentItems.length" class="comments-state">
-      <div class="loading-spinner" />
-      <p>正在加载评论</p>
+      <AppSpinner :size="24" />
+      <p>{{ locale.loading }}</p>
     </div>
 
     <div v-else-if="error" class="comments-state">
       <Icon name="alert-circle" size="28" />
       <p>{{ error }}</p>
-      <button class="state-action" @click="refreshComments">重试</button>
+      <button class="state-action" @click="refreshComments">{{ locale.retry }}</button>
     </div>
 
     <template v-else>
       <div v-if="totalCount || hotComments.length" class="comments-summary">
-        <span v-if="totalCount">{{ formatCount(totalCount) }} 条评论</span>
-        <span v-if="hotComments.length">精选 {{ hotComments.length }} 条</span>
+        <span v-if="totalCount">{{ formatLocaleValue(locale.commentsCount, formatCount(totalCount)) }}</span>
+        <span v-if="hotComments.length">{{ formatLocaleValue(locale.hotCount, hotComments.length) }}</span>
       </div>
 
       <div v-if="!commentItems.length" class="comments-state">
         <Icon name="message-circle" size="28" />
-        <p>这首歌还没有可展示的评论</p>
+        <p>{{ locale.empty }}</p>
       </div>
 
       <div v-else class="comments-list">
@@ -48,7 +48,7 @@
             <img
               v-if="item.user?.avatarUrl"
               :src="convertToHttps(item.user.avatarUrl)"
-              :alt="item.user?.nickname || '用户头像'"
+              :alt="item.user?.nickname || locale.userAvatar"
               referrerpolicy="no-referrer"
             >
             <Icon v-else name="user" size="18" />
@@ -56,25 +56,25 @@
 
           <div class="comment-body">
             <div class="comment-meta">
-              <span class="nickname">{{ item.user?.nickname || '网易云用户' }}</span>
+              <span class="nickname">{{ item.user?.nickname || locale.neteaseUser }}</span>
               <span class="comment-time">{{ formatCommentTime(item.time) }}</span>
             </div>
             <p class="comment-content">{{ item.content }}</p>
             <div v-if="item.beReplied?.length" class="reply-preview">
-              {{ item.beReplied[0]?.user?.nickname || '原评论' }}：{{ item.beReplied[0]?.content }}
+              {{ item.beReplied[0]?.user?.nickname || locale.originalComment }}：{{ item.beReplied[0]?.content }}
             </div>
             <div class="comment-actions">
               <button
                 class="liked-count"
                 :class="{ liked: item.liked }"
                 :disabled="likeUpdatingKey === String(item.commentId)"
-                :title="item.liked ? '取消点赞' : '点赞评论'"
+                :title="item.liked ? locale.unlike : locale.like"
                 @click="toggleCommentLike(item)"
               >
                 <Icon name="thumbs-up" size="13" />
                 {{ formatCount(item.likedCount || 0) }}
               </button>
-              <span v-if="item.isHot" class="hot-label">热评</span>
+              <span v-if="item.isHot" class="hot-label">{{ locale.hot }}</span>
             </div>
           </div>
         </article>
@@ -86,7 +86,7 @@
         :disabled="isLoading"
         @click="loadMoreComments"
       >
-        {{ isLoading ? '加载中...' : '加载更多评论' }}
+        {{ isLoading ? locale.loadingMore : locale.loadMore }}
       </button>
     </template>
   </section>
@@ -95,8 +95,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import Icon from '~/components/UI/Icon.vue'
+import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import { fetchNetease } from '~/utils/neteaseApi'
 import { convertToHttps, getNeteaseCookie } from '~/utils/url'
+import { useLocale } from '~/utils/locale'
 
 interface NeteaseUser {
   avatarUrl?: string
@@ -127,6 +129,18 @@ const props = defineProps<{
 }>()
 
 const PAGE_SIZE = 20
+const { ui } = useLocale()
+const locale = computed(() => {
+  const base = ui.value?.songComments || {}
+  const emptyText = () => ''
+  return useSafeLocale({
+    ...base,
+    commentsCount: base.commentsCount || emptyText,
+    hotCount: base.hotCount || emptyText,
+    minutesAgo: base.minutesAgo || emptyText,
+    hoursAgo: base.hoursAgo || emptyText
+  })
+})
 
 const comments = ref<NeteaseComment[]>([])
 const hotComments = ref<NeteaseComment[]>([])
@@ -188,7 +202,7 @@ function getCommentKey(item: NeteaseComment, index: number) {
 
 const formatCount = (count: number) => {
   if (count >= 10000) {
-    return `${(count / 10000).toFixed(count >= 100000 ? 0 : 1)}万`
+    return `${(count / 10000).toFixed(count >= 100000 ? 0 : 1)}${locale.value.tenThousand}`
   }
   return String(count)
 }
@@ -201,13 +215,13 @@ const formatCommentTime = (time?: number) => {
   const diffMs = now.getTime() - date.getTime()
   const diffMinutes = Math.floor(diffMs / 60000)
 
-  if (diffMinutes < 1) return '刚刚'
-  if (diffMinutes < 60) return `${diffMinutes} 分钟前`
-  if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} 小时前`
+  if (diffMinutes < 1) return locale.value.justNow
+  if (diffMinutes < 60) return formatLocaleValue(locale.value.minutesAgo, diffMinutes)
+  if (diffMinutes < 1440) return formatLocaleValue(locale.value.hoursAgo, Math.floor(diffMinutes / 60))
 
   const isSameYear = date.getFullYear() === now.getFullYear()
 
-  const formatted = date.toLocaleString('zh-CN', {
+  const formatted = date.toLocaleString(locale.value.dateLocale, {
     ...(isSameYear ? {} : { year: 'numeric' }),
     month: '2-digit',
     day: '2-digit',
@@ -247,7 +261,7 @@ const toggleCommentLike = async (comment: NeteaseComment) => {
   const cookie = getNeteaseCookie()
   if (!cookie) {
     if (window.$showNotification) {
-      window.$showNotification('请先登录网易云账号后再点赞评论', 'warning')
+      window.$showNotification(locale.value.loginRequiredToLike, 'warning')
     }
     return
   }
@@ -273,12 +287,12 @@ const toggleCommentLike = async (comment: NeteaseComment) => {
     )
 
     if (response.code !== 200) {
-      throw new Error(response.message || '评论点赞失败')
+    throw new Error(response.message || locale.value.likeFailed)
     }
   } catch (err: any) {
     updateCommentLikeState(commentId, !!comment.liked, currentLikedCount)
     if (window.$showNotification) {
-      window.$showNotification(err?.data?.message || err?.message || '评论点赞失败', 'error')
+    window.$showNotification(err?.data?.message || err?.message || locale.value.likeFailed, 'error')
     }
   } finally {
     likeUpdatingKey.value = ''
@@ -313,7 +327,7 @@ const fetchComments = async (append = false) => {
     if (currentRequestId !== requestId.value) return
 
     if (response.code !== 200) {
-      error.value = response.message || '评论加载失败'
+    error.value = response.message || locale.value.loadFailed
       return
     }
 
@@ -335,7 +349,7 @@ const fetchComments = async (append = false) => {
     offset.value = nextOffset + PAGE_SIZE
   } catch (err: any) {
     if (currentRequestId !== requestId.value) return
-    error.value = err?.data?.message || err?.message || '评论加载失败'
+    error.value = err?.data?.message || err?.message || locale.value.loadFailed
   } finally {
     if (currentRequestId === requestId.value) {
       isLoading.value = false
@@ -390,7 +404,7 @@ watch(
   min-height: 0;
   display: flex;
   flex-direction: column;
-  color: #ffffff;
+  color: var(--lyrics-modal-text);
   overflow: hidden;
 }
 
@@ -405,14 +419,14 @@ watch(
 
 .comments-eyebrow {
   margin: 0 0 0.25rem;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--lyrics-modal-text-muted);
   font-size: 0.75rem;
   font-weight: 700;
 }
 
 .comments-title {
   margin: 0;
-  color: #ffffff;
+  color: var(--lyrics-modal-text);
   font-size: 1.35rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -426,15 +440,15 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.12);
+  color: var(--lyrics-modal-text-secondary);
+  background: var(--lyrics-modal-surface);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .refresh-button:hover:not(:disabled) {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.2);
+  color: var(--lyrics-modal-text);
+  background: var(--lyrics-modal-surface-strong);
 }
 
 .refresh-button:disabled {
@@ -448,7 +462,7 @@ watch(
   gap: 0.75rem;
   flex-shrink: 0;
   padding-bottom: 1rem;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--lyrics-modal-text-muted);
   font-size: 0.82rem;
   font-weight: 600;
 }
@@ -472,7 +486,7 @@ watch(
 }
 
 .comments-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--lyrics-modal-surface-strong);
   border-radius: 999px;
 }
 
@@ -480,9 +494,9 @@ watch(
   display: flex;
   gap: 0.85rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--lyrics-modal-surface-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--lyrics-modal-surface);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
 }
@@ -496,8 +510,8 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--lyrics-modal-surface);
+  color: var(--lyrics-modal-text-muted);
 }
 
 .avatar img {
@@ -524,21 +538,21 @@ watch(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--lyrics-modal-text);
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .comment-time {
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--lyrics-modal-text-muted);
   font-size: 0.75rem;
   font-weight: 600;
 }
 
 .comment-content {
   margin: 0;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--lyrics-modal-text-secondary);
   font-size: 0.95rem;
   line-height: 1.65;
   white-space: pre-wrap;
@@ -549,8 +563,8 @@ watch(
   margin-top: 0.7rem;
   padding: 0.65rem 0.8rem;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.58);
-  background: rgba(0, 0, 0, 0.18);
+  color: var(--lyrics-modal-text-muted);
+  background: var(--surface-card-bg-soft);
   font-size: 0.82rem;
   line-height: 1.55;
   word-break: break-word;
@@ -561,7 +575,7 @@ watch(
   align-items: center;
   gap: 0.65rem;
   margin-top: 0.65rem;
-  color: rgba(255, 255, 255, 0.52);
+  color: var(--lyrics-modal-text-muted);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -581,7 +595,7 @@ watch(
 
 .liked-count:hover:not(:disabled),
 .liked-count.liked {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--lyrics-modal-text);
 }
 
 .liked-count:hover:not(:disabled) {
@@ -594,7 +608,7 @@ watch(
 }
 
 .hot-label {
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--lyrics-modal-text-secondary);
 }
 
 .comments-state {
@@ -605,7 +619,7 @@ watch(
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--lyrics-modal-text-muted);
   text-align: center;
 }
 
@@ -619,8 +633,8 @@ watch(
 .load-more-button {
   border: 0;
   border-radius: 8px;
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.14);
+  color: var(--lyrics-modal-text);
+  background: var(--lyrics-modal-surface);
   cursor: pointer;
   font-weight: 700;
   transition: all 0.2s ease;
@@ -639,27 +653,12 @@ watch(
 
 .state-action:hover,
 .load-more-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--lyrics-modal-surface-strong);
 }
 
 .load-more-button:disabled {
   opacity: 0.6;
   cursor: wait;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(255, 255, 255, 0.18);
-  border-top-color: #ffffff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 @media (max-width: 1024px) {

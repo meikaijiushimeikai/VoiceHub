@@ -2,6 +2,8 @@ import { computed, nextTick, ref } from 'vue'
 import { useAudioQuality } from '~/composables/useAudioQuality'
 import { useLyrics } from '~/composables/useLyrics'
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
+import { useLocale } from '~/utils/locale'
+import type { MusicTrackMeta } from '~/utils/musicUrl'
 
 // 单例状态
 const audioPlayer = ref<HTMLAudioElement | null>(null)
@@ -36,6 +38,7 @@ const playMode = ref<'off' | 'order' | 'loopOne'>('order')
 const lyrics = useLyrics()
 
 export const useAudioPlayerControl = () => {
+  const { audioPlayer: audioPlayerLocale } = useLocale()
   // 音质 (Composable 使用应在 setup/function 内部)
   const { getQualityLabel, getQuality, getQualityOptions, saveQuality } = useAudioQuality()
 
@@ -79,7 +82,7 @@ export const useAudioPlayerControl = () => {
       if (error.name === 'NotAllowedError') {
         console.warn('[AudioPlayerControl] ⚠️ 自动播放被浏览器阻止，需要用户交互')
         if (typeof window !== 'undefined' && window.$showNotification) {
-          window.$showNotification('浏览器限制了自动播放，请点击播放器中的播放按钮继续播放', 'info')
+          window.$showNotification(audioPlayerLocale.value.autoplayBlocked, 'info')
         }
         // 不设置 hasError，因为这不是真正的错误
         return false
@@ -253,7 +256,14 @@ export const useAudioPlayerControl = () => {
             songUrlOrSong.sourceInfo?.type === 'voice' ||
             (songUrlOrSong.sourceInfo?.source === 'netease-backup' &&
               songUrlOrSong.sourceInfo?.type === 'voice')
-          const options = isPodcast ? { unblock: false } : {}
+          const options: { unblock?: boolean; musicInfo?: MusicTrackMeta } = isPodcast
+            ? { unblock: false }
+            : {}
+          options.musicInfo = {
+            name: songUrlOrSong.title,
+            artist: songUrlOrSong.artist,
+            album: songUrlOrSong.album || undefined
+          }
 
           songUrl = await getMusicUrl(
             songUrlOrSong.musicPlatform,
@@ -366,10 +376,18 @@ export const useAudioPlayerControl = () => {
       saveQuality(platform, qualityValue)
 
       // 获取新音质的URL
+      const currentSongForQuality = globalAudioPlayer.getCurrentSong().value
       const newUrl = await getMusicUrl(
         platform,
         musicId,
-        globalAudioPlayer.getCurrentSong().value?.playUrl
+        currentSongForQuality?.playUrl,
+        {
+          musicInfo: {
+            name: currentSongForQuality?.title,
+            artist: currentSongForQuality?.artist,
+            album: currentSongForQuality?.album || undefined
+          }
+        }
       )
       if (!newUrl) {
         throw new Error('获取新音质URL失败')
@@ -425,6 +443,7 @@ export const useAudioPlayerControl = () => {
     options?: {
       unblock?: boolean
       quality?: number
+      musicInfo?: MusicTrackMeta
     }
   ): Promise<string | null> => {
     try {

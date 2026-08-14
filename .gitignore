@@ -30,7 +30,12 @@ backups/
 .trae
 .qoder
 .figma
+.codex
+.agents
 scripts/package-lock.json
+
+# Nix build output
+result
 
 # Local env files
 .env

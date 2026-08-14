@@ -7,35 +7,35 @@
     >
       <div
         v-if="show"
-        class="fixed inset-0 z-[2000] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-[2000] bg-bg-primary-80 backdrop-blur-sm flex items-center justify-center p-4"
         @click="$emit('cancel')"
       >
         <div 
-          class="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl p-6 shadow-2xl space-y-6"
+          class="w-full max-w-md bg-bg-primary border border-border-secondary rounded-2xl p-6 shadow-2xl space-y-6"
           @click.stop
         >
           <div class="text-center space-y-2">
-            <h3 class="text-xl font-bold text-zinc-100">双重认证</h3>
-            <p class="text-sm text-zinc-400">
-              {{ method === 'totp' ? '请输入您的认证器应用生成的6位验证码' : '请输入发送到您邮箱的验证码' }}
+            <h3 class="text-xl font-bold text-text-primary">{{ locale.title }}</h3>
+            <p class="text-sm text-text-tertiary">
+              {{ method === 'totp' ? locale.totpDesc : locale.emailDesc }}
             </p>
           </div>
 
           <div class="space-y-4">
             <!-- 邮箱输入 (仅 Email 模式) -->
             <div v-if="method === 'email'" class="space-y-2">
-              <label class="block text-sm text-zinc-400">
-                请补全您的邮箱以接收验证码
-                <span v-if="maskedEmail" class="block text-xs text-zinc-500 mt-1">
-                  提示: {{ maskedEmail }}
+              <label class="block text-sm text-text-tertiary">
+                {{ locale.emailLabel }}
+                <span v-if="maskedEmail" class="block text-xs text-text-tertiary mt-1">
+                  {{ locale.maskedEmailTip }} {{ maskedEmail }}
                 </span>
               </label>
               <div class="relative">
                 <input
                   v-model="emailInput"
                   type="email"
-                  placeholder="请输入完整邮箱地址"
-                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                  :placeholder="locale.emailPlaceholder"
+                  class="w-full bg-bg-secondary border border-border-secondary rounded-lg px-4 py-3 text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                   :disabled="emailSent && cooldown > 0"
                   @keyup.enter="!emailSent && sendEmailCode()"
                 />
@@ -50,7 +50,7 @@
                   type="text"
                   maxlength="6"
                   placeholder="000000"
-                  class="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-center text-2xl font-mono tracking-widest text-zinc-100 placeholder-zinc-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                  class="w-full bg-bg-secondary border border-border-secondary rounded-lg px-4 py-3 text-center text-2xl font-mono tracking-widest text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                   @keyup.enter="handleVerify"
                   ref="inputRef"
                 />
@@ -63,13 +63,13 @@
                 type="button"
                 @click="sendEmailCode"
                 :disabled="cooldown > 0 || sending || !emailInput"
-                class="text-sm text-blue-500 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                class="text-sm text-primary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {{ cooldown > 0 ? `${cooldown}秒后重新发送` : (emailSent ? '重新发送验证码' : '发送验证码') }}
+                {{ resendButtonText }}
               </button>
             </div>
 
-            <div v-if="error" class="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2 text-red-500 text-sm">
+            <div v-if="error" class="p-3 bg-error-10 border border-error-20 rounded-lg flex items-center gap-2 text-error text-sm">
               <AlertCircle :size="16" />
               <span>{{ error }}</span>
             </div>
@@ -77,26 +77,26 @@
             <button
               @click="handleVerify"
               :disabled="loading || code.length !== 6"
-              class="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
+              class="w-full py-3 bg-primary-hover hover:bg-primary disabled:opacity-50 disabled:cursor-not-allowed text-text-primary font-bold rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               <Loader2 v-if="loading" class="animate-spin" :size="18" />
-              <span>验证登录</span>
+              <span>{{ locale.verifyLogin }}</span>
             </button>
             
             <!-- 切换验证方式按钮 -->
             <button
               v-if="hasMultipleMethods"
               @click="toggleMethod"
-              class="w-full py-2 text-blue-500 hover:text-blue-400 text-sm transition-colors"
+              class="w-full py-2 text-primary hover:text-primary text-sm transition-colors"
             >
-              {{ method === 'totp' ? '无法使用验证器？切换到邮箱验证' : '使用验证器应用验证' }}
+              {{ method === 'totp' ? locale.switchToEmail : locale.switchToTotp }}
             </button>
 
             <button
               @click="$emit('cancel')"
-              class="w-full py-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors"
+              class="w-full py-2 text-text-tertiary hover:text-text-secondary text-sm transition-colors"
             >
-              返回登录
+              {{ locale.backLogin }}
             </button>
           </div>
         </div>
@@ -107,8 +107,9 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onUnmounted } from 'vue'
-import { Loader2, AlertCircle } from 'lucide-vue-next'
+import { Loader2, AlertCircle } from '@lucide/vue'
 import { useToast } from '~/composables/useToast'
+import { useLocale } from '~/utils/locale'
 
 const props = defineProps<{
   show: boolean
@@ -124,6 +125,15 @@ const emit = defineEmits<{
 }>()
 
 const { showToast } = useToast()
+const { auth } = useLocale()
+const locale = computed(() => auth.value?.twoFactorVerify || {})
+const { format: formatLocaleValue } = useLocaleText(locale)
+const resendButtonText = computed(() => {
+  if (cooldown.value > 0) {
+    return formatLocaleValue(locale.value.resendCountdown, '', cooldown.value)
+  }
+  return emailSent.value ? locale.value.resendCode : locale.value.sendCode
+})
 // 默认优先使用 TOTP，如果没有则使用 Email
 const defaultMethod = computed(() => props.availableMethods?.includes('totp') ? 'totp' : 'email')
 const method = ref(defaultMethod.value)
@@ -160,7 +170,7 @@ const toggleMethod = () => {
 const sendEmailCode = async () => {
   try {
     if (!emailInput.value) {
-      error.value = '请输入您的邮箱地址'
+      error.value = locale.value.emailRequired || '请输入邮箱'
       return
     }
 
@@ -176,7 +186,7 @@ const sendEmailCode = async () => {
       }
     })
 
-    showToast('验证码已发送', 'success')
+    showToast(locale.value.codeSent, 'success')
     emailSent.value = true
     cooldown.value = 60
     timer = setInterval(() => {
@@ -190,7 +200,7 @@ const sendEmailCode = async () => {
     // 发送成功后自动聚焦验证码输入框
     nextTick(() => inputRef.value?.focus())
   } catch (err: any) {
-    error.value = err.data?.message || err.message || '发送失败'
+    error.value = err.data?.message || err.message || locale.value.sendFailed || '发送失败'
   } finally {
     sending.value = false
   }
@@ -208,7 +218,7 @@ const handleVerify = async () => {
     
     emit('success', response)
   } catch (err: any) {
-    error.value = err.data?.message || err.message || '验证失败'
+    error.value = err.data?.message || err.message || locale.value.verifyFailed || '验证失败'
     code.value = '' // 出错清空
   } finally {
     loading.value = false

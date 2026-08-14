@@ -1,36 +1,34 @@
 import { db } from '~/drizzle/db'
-import { cacheService } from '~~/server/services/cacheService'
 import {
   schedules,
   songs,
-  systemSettings,
   votes,
   songCollaborators,
   collaborationLogs,
   requestTimes
 } from '~/drizzle/schema'
 import { and, eq, sql } from 'drizzle-orm'
-import { getTimeRange, type LimitType } from '~~/server/utils/submissionLimit'
+import {
+  getTimeRange,
+  isCardCodeLimitBypassActive,
+  type LimitType
+} from '~~/server/utils/submissionLimit'
 import { releaseCardCodeAfterSongWithdrawal } from '~~/server/services/cardCodeLifecycleService'
+import { getSystemSettingsCached } from '~~/server/utils/system-settings-helper'
+import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证
   const user = event.context.user
 
   if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: '需要登录才能撤回歌曲'
-    })
+    throw createApiError(401, 'SONG_LOGIN_REQUIRED_WITHDRAW', '需要登录才能撤回歌曲')
   }
 
   const body = await readBody(event)
 
   if (!body.songId) {
-    throw createError({
-      statusCode: 400,
-      message: '歌曲ID不能为空'
-    })
+    throw createApiError(400, 'SONG_ID_REQUIRED', '歌曲ID不能为空')
   }
 
   // 查找歌曲
@@ -38,10 +36,7 @@ export default defineEventHandler(async (event) => {
   const song = songResult[0]
 
   if (!song) {
-    throw createError({
-      statusCode: 404,
-      message: '歌曲不存在'
-    })
+    throw createApiError(404, 'SONG_NOT_FOUND', '歌曲不存在')
   }
 
   // 检查是否是用户自己的投稿或联合投稿
@@ -62,19 +57,17 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  if (!isRequester && !isCollaborator && !['SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
-    throw createError({
-      statusCode: 403,
-      message: '只能撤回自己的投稿或退出联合投稿'
-    })
+  if (
+    !isRequester &&
+    !isCollaborator &&
+    !['SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)
+  ) {
+    throw createApiError(403, 'SONG_WITHDRAW_OWN_ONLY', '只能撤回自己的投稿或退出联合投稿')
   }
 
   // 检查歌曲是否已经播放
   if (song.played) {
-    throw createError({
-      statusCode: 400,
-      message: '已播放的歌曲不能撤回'
-    })
+    throw createApiError(400, 'SONG_PLAYED_CANNOT_WITHDRAW', '已播放的歌曲不能撤回')
   }
 
   // 检查歌曲是否已排期（只检查已发布的排期，草稿不算）
@@ -86,14 +79,15 @@ export default defineEventHandler(async (event) => {
   const schedule = scheduleResult[0]
 
   if (schedule) {
-    throw createError({
-      statusCode: 400,
-      message: '已排期的歌曲不能撤回'
-    })
+    throw createApiError(400, 'SONG_SCHEDULED_CANNOT_WITHDRAW', '已排期的歌曲不能撤回')
   }
 
   // 如果是联合投稿人撤回（退出）
-  if (isCollaborator && !isRequester && !['SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+  if (
+    isCollaborator &&
+    !isRequester &&
+    !['SONG_ADMIN', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)
+  ) {
     await db.delete(songCollaborators).where(eq(songCollaborators.id, collaboratorRecord.id))
 
     // 记录日志
@@ -105,9 +99,6 @@ export default defineEventHandler(async (event) => {
         (event.node.req.headers['x-forwarded-for'] as string) || event.node.req.socket.remoteAddress
     })
 
-    // 清除歌曲列表缓存
-    await cacheService.clearSongsCache()
-
     return {
       message: '已成功退出联合投稿',
       songId: body.songId,
@@ -117,28 +108,32 @@ export default defineEventHandler(async (event) => {
 
   // 如果是主投稿人撤回（删除歌曲）
   // 获取系统设置以检查限制类型
-  const settingsResult = await db.select().from(systemSettings).limit(1)
-  const settings = settingsResult[0]
-  const dailyLimit = settings?.dailySubmissionLimit || 0
-  const weeklyLimit = settings?.weeklySubmissionLimit || 0
-  const monthlyLimit = settings?.monthlySubmissionLimit || 0
+  const settings = await getSystemSettingsCached()
 
   // 检查撤销的歌曲是否在当前限制期间内（用于返还配额）
   let canReturnQuota = false
 
-  const limitConfigs: { type: LimitType; value: number }[] = [
-    { type: 'daily', value: dailyLimit },
-    { type: 'weekly', value: weeklyLimit },
-    { type: 'monthly', value: monthlyLimit }
-  ]
+  const cardCodeDidNotUseOrdinaryQuota = isCardCodeLimitBypassActive(settings) && !!song.cardCodeId
 
-  for (const { type, value } of limitConfigs) {
-    if (value > 0) {
-      const { start, end } = getTimeRange(type)
-      if (song.createdAt >= start && song.createdAt <= end) {
-        canReturnQuota = true
-        break
-      }
+  if (settings?.enableSubmissionLimit && !cardCodeDidNotUseOrdinaryQuota) {
+    let activeLimit: { type: LimitType; value: number | null } | null = null
+    if (settings.dailySubmissionLimit !== null && settings.dailySubmissionLimit !== undefined) {
+      activeLimit = { type: 'daily', value: settings.dailySubmissionLimit }
+    } else if (
+      settings.weeklySubmissionLimit !== null &&
+      settings.weeklySubmissionLimit !== undefined
+    ) {
+      activeLimit = { type: 'weekly', value: settings.weeklySubmissionLimit }
+    } else if (
+      settings.monthlySubmissionLimit !== null &&
+      settings.monthlySubmissionLimit !== undefined
+    ) {
+      activeLimit = { type: 'monthly', value: settings.monthlySubmissionLimit }
+    }
+
+    if (activeLimit?.value && activeLimit.value > 0) {
+      const { start, end } = getTimeRange(activeLimit.type)
+      canReturnQuota = song.createdAt >= start && song.createdAt <= end
     }
   }
 
@@ -168,7 +163,7 @@ export default defineEventHandler(async (event) => {
           !releaseResult.changed &&
           ['CONCURRENT_CHANGE', 'MISSING_CARD_CODE'].includes(String(releaseResult.reason || ''))
         ) {
-          throw createError({ statusCode: 409, message: '点歌券释放失败，撤回已终止' })
+          throw createApiError(409, 'SONG_CARD_RELEASE_FAILED', '点歌券释放失败，撤回已终止')
         }
       }
 
@@ -177,12 +172,11 @@ export default defineEventHandler(async (event) => {
     })
   } catch (txErr: any) {
     console.error('撤回事务失败:', txErr)
-    throw createError({ statusCode: txErr.statusCode || 500, message: txErr.message || '撤回歌曲失败，请稍后重试' })
+    throw createError({
+      statusCode: txErr.statusCode || 500,
+      message: txErr.message || '撤回歌曲失败，请稍后重试'
+    })
   }
-
-  // 清除歌曲列表缓存
-  await cacheService.clearSongsCache()
-  console.log('[Cache] 歌曲缓存已清除（撤回歌曲）')
 
   return {
     message: canReturnQuota ? '歌曲已成功撤回，投稿配额已返还' : '歌曲已成功撤回',

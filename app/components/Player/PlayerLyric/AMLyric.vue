@@ -6,7 +6,7 @@
     }"
     :style="{
       '--amll-lp-color': 'rgb(var(--main-cover-color, 239 239 239))',
-      '--amll-lp-hover-bg-color': 'rgba(255,255,255,0.08)',
+      '--amll-lp-hover-bg-color': 'var(--lyrics-modal-surface, rgba(255, 255, 255, 0.1))',
       '--amll-lyric-left-padding': settings.lyricAlignRight.value
         ? ''
         : `${settings.lyricHorizontalOffset.value}px`,
@@ -18,7 +18,7 @@
     <Transition name="fade" mode="out-in">
       <div v-if="lyricManager.loading.value" class="lyric-message-container">
         <Icon name="loader" :size="32" class="spin-animation" />
-        <div class="message-text">歌词加载中...</div>
+        <div class="message-text">{{ locale.loading }}</div>
       </div>
       <div v-else-if="lyricManager.error.value" class="lyric-message-container">
         <Icon name="alert-circle" :size="32" />
@@ -26,7 +26,7 @@
       </div>
       <div v-else-if="!lyricLines || lyricLines.length === 0" class="lyric-message-container">
         <Icon name="music" :size="48" style="opacity: 0.5" />
-        <div class="message-text">暂无歌词</div>
+        <div class="message-text">{{ locale.empty }}</div>
       </div>
       <LyricPlayer
         v-else
@@ -62,6 +62,7 @@ import { useLyricManager } from '~/composables/useLyricManager'
 import { useLyricSettings } from '~/composables/useLyricSettings'
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
 import { useAudioPlayerControl } from '~/composables/useAudioPlayerControl'
+import { useLocale } from '~/utils/locale'
 import type { LyricLineMouseEvent } from '@applemusic-like-lyrics/core'
 import { cloneDeep } from 'lodash-es'
 
@@ -76,6 +77,8 @@ const lyricManager = useLyricManager()
 const settings = useLyricSettings()
 const audioPlayer = useAudioPlayer()
 const audioPlayerControl = useAudioPlayerControl()
+const { ui } = useLocale()
+const locale = computed(() => ui.value?.lyrics || {})
 
 const lyricPlayerRef = ref<LyricPlayerRef | null>(null)
 
@@ -148,8 +151,8 @@ const jumpSeek = (line: LyricLineMouseEvent) => {
 :deep(.am-lyric .lyric-line.current),
 :deep(.am-lyric .lyric-line.is-current) {
   mix-blend-mode: plus-lighter;
-  color: rgba(255, 255, 255, 0.95);
-  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.06);
+  color: var(--lyrics-modal-text, #ffffff);
+  text-shadow: 0 2px 12px var(--overlay-6);
   will-change: transform, opacity, color;
 }
 
@@ -160,8 +163,8 @@ const jumpSeek = (line: LyricLineMouseEvent) => {
   :deep(.am-lyric .is-active),
   :deep(.am-lyric .lyric-line.current),
   :deep(.am-lyric .lyric-line.is-current) {
-    color: #ffffff;
-    text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    color: var(--lyrics-modal-text, #ffffff);
+    text-shadow: 0 4px 18px var(--mask-35);
   }
 }
 
@@ -176,7 +179,7 @@ const jumpSeek = (line: LyricLineMouseEvent) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--amll-lp-color, #efefef);
+  color: var(--amll-lp-color, var(--text-primary-lighter, var(--lyric-msg-fallback-text, #e4e4e7)));
   gap: 16px;
   opacity: 0.8;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;

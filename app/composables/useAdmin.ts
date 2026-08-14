@@ -1,9 +1,19 @@
 import { ref } from 'vue'
 import { useAuth } from './useAuth'
+import { useServerErrors } from './useLocaleText'
+import { useLocale } from '~/utils/locale'
 import type { PlayTime, SystemSettings } from '~/types'
 
 export const useAdmin = () => {
   const { getAuthConfig, isAdmin } = useAuth()
+  const { composableErrors } = useLocale()
+  const { localize: localizeServerError } = useServerErrors()
+  const action = (key: keyof typeof composableErrors.value.actions) =>
+    composableErrors.value.actions[key]
+  const adminOnly = (key: keyof typeof composableErrors.value.actions) =>
+    composableErrors.value.adminOnly(action(key))
+  const failed = (key: keyof typeof composableErrors.value.actions) =>
+    composableErrors.value.failed(action(key))
 
   const loading = ref(false)
   const error = ref('')
@@ -16,7 +26,7 @@ export const useAdmin = () => {
     sequence: number = 1
   ) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能创建排期'
+      error.value = adminOnly('createSchedule')
       return null
     }
 
@@ -34,7 +44,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '创建排期失败'
+      error.value = err.message || failed('createSchedule')
       throw err
     } finally {
       loading.value = false
@@ -44,7 +54,7 @@ export const useAdmin = () => {
   // 移除排期
   const removeSchedule = async (scheduleId: number) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能移除排期'
+      error.value = adminOnly('removeSchedule')
       return { success: false, message: error.value } as const
     }
 
@@ -66,13 +76,13 @@ export const useAdmin = () => {
 
       // 检查响应
       if (!response.success) {
-        error.value = response.message || '移除排期失败'
+        error.value = response.message || failed('removeSchedule')
         return { success: false, message: error.value } as const
       }
 
       return response
     } catch (err: any) {
-      const errorMessage = err.data?.message || err.message || '移除排期失败'
+      const errorMessage = err.data?.message || err.message || failed('removeSchedule')
       error.value = errorMessage
       console.error('移除排期错误:', err)
       return { success: false, message: errorMessage } as const
@@ -84,7 +94,7 @@ export const useAdmin = () => {
   // 更新排期顺序
   const updateScheduleSequence = async (schedules: Array<{ id: number; sequence: number }>) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能更新排期顺序'
+      error.value = adminOnly('updateScheduleSequence')
       return null
     }
 
@@ -102,7 +112,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '更新排期顺序失败'
+      error.value = err.message || failed('updateScheduleSequence')
       throw err
     } finally {
       loading.value = false
@@ -112,7 +122,7 @@ export const useAdmin = () => {
   // 标记歌曲已播放
   const markSongAsPlayed = async (songId: number) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能标记歌曲已播放'
+      error.value = adminOnly('markPlayed')
       return null
     }
 
@@ -130,7 +140,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '标记播放失败'
+      error.value = err.message || failed('markPlayed')
       throw err
     } finally {
       loading.value = false
@@ -141,15 +151,17 @@ export const useAdmin = () => {
   const sendAdminNotification = async (notificationData: {
     title: string
     content: string
-    scope: 'ALL' | 'GRADE' | 'CLASS' | 'MULTI_CLASS'
+    important?: boolean
+    scope: 'ALL' | 'GRADE' | 'CLASS' | 'MULTI_CLASS' | 'SPECIFIC_USERS'
     filter: {
       grade?: string
       class?: string
       classes?: Array<{ grade: string; class: string }>
+      userIds?: number[]
     }
   }) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能发送系统通知'
+      error.value = adminOnly('sendNotification')
       return null
     }
 
@@ -167,8 +179,8 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '发送通知失败'
-      throw err
+      error.value = localizeServerError(err, failed('sendNotification'))
+      throw new Error(error.value, { cause: err })
     } finally {
       loading.value = false
     }
@@ -177,7 +189,7 @@ export const useAdmin = () => {
   // 获取系统设置
   const getSystemSettings = async () => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能获取系统设置'
+      error.value = adminOnly('getSystemSettings')
       return null
     }
 
@@ -193,7 +205,7 @@ export const useAdmin = () => {
 
       return data as SystemSettings
     } catch (err: any) {
-      error.value = err.message || '获取系统设置失败'
+      error.value = err.message || failed('getSystemSettings')
       throw err
     } finally {
       loading.value = false
@@ -203,7 +215,7 @@ export const useAdmin = () => {
   // 更新系统设置
   const updateSystemSettings = async (settings: Partial<SystemSettings>) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能更新系统设置'
+      error.value = adminOnly('updateSystemSettings')
       return null
     }
 
@@ -222,7 +234,7 @@ export const useAdmin = () => {
 
       return data as SystemSettings
     } catch (err: any) {
-      error.value = err.message || '更新系统设置失败'
+      error.value = err.message || failed('updateSystemSettings')
       throw err
     } finally {
       loading.value = false
@@ -232,7 +244,7 @@ export const useAdmin = () => {
   // 获取所有播放时段
   const getPlayTimes = async () => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能获取播放时段'
+      error.value = adminOnly('getPlayTimes')
       return null
     }
 
@@ -249,7 +261,7 @@ export const useAdmin = () => {
 
       return data as PlayTime[]
     } catch (err: any) {
-      error.value = err.message || '获取播放时段失败'
+      error.value = err.message || failed('getPlayTimes')
       throw err
     } finally {
       loading.value = false
@@ -259,7 +271,7 @@ export const useAdmin = () => {
   // 创建播放时段
   const createPlayTime = async (playTimeData: Partial<PlayTime>) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能创建播放时段'
+      error.value = adminOnly('createPlayTime')
       return null
     }
 
@@ -278,7 +290,7 @@ export const useAdmin = () => {
 
       return data as PlayTime
     } catch (err: any) {
-      error.value = err.message || '创建播放时段失败'
+      error.value = err.message || failed('createPlayTime')
       throw err
     } finally {
       loading.value = false
@@ -288,7 +300,7 @@ export const useAdmin = () => {
   // 更新播放时段
   const updatePlayTime = async (id: number, playTimeData: Partial<PlayTime>) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能更新播放时段'
+      error.value = adminOnly('updatePlayTime')
       return null
     }
 
@@ -307,7 +319,7 @@ export const useAdmin = () => {
 
       return data as PlayTime
     } catch (err: any) {
-      error.value = err.message || '更新播放时段失败'
+      error.value = err.message || failed('updatePlayTime')
       throw err
     } finally {
       loading.value = false
@@ -317,7 +329,7 @@ export const useAdmin = () => {
   // 删除播放时段
   const deletePlayTime = async (id: number) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能删除播放时段'
+      error.value = adminOnly('deletePlayTime')
       return null
     }
 
@@ -335,7 +347,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '删除播放时段失败'
+      error.value = err.message || failed('deletePlayTime')
       throw err
     } finally {
       loading.value = false
@@ -345,7 +357,7 @@ export const useAdmin = () => {
   // 删除歌曲
   const deleteSong = async (songId: number) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能删除歌曲'
+      error.value = adminOnly('deleteSong')
       return null
     }
 
@@ -364,7 +376,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '删除歌曲失败'
+      error.value = err.message || failed('deleteSong')
       throw err
     } finally {
       loading.value = false
@@ -374,7 +386,7 @@ export const useAdmin = () => {
   // 更新歌曲
   const updateSong = async (songId: number, songData: any) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能更新歌曲'
+      error.value = adminOnly('updateSong')
       return null
     }
 
@@ -393,7 +405,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '更新歌曲失败'
+      error.value = err.message || failed('updateSong')
       throw err
     } finally {
       loading.value = false
@@ -403,7 +415,7 @@ export const useAdmin = () => {
   // 添加歌曲
   const addSong = async (songData: any) => {
     if (!isAdmin.value) {
-      error.value = '只有管理员才能添加歌曲'
+      error.value = adminOnly('addSong')
       return null
     }
 
@@ -422,7 +434,7 @@ export const useAdmin = () => {
 
       return data
     } catch (err: any) {
-      error.value = err.message || '添加歌曲失败'
+      error.value = err.message || failed('addSong')
       throw err
     } finally {
       loading.value = false

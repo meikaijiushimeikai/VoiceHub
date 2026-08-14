@@ -1,8 +1,8 @@
 <template>
-  <div v-if="show" class="modal-overlay" @click="closeModal">
+  <div v-if="show" class="voters-modal-overlay" @click="closeModal">
     <div class="modal-content" @click.stop>
       <div class="modal-header">
-        <h3 class="modal-title">投票人员列表</h3>
+        <h3 class="modal-title">{{ locale.title }}</h3>
         <button class="close-btn" @click="closeModal">
           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <line x1="18" x2="6" y1="6" y2="18" />
@@ -22,14 +22,14 @@
                 d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
               />
             </svg>
-            <span class="vote-count">{{ totalVotes }} 票</span>
+            <span class="vote-count">{{ formatLocale(locale.votes, totalVotes) }}</span>
           </div>
         </div>
 
         <!-- 加载状态 -->
         <div v-if="loading" class="loading-container">
           <div class="spinner" />
-          <p>正在加载投票人员...</p>
+          <p>{{ locale.loading }}</p>
         </div>
 
         <!-- 错误状态 -->
@@ -46,13 +46,13 @@
             <line x1="9" x2="15" y1="9" y2="15" />
           </svg>
           <p class="error-message">{{ error }}</p>
-          <button class="retry-btn" @click="fetchVoters">重试</button>
+          <button class="retry-btn" @click="fetchVoters">{{ commonLocale.retry }}</button>
         </div>
 
         <!-- 投票人员列表 -->
         <div v-else-if="voters.length > 0" class="voters-list">
           <div class="voters-header">
-            <span class="voters-title">投票人员 ({{ voters.length }})</span>
+            <span class="voters-title">{{ formatLocale(locale.voters, voters.length) }}</span>
           </div>
           <div class="voters-container">
             <div v-for="(voter, index) in voters" :key="voter.id" class="voter-item">
@@ -83,19 +83,20 @@
               d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
             />
           </svg>
-          <p>暂无投票</p>
+          <p>{{ locale.empty }}</p>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="close-button" @click="closeModal">关闭</button>
+        <button class="close-button" @click="closeModal">{{ commonLocale.close }}</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useLocale } from '~/utils/locale'
 
 // Props
 const props = defineProps({
@@ -118,6 +119,9 @@ const error = ref('')
 const songInfo = ref(null)
 const voters = ref([])
 const totalVotes = ref(0)
+const { common, currentLocale } = useLocale()
+const commonLocale = computed(() => common.value || {})
+const locale = computed(() => common.value?.votersModal || {})
 
 // 方法
 const closeModal = () => {
@@ -138,7 +142,7 @@ const fetchVoters = async () => {
     totalVotes.value = response.totalVotes || 0
   } catch (err) {
     console.error('获取投票人员失败:', err)
-    error.value = err.data?.message || '获取投票人员失败'
+    error.value = err.data?.message || locale.value.fetchFailed
   } finally {
     loading.value = false
   }
@@ -151,17 +155,24 @@ const getAvatarText = (name) => {
   return cleanName.slice(-1).toUpperCase()
 }
 
+const formatTimeAgo = (key, value) => {
+  const message = commonLocale.value?.time?.[key]
+  if (typeof message === 'function') return message(value)
+  if (typeof message === 'string') return message.replace(/{(\d+)}/g, (match, index) => index === '0' ? String(value) : match)
+  return ''
+}
+
 const formatVoteTime = (dateString) => {
   const date = new Date(dateString)
   const now = getSyncedDate()
   const diff = now - date
 
-  if (diff < 60000) return '刚刚'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)}天前`
+  if (diff < 60000) return commonLocale.value?.time?.justNow || ''
+  if (diff < 3600000) return formatTimeAgo('minutesAgo', Math.floor(diff / 60000))
+  if (diff < 86400000) return formatTimeAgo('hoursAgo', Math.floor(diff / 3600000))
+  if (diff < 604800000) return formatTimeAgo('daysAgo', Math.floor(diff / 86400000))
 
-  return date.toLocaleDateString('zh-CN', {
+  return date.toLocaleDateString(currentLocale.value, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -187,13 +198,13 @@ watch(
 </script>
 
 <style scoped>
-.modal-overlay {
+.voters-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -202,9 +213,9 @@ watch(
 }
 
 .modal-content {
-  background: #1a1a1a;
+  background: var(--panel-bg-deep);
   border-radius: 16px;
-  border: 1px solid #2a2a2a;
+  border: 1px solid var(--panel-border);
   width: 100%;
   max-width: 500px;
   max-height: 80vh;
@@ -223,14 +234,14 @@ watch(
 .modal-title {
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .close-btn {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-tertiary-hover);
   cursor: pointer;
   padding: 8px;
   border-radius: 8px;
@@ -238,8 +249,8 @@ watch(
 }
 
 .close-btn:hover {
-  background: #2a2a2a;
-  color: #ffffff;
+  background: var(--panel-border);
+  color: var(--text-primary);
 }
 
 .close-btn svg {
@@ -254,22 +265,22 @@ watch(
 }
 
 .song-info {
-  background: #2a2a2a;
+  background: var(--panel-border);
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--panel-border-light);
 }
 
 .song-title {
   font-size: 18px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .song-artist {
-  color: #888;
+  color: var(--text-tertiary-hover);
   margin: 0 0 16px 0;
   font-size: 14px;
 }
@@ -283,11 +294,11 @@ watch(
 .heart-icon {
   width: 20px;
   height: 20px;
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .vote-count {
-  color: #ef4444;
+  color: var(--color-error);
   font-weight: 600;
   font-size: 16px;
 }
@@ -304,8 +315,8 @@ watch(
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid #3a3a3a;
-  border-top: 3px solid #667eea;
+  border: 3px solid var(--panel-border-light);
+  border-top: 3px solid var(--color-accent);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -331,17 +342,17 @@ watch(
 .error-icon {
   width: 48px;
   height: 48px;
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .error-message {
-  color: #ef4444;
+  color: var(--color-error);
   text-align: center;
   margin: 0;
 }
 
 .retry-btn {
-  background: #667eea;
+  background: var(--color-accent);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -352,7 +363,7 @@ watch(
 }
 
 .retry-btn:hover {
-  background: #5a67d8;
+  background: var(--color-indigo);
 }
 
 .voters-list {
@@ -366,12 +377,12 @@ watch(
   align-items: center;
   justify-content: space-between;
   padding-bottom: 12px;
-  border-bottom: 1px solid #3a3a3a;
+  border-bottom: 1px solid var(--panel-border-light);
 }
 
 .voters-title {
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 16px;
 }
 
@@ -388,15 +399,15 @@ watch(
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #2a2a2a;
+  background: var(--panel-border);
   border-radius: 8px;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--panel-border-light);
   transition: all 0.2s ease;
 }
 
 .voter-item:hover {
-  background: #333333;
-  border-color: #4a4a4a;
+  background: var(--text-primary);
+  border-color: var(--panel-border-dark);
 }
 
 .voter-info {
@@ -410,7 +421,7 @@ watch(
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #667eea, #764ba2);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-collab-hover));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -426,18 +437,18 @@ watch(
 }
 
 .voter-name {
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 14px;
 }
 
 .vote-time {
-  color: #888;
+  color: var(--text-tertiary-hover);
   font-size: 12px;
 }
 
 .voter-number {
-  color: #888;
+  color: var(--text-tertiary-hover);
   font-size: 12px;
   font-weight: 500;
 }
@@ -454,11 +465,11 @@ watch(
 .empty-icon {
   width: 48px;
   height: 48px;
-  color: #666;
+  color: var(--text-tertiary);
 }
 
 .empty-state p {
-  color: #888;
+  color: var(--text-tertiary-hover);
   margin: 0;
 }
 
@@ -469,8 +480,8 @@ watch(
 }
 
 .close-button {
-  background: #3a3a3a;
-  color: #ffffff;
+  background: var(--panel-border-light);
+  color: var(--text-primary);
   border: none;
   padding: 12px 24px;
   border-radius: 8px;
@@ -481,7 +492,7 @@ watch(
 }
 
 .close-button:hover {
-  background: #4a4a4a;
+  background: var(--panel-border-dark);
 }
 
 /* 滚动条样式 */
@@ -490,22 +501,22 @@ watch(
 }
 
 .voters-container::-webkit-scrollbar-track {
-  background: #2a2a2a;
+  background: var(--panel-border);
   border-radius: 3px;
 }
 
 .voters-container::-webkit-scrollbar-thumb {
-  background: #4a4a4a;
+  background: var(--panel-border-dark);
   border-radius: 3px;
 }
 
 .voters-container::-webkit-scrollbar-thumb:hover {
-  background: #5a5a5a;
+  background: var(--panel-border-dark);
 }
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .modal-overlay {
+  .voters-modal-overlay {
     padding: 10px;
   }
 

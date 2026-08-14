@@ -2,7 +2,7 @@
   <table class="schedule-timetable">
     <thead>
       <tr>
-        <th v-if="settings.showSequence" class="col-sequence">序号</th>
+        <th v-if="settings.showSequence" class="col-sequence">{{ locale.sequence }}</th>
         <th v-for="date in dates" :key="date" class="col-date">
           {{ formatDate(date) }}
         </th>
@@ -30,9 +30,9 @@
                 <div v-if="settings.showTitle" class="song-title">
                   <span class="title-text">{{ getSchedule(date, pt.key, rowIndex - 1).song.title }}</span>
                   <!-- 重播标识 -->
-                  <span v-if="getSchedule(date, pt.key, rowIndex - 1).song.replayRequestCount > 0" class="replay-badge-print"> 重播 </span>
+                  <span v-if="getSchedule(date, pt.key, rowIndex - 1).replayRequestId != null" class="replay-badge-print"> {{ locale.replay }} </span>
                   <!-- 跨学期标识 -->
-                  <span v-if="settings.currentSemester && getSchedule(date, pt.key, rowIndex - 1).song.semester && getSchedule(date, pt.key, rowIndex - 1).song.semester !== settings.currentSemester" class="cross-semester-badge-print"> 跨学期 </span>
+                  <span v-if="settings.currentSemester && getSchedule(date, pt.key, rowIndex - 1).song.semester && getSchedule(date, pt.key, rowIndex - 1).song.semester !== settings.currentSemester" class="cross-semester-badge-print"> {{ locale.crossSemester }} </span>
                 </div>
                 <div v-if="settings.showArtist" class="song-artist">
                   {{ getSchedule(date, pt.key, rowIndex - 1).song.artist }}
@@ -43,7 +43,7 @@
                   </span>
                   <span v-if="settings.showRequester && settings.showVotes" class="meta-divider">|</span>
                   <span v-if="settings.showVotes" class="song-votes">
-                    {{ getSchedule(date, pt.key, rowIndex - 1).song.replayRequestCount > 0 ? '重播:' + getSchedule(date, pt.key, rowIndex - 1).song.replayRequestCount : '热度:' + (getSchedule(date, pt.key, rowIndex - 1).song.voteCount || 0) }}
+                    {{ formatVotes(getSchedule(date, pt.key, rowIndex - 1)) }}
                   </span>
                 </div>
               </div>
@@ -69,9 +69,9 @@
                 <div v-if="settings.showTitle" class="song-title">
                   <span class="title-text">{{ getScheduleAll(date, rowIndex - 1).song.title }}</span>
                   <!-- 重播标识 -->
-                  <span v-if="getScheduleAll(date, rowIndex - 1).song.replayRequestCount > 0" class="replay-badge-print"> 重播 </span>
+                  <span v-if="getScheduleAll(date, rowIndex - 1).replayRequestId != null" class="replay-badge-print"> {{ locale.replay }} </span>
                   <!-- 跨学期标识 -->
-                  <span v-if="settings.currentSemester && getScheduleAll(date, rowIndex - 1).song.semester && getScheduleAll(date, rowIndex - 1).song.semester !== settings.currentSemester" class="cross-semester-badge-print"> 跨学期 </span>
+                  <span v-if="settings.currentSemester && getScheduleAll(date, rowIndex - 1).song.semester && getScheduleAll(date, rowIndex - 1).song.semester !== settings.currentSemester" class="cross-semester-badge-print"> {{ locale.crossSemester }} </span>
                 </div>
                 <div v-if="settings.showArtist" class="song-artist">
                   {{ getScheduleAll(date, rowIndex - 1).song.artist }}
@@ -82,7 +82,7 @@
                   </span>
                   <span v-if="settings.showRequester && settings.showVotes" class="meta-divider">|</span>
                   <span v-if="settings.showVotes" class="song-votes">
-                    {{ getScheduleAll(date, rowIndex - 1).song.replayRequestCount > 0 ? '重播:' + getScheduleAll(date, rowIndex - 1).song.replayRequestCount : '热度:' + (getScheduleAll(date, rowIndex - 1).song.voteCount || 0) }}
+                    {{ formatVotes(getScheduleAll(date, rowIndex - 1)) }}
                   </span>
                 </div>
               </div>
@@ -97,6 +97,12 @@
 <script setup>
 import { computed } from 'vue'
 import { convertToHttps } from '~/utils/url'
+import { useLocale } from '~/utils/locale'
+const { admin } = useLocale()
+const locale = computed(() => admin.value.schedulePrinter)
+const formatVotes = (schedule) => schedule.replayRequestId != null
+  ? locale.value.replayCountShort(schedule.song.replayRequestCount)
+  : locale.value.popularityCountShort(schedule.song.voteCount || 0)
 
 const props = defineProps({
   groupedSchedules: {
@@ -210,17 +216,17 @@ const handleImageError = (event) => {
 
 .schedule-timetable th,
 .schedule-timetable td {
-  border: 1px solid #e5e5e5;
+  border: 1px solid #d1d5db;
   padding: 8px;
   vertical-align: top;
   overflow: hidden;
 }
 
 .schedule-timetable th {
-  background: #f8f9fa;
+  background: #f3f4f6;
   font-weight: bold;
   text-align: center;
-  color: #333;
+  color: #1a1a1a;
 }
 
 .col-sequence {
@@ -238,12 +244,12 @@ const handleImageError = (event) => {
 }
 
 .playtime-header-row {
-  background: #e3f2fd;
+  background: #f8f9fa;
 }
 
 .playtime-header {
   font-weight: bold;
-  color: #1565c0;
+  color: #2563eb;
   text-align: center !important;
   padding: 6px !important;
 }
@@ -272,7 +278,7 @@ const handleImageError = (event) => {
 
 .song-title {
   font-weight: bold;
-  color: #333;
+  color: #1a1a1a;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
@@ -291,10 +297,10 @@ const handleImageError = (event) => {
 .replay-badge-print {
   display: inline-block;
   padding: 1px 4px;
-  background: #e3f2fd;
-  border: 1px solid #2196f3;
+  background: #f8f9fa;
+  border: 1px solid #0b5afe;
   border-radius: 3px;
-  color: #1976d2;
+  color: #2563eb;
   font-size: 10px;
   font-weight: bold;
   flex-shrink: 0;
@@ -306,8 +312,8 @@ const handleImageError = (event) => {
   display: inline-block;
   padding: 1px 4px;
   background: #f5f5f5;
-  border: 1px solid #d9d9d9;
-  color: #666;
+  border: 1px solid #d1d5db;
+  color: #636366;
   font-size: 10px;
   border-radius: 2px;
   font-weight: normal;
@@ -316,7 +322,7 @@ const handleImageError = (event) => {
 }
 
 .song-artist {
-  color: #666;
+  color: #636366;
   font-size: 11px;
   line-height: 1.2;
   white-space: nowrap;
@@ -328,7 +334,7 @@ const handleImageError = (event) => {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: #888;
+  color: #636366;
   font-size: 10px;
   line-height: 1.2;
   white-space: nowrap;
@@ -344,25 +350,25 @@ const handleImageError = (event) => {
 }
 
 .meta-divider {
-  color: #ccc;
+  color: #d1d5db;
   font-size: 8px;
 }
 
 @media print {
   .schedule-timetable {
-    color: #000 !important;
+    color: #1a1a1a !important;
   }
   .schedule-timetable th,
   .schedule-timetable td {
-    border-color: #ddd !important;
+    border-color: #d1d5db !important;
   }
   .schedule-timetable th {
-    background: #f0f0f0 !important;
+    background: #f3f4f6 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   .playtime-header-row {
-    background: #e3f2fd !important;
+    background: #f8f9fa !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

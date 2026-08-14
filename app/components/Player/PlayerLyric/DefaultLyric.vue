@@ -26,9 +26,9 @@
   >
     <div class="lyric-content">
       <Transition name="fade" mode="out-in">
-        <div v-if="lyricManager.loading.value" class="lyric-loading">歌词正在加载中...</div>
+        <div v-if="lyricManager.loading.value" class="lyric-loading">{{ locale.loading }}</div>
         <div v-else-if="!currentLyricData || currentLyricData.length === 0" class="lyric-loading">
-          暂无歌词
+          {{ locale.empty }}
         </div>
         <div
           v-else
@@ -81,7 +81,7 @@
                     }"
                     :style="getYrcVars(text, index)"
                   >
-                    <span class="yrc-word" :lang="getLyricLanguage(text.word)">
+                    <span class="yrc-word" :lang="lineLanguages[item.originalIndex]">
                       {{ text.word }}
                     </span>
                   </div>
@@ -89,7 +89,7 @@
               </template>
               <!-- 普通歌词 -->
               <template v-else>
-                <span class="content" :lang="getLyricLanguage(item.data.words?.[0]?.word)">
+                <span class="content" :lang="lineLanguages[item.originalIndex]">
                   {{ item.data.words.map((w) => w.word).join('') }}
                 </span>
               </template>
@@ -137,6 +137,8 @@ import { useLyricManager } from '~/composables/useLyricManager'
 import { useLyricSettings } from '~/composables/useLyricSettings'
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
 import { useAudioPlayerControl } from '~/composables/useAudioPlayerControl'
+import { detectLyricLanguages } from '~/utils/lyric/lyricLanguage'
+import { useLocale } from '~/utils/locale'
 
 const props = defineProps({
   currentTime: {
@@ -149,6 +151,8 @@ const lyricManager = useLyricManager()
 const settings = useLyricSettings()
 const audioPlayer = useAudioPlayer()
 const audioPlayerControl = useAudioPlayerControl()
+const { ui } = useLocale()
+const locale = computed(() => ui.value?.lyrics || {})
 
 const lyricScrollContainer = ref<HTMLElement | null>(null)
 
@@ -157,12 +161,15 @@ const isYrcMode = computed(() => {
   const format = lyricManager.lyricFormat.value
   return (
     settings.showYrc.value &&
-    (format === 'qrc' || format === 'word-by-word' || format === 'enhanced')
+    (format === 'qrc' || format === 'ttml' || format === 'word-by-word' || format === 'enhanced')
   )
 })
 
 // 获取当前使用的歌词数据
 const currentLyricData = computed(() => lyricManager.lyrics.value)
+
+// 基于整首歌词上下文推断的每行语言（用于 lang 属性，修正中日混合歌词字形）
+const lineLanguages = computed(() => detectLyricLanguages(currentLyricData.value || []))
 
 const isPlaying = computed(() => audioPlayer.getPlayingStatus().value)
 
@@ -193,6 +200,7 @@ const processedLyrics = computed<ProcessedLyricItem[]>(() => {
   // 遍历歌词
   for (let i = 0; i < lyrics.length; i++) {
     const item = lyrics[i]
+    if (!item) continue
     result.push({
       type: 'lyric',
       originalIndex: i,
@@ -232,6 +240,7 @@ const activeLineIndices = computed<number[]>(() => {
 
   for (let i = 0; i < lyrics.length; i++) {
     const item = lyrics[i]
+    if (!item) continue
     let start = 0
     let end = Infinity
     if (item.type === 'lyric') {
@@ -487,14 +496,6 @@ const getFontSize = (size: number, mode: string) => {
   return `${size}px`
 }
 
-const getLyricLanguage = (lyric: string): 'ja' | 'ko' | 'zh-CN' | 'en' => {
-  if (!lyric || typeof lyric !== 'string') return 'en'
-  if (/[\u3040-\u309F\u30A0-\u30FF]/.test(lyric)) return 'ja'
-  if (/[\uAC00-\uD7AF]/.test(lyric)) return 'ko'
-  if (/[\u4E00-\u9FFF]/.test(lyric)) return 'zh-CN'
-  return 'en'
-}
-
 // Watchers
 watch(firstActiveIndex, (val, oldVal) => {
   lyricsScroll(val)
@@ -634,7 +635,8 @@ onBeforeUnmount(() => {
           box-sizing: border-box;
           padding-block: 0.2em;
           margin-block: -0.2em;
-          opacity: var(--yrc-opacity, 0.3);
+          /* 非当前行逐字透明度提高，保证深色背景上可读 */
+          opacity: var(--yrc-opacity, 0.45);
         }
         &.end-with-space {
           margin-right: 12px;
@@ -667,7 +669,8 @@ onBeforeUnmount(() => {
       hyphens: auto;
     }
     &.is-lrc {
-      opacity: 0.3;
+      /* 非当前行歌词：原 0.3 对比度过低 */
+      opacity: 0.46;
     }
     &.is-yrc {
       .content {
@@ -680,10 +683,10 @@ onBeforeUnmount(() => {
       }
       .tran,
       .roma {
-        opacity: 0.3;
+        opacity: 0.42;
       }
       &.is-bg {
-        opacity: 0.4;
+        opacity: 0.46;
         transform: scale(0.7);
         padding: 0px 20px;
       }
@@ -702,7 +705,7 @@ onBeforeUnmount(() => {
       transform: scale(1);
       .tran,
       .roma {
-        opacity: 0.6;
+        opacity: 0.72;
       }
       &.is-bg {
         opacity: 0.85 !important;
@@ -824,6 +827,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   font-size: 22px;
-  color: #fff;
+  color: var(--lyrics-modal-text, #ffffff);
 }
 </style>

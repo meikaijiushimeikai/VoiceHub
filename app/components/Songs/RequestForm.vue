@@ -1,23 +1,17 @@
 <template>
   <div class="request-form">
     <div class="rules-section desktop-only-rules">
-      <h2 class="section-title">投稿须知</h2>
+      <h2 class="section-title">{{ locale.guidelinesTitle }}</h2>
       <div class="rules-content-desktop">
-        <div v-if="submissionGuidelines" class="guidelines-content">
-          {{ submissionGuidelines }}
-        </div>
+        <div
+          v-if="submissionGuidelines"
+          class="guidelines-content markdown-body"
+          v-html="renderedGuidelines"
+        />
         <div v-else class="default-guidelines">
-          <p>1. 投稿时无需加入书名号</p>
-          <p>2. 除DJ外，其他类型歌曲均接收（包括小语种）</p>
-          <p>3. 禁止投递含有违规内容的歌曲</p>
-          <p>4. 点播的歌曲将由管理员进行审核</p>
-          <p>5. 审核通过后将安排在播放时段播出</p>
-          <p>6. 提交即表明我已阅读投稿须知并已知该歌曲有概率无法播出</p>
-          <p>
-            7.
-            本系统仅提供音乐搜索和播放管理功能，不存储任何音乐文件。所有音乐内容均来自第三方音乐平台，版权归原平台及版权方所有。用户点歌时请确保遵守相关音乐平台的服务条款，尊重音乐作品版权。我们鼓励用户支持正版音乐，在官方平台购买和收听喜爱的音乐作品。
+          <p v-for="(rule, index) in locale.defaultGuidelines" :key="`desktop-rule-${index}`">
+            {{ index + 1 }}. {{ rule }}
           </p>
-          <p>8. 最终解释权归广播站所有</p>
         </div>
       </div>
     </div>
@@ -26,26 +20,22 @@
     <div class="rules-section mobile-only-rules">
       <h3 class="rules-title">
         <Icon :size="16" class="rules-icon" name="bell" />
-        投稿须知
+        {{ locale.guidelinesTitle }}
       </h3>
       <div class="rules-content">
-        <div v-if="submissionGuidelines" class="guidelines-content">
-          {{ submissionGuidelines }}
-        </div>
+        <div
+          v-if="submissionGuidelines"
+          class="guidelines-content markdown-body"
+          v-html="renderedGuidelines"
+        />
         <div v-else class="default-guidelines">
-          <div class="rule-item"><span>1.</span> 投稿时无需加入书名号</div>
-          <div class="rule-item"><span>2.</span> 除DJ外，其他类型歌曲均接收（包括小语种）</div>
-          <div class="rule-item"><span>3.</span> 禁止投递含有违规内容的歌曲</div>
-          <div class="rule-item"><span>4.</span> 点播的歌曲将由管理员进行审核</div>
-          <div class="rule-item"><span>5.</span> 审核通过后将安排在播放时段播出</div>
-          <div class="rule-item">
-            <span>6.</span> 提交即表明我已阅读投稿须知并已知该歌曲有概率无法播出
+          <div
+            v-for="(rule, index) in locale.mobileDefaultGuidelines"
+            :key="`mobile-rule-${index}`"
+            class="rule-item"
+          >
+            <span>{{ index + 1 }}.</span> {{ rule }}
           </div>
-          <div class="rule-item">
-            <span>7.</span>
-            本系统仅提供音乐搜索和播放管理功能，不存储任何音乐文件。所有音乐内容均来自第三方音乐平台，版权归原平台及版权方所有。
-          </div>
-          <div class="rule-item"><span>8.</span> 最终解释权归广播站所有</div>
         </div>
       </div>
     </div>
@@ -56,50 +46,50 @@
         <div class="form-header-row">
           <!-- 歌曲搜索区域 -->
           <div class="search-section">
-            <div class="search-label">歌曲搜索</div>
+            <div class="search-label">{{ locale.searchLabel }}</div>
             <div class="search-input-group">
               <input
                 id="title"
                 v-model="title"
                 class="search-input"
-                placeholder="请输入歌曲名称"
+                :placeholder="locale.searchPlaceholder"
                 required
                 type="text"
-              >
+              />
               <button
                 :disabled="loading || searching || !title.trim()"
                 class="search-button"
                 type="submit"
               >
-                {{ loading || searching ? '处理中...' : '搜索' }}
+                {{ loading || searching ? locale.processing : locale.search }}
               </button>
               <button
                 :disabled="loading || searching"
-                aria-label="听歌识曲"
+                :aria-label="locale.audioMatch"
                 class="audio-match-btn"
-                title="听歌识曲"
+                :title="locale.audioMatch"
                 type="button"
                 @click="openAudioMatchModal"
               >
                 <Icon :size="16" name="mic" />
-                <span class="btn-text">识曲</span>
+                <span class="btn-text">{{ locale.audioMatchShort }}</span>
               </button>
             </div>
             <button
               v-if="showImportSemesterBtn"
               class="import-semester-btn"
               type="button"
-              title="从往期导入"
+              :title="locale.importFromPast"
               @click="showImportSongsModal = true"
             >
               <Icon :size="16" name="history" />
-              <span class="btn-text">从往期导入</span>
+              <span class="btn-text">{{ locale.importFromPast }}</span>
             </button>
           </div>
 
           <!-- 联合投稿人区域 -->
           <div v-if="user && enableCollaborativeSubmission" class="collaborators-section">
-            <div class="section-label">联合投稿</div>
+            <div class="section-label">{{ locale.collaborators }}</div>
             <div class="collaborators-list">
               <div v-for="user in collaborators" :key="user.id" class="collaborator-tag">
                 <span class="collaborator-name">{{ user.name }}</span>
@@ -117,7 +107,7 @@
                 @click="showUserSearchModal = true"
               >
                 <Icon :size="14" name="plus" />
-                添加
+                {{ locale.add }}
               </button>
             </div>
           </div>
@@ -125,9 +115,16 @@
 
         <!-- 搜索结果容器 -->
         <div class="search-results-container">
+          <div v-if="!user" class="submission-status-horizontal login-required-notice">
+            <Lock class="notice-icon" :size="14" />
+            <span class="notice-text">{{ locale.loginRequiredNotice }}</span>
+            <button class="login-link-btn" type="button" @click="handleLoginRedirect">
+              {{ locale.loginNow }}
+            </button>
+          </div>
           <!-- 投稿状态显示 - 横向布局，只在设置了限额时显示 -->
           <div
-            v-if="user && submissionStatus && submissionStatus.limitEnabled"
+            v-if="user && submissionStatus && (submissionStatus.limitEnabled || submissionStatus.timeLimitationEnabled || submissionStatus.submissionClosed)"
             class="submission-status-horizontal"
           >
             <!-- 超级管理员提示 -->
@@ -136,7 +133,7 @@
               class="admin-notice-horizontal"
             >
               <span class="admin-icon">👑</span>
-              <span class="admin-text">您是管理员，不受投稿限制</span>
+              <span class="admin-text">{{ locale.adminUnlimited }}</span>
             </div>
 
             <!-- 投稿关闭提示 -->
@@ -145,8 +142,8 @@
               <span class="closed-text">
                 {{
                   submissionStatus.timeLimitationEnabled && !submissionStatus.currentTimePeriod
-                    ? '当前不在投稿开放时段'
-                    : '投稿功能已关闭'
+                    ? locale.outsideRequestTime
+                    : locale.submissionClosed
                 }}
               </span>
             </div>
@@ -158,35 +155,35 @@
                 v-if="submissionStatus.timeLimitationEnabled && submissionStatus.currentTimePeriod"
                 class="status-item-horizontal"
               >
-                <span class="status-label">当前时段：</span>
+                <span class="status-label">{{ locale.currentPeriod }}</span>
                 <span class="status-value">{{ submissionStatus.currentTimePeriod.name }}</span>
                 <span
                   v-if="submissionStatus.currentTimePeriod.expected > 0"
                   class="status-remaining"
                 >
-                  (已接纳 {{ submissionStatus.currentTimePeriod.accepted }} /
+                  ({{ locale.accepted }} {{ submissionStatus.currentTimePeriod.accepted }} /
                   {{ submissionStatus.currentTimePeriod.expected }})
                 </span>
               </div>
 
               <div v-if="submissionStatus.dailyLimit" class="status-item-horizontal">
-                <span class="status-label">今日投稿：</span>
+                <span class="status-label">{{ locale.todayRequests }}</span>
                 <span class="status-value"
                   >{{ submissionStatus.dailyUsed }} / {{ submissionStatus.dailyLimit }}</span
                 >
                 <span class="status-remaining"
-                  >剩余
+                  >{{ locale.remaining }}
                   {{ Math.max(0, submissionStatus.dailyLimit - submissionStatus.dailyUsed) }}</span
                 >
               </div>
 
               <div v-if="submissionStatus.weeklyLimit" class="status-item-horizontal">
-                <span class="status-label">本周投稿：</span>
+                <span class="status-label">{{ locale.weeklyRequests }}</span>
                 <span class="status-value"
                   >{{ submissionStatus.weeklyUsed }} / {{ submissionStatus.weeklyLimit }}</span
                 >
                 <span class="status-remaining"
-                  >剩余
+                  >{{ locale.remaining }}
                   {{
                     Math.max(0, submissionStatus.weeklyLimit - submissionStatus.weeklyUsed)
                   }}</span
@@ -194,43 +191,35 @@
               </div>
 
               <div v-if="submissionStatus.monthlyLimit" class="status-item-horizontal">
-                <span class="status-label">本月投稿：</span>
+                <span class="status-label">{{ locale.monthlyRequests }}</span>
                 <span class="status-value"
                   >{{ submissionStatus.monthlyUsed }} / {{ submissionStatus.monthlyLimit }}</span
                 >
                 <span class="status-remaining"
-                  >剩余
+                  >{{ locale.remaining }}
                   {{
                     Math.max(0, submissionStatus.monthlyLimit - submissionStatus.monthlyUsed)
                   }}</span
                 >
               </div>
+              <div v-if="cardCodeLimitBypassActive" class="status-item-horizontal">
+                <span class="status-label">{{ locale.cardCodeLabel }}</span>
+                <span class="status-value">{{ locale.cardCodeBypassesLimit }}</span>
+              </div>
             </div>
           </div>
 
           <!-- 音乐平台选择按钮 -->
-          <div class="platform-selection-container">
+          <div v-if="platformConfigLoaded" class="platform-selection-container">
             <div class="platform-selection">
               <button
-                :class="['platform-btn', { active: platform === 'netease' }]"
+                v-for="pKey in availablePlatforms"
+                :key="pKey"
+                :class="['platform-btn', { active: platform === pKey }]"
                 type="button"
-                @click="switchPlatform('netease')"
+                @click="switchPlatform(pKey)"
               >
-                网易云音乐
-              </button>
-              <button
-                :class="['platform-btn', { active: platform === 'tencent' }]"
-                type="button"
-                @click="switchPlatform('tencent')"
-              >
-                QQ音乐
-              </button>
-              <button
-                :class="['platform-btn', { active: platform === 'bilibili' }]"
-                type="button"
-                @click="switchPlatform('bilibili')"
-              >
-                哔哩哔哩
+                {{ locale.platforms[pKey] || pKey }}
               </button>
             </div>
 
@@ -240,22 +229,22 @@
               <div v-if="checkingNeteaseLogin" class="netease-loading-state">
                 <div class="loading-content">
                   <div class="loading-spinner" />
-                  <span class="loading-text">刷新中</span>
+                  <span class="loading-text">{{ locale.refreshing }}</span>
                 </div>
               </div>
 
               <!-- 未登录状态 -->
               <div v-else-if="!isNeteaseLoggedIn" class="login-entry">
                 <div class="login-desc">
-                  <p class="login-title">登录网易云获取完整体验</p>
+                  <p class="login-title">{{ locale.neteaseLoginTitle }}</p>
                 </div>
                 <div class="login-actions">
                   <button class="login-btn" type="button" @click="showLoginModal = true">
-                    立即登录
+                    {{ locale.loginNow }}
                   </button>
                   <button class="import-btn" type="button" @click="handleImportClick">
                     <Icon :size="14" name="upload" />
-                    导入数据
+                    {{ locale.importData }}
                   </button>
                 </div>
               </div>
@@ -270,50 +259,50 @@
                       alt="avatar"
                       class="user-avatar"
                     >
-                    <span class="user-name">{{ neteaseUser?.nickname || '已登录' }}</span>
+                    <span class="user-name">{{ neteaseUser?.nickname || locale.loggedIn }}</span>
                   </div>
 
                   <div class="search-type-switch">
                     <label :class="['radio-label', { active: searchType === 1 }]">
-                      <input v-model="searchType" :value="1" type="radio" > 单曲
+                      <input v-model="searchType" :value="1" type="radio" > {{ locale.single }}
                     </label>
                     <label :class="['radio-label', { active: searchType === 1009 }]">
-                      <input v-model="searchType" :value="1009" type="radio" > 播客
+                      <input v-model="searchType" :value="1009" type="radio" > {{ locale.podcast }}
                     </label>
                   </div>
 
                   <div class="user-actions-row">
                     <button
                       class="action-btn-compact"
-                      title="最近播放"
+                      :title="locale.recent"
                       type="button"
                       @click="showRecentSongsModal = true"
                     >
                       <Icon :size="14" name="history" />
-                      <span>最近</span>
+                      <span>{{ locale.recent }}</span>
                     </button>
                     <button
                       class="action-btn-compact"
-                      title="从歌单投稿"
+                      :title="locale.playlist"
                       type="button"
                       @click="showPlaylistModal = true"
                     >
                       <Icon :size="14" name="playlist" />
-                      <span>歌单</span>
+                      <span>{{ locale.playlist }}</span>
                     </button>
                     <button
                       class="action-btn-compact"
-                      aria-label="导出Cookie数据"
-                      title="导出Cookie数据"
+                      :aria-label="locale.exportCookie"
+                      :title="locale.exportCookie"
                       type="button"
                       @click="handleExportData"
                     >
                       <Icon :size="14" name="download" />
                     </button>
                     <button
-                      class="action-btn-compact text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                      aria-label="退出登录"
-                      title="退出登录"
+                      class="action-btn-compact text-error hover:text-error hover:bg-error-10"
+                      :aria-label="locale.logout"
+                      :title="locale.logout"
                       type="button"
                       @click="handleLogoutNetease"
                     >
@@ -328,7 +317,7 @@
             <div v-if="platform === 'tencent'" class="netease-options">
               <div v-if="!isQQMusicLoggedIn" class="login-entry">
                 <div class="login-desc">
-                  <p class="login-title">登录 QQ 音乐提升播放稳定性</p>
+                  <p class="login-title">{{ locale.qqLoginTitle }}</p>
                 </div>
                 <div class="login-actions">
                   <button
@@ -336,7 +325,7 @@
                     type="button"
                     @click="showQQLoginModal = true"
                   >
-                    立即登录
+                    {{ locale.loginNow }}
                   </button>
                 </div>
               </div>
@@ -349,18 +338,18 @@
                       :src="convertToHttps(qqMusicUser.avatarUrl)"
                       alt="avatar"
                       class="user-avatar"
-                    >
+                    />
                     <div v-else class="qq-user-avatar">
                       <Icon :size="14" name="music" />
                     </div>
-                    <span class="user-name">{{ qqMusicUser?.nickname || 'QQ音乐已登录' }}</span>
+                    <span class="user-name">{{ qqMusicUser?.nickname || locale.qqLoggedIn }}</span>
                   </div>
 
                   <div class="user-actions-row">
                     <button
-                      class="action-btn-compact text-red-400 hover:bg-red-400/10 hover:text-red-300"
-                      aria-label="退出 QQ 音乐登录"
-                      title="退出 QQ 音乐登录"
+                      class="action-btn-compact text-error hover:bg-error-10 hover:text-error"
+                      :aria-label="locale.logoutQQ"
+                      :title="locale.logoutQQ"
                       type="button"
                       @click="handleLogoutQQMusic"
                     >
@@ -381,10 +370,10 @@
                   <CustomSelect
                     v-model="preferredPlayTimeId"
                     :options="formattedPlayTimes"
-                    label="期望播出时段"
+                    :label="locale.preferredPlayTime"
                     label-key="displayName"
                     value-key="id"
-                    placeholder="选择时段"
+                    :placeholder="locale.choosePlayTime"
                   />
                 </div>
               </div>
@@ -397,8 +386,8 @@
               <div v-if="enableSubmissionRemarks" class="form-group submission-note-group">
                 <div class="input-wrapper">
                   <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <label for="submission-note" class="text-[12px] font-bold text-zinc-300"
-                      >投稿备注留言</label
+                    <label for="submission-note" class="text-[12px] font-bold text-text-secondary"
+                      >{{ locale.submissionNote }}</label
                     >
                     <div class="flex items-center gap-2">
                       <button
@@ -420,7 +409,15 @@
                       >
                         <Icon
                           :size="12"
-                          :name="cardCodeValidation.checking ? 'loader' : trimmedCardCode ? (cardCodeValidation.valid === false ? 'close' : 'check') : 'plus'"
+                          :name="
+                            cardCodeValidation.checking
+                              ? 'loader'
+                              : trimmedCardCode
+                                ? cardCodeValidation.valid === false
+                                  ? 'close'
+                                  : 'check'
+                                : 'plus'
+                          "
                         />
                         <span>{{ mobileCardCodeLabel }}</span>
                       </button>
@@ -429,7 +426,7 @@
                           v-model="submissionNotePublic"
                           type="checkbox"
                           class="custom-checkbox-input"
-                        >
+                        />
                         <span class="custom-checkbox-box">
                           <svg
                             class="custom-checkbox-icon"
@@ -446,7 +443,7 @@
                             />
                           </svg>
                         </span>
-                        <span class="custom-checkbox-text">公开给已登录用户</span>
+                        <span class="custom-checkbox-text">{{ locale.publicToUsers }}</span>
                       </label>
                     </div>
                   </div>
@@ -454,9 +451,9 @@
                     id="submission-note"
                     v-model="submissionNote"
                     maxlength="300"
-                    class="w-full min-h-[60px] rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-2 text-sm text-zinc-100 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/50 resize-y transition-all"
+                    class="w-full min-h-[60px] rounded-xl border border-border-secondary bg-bg-secondary-60 px-4 py-2 text-sm text-text-primary focus:outline-none focus:border-primary-50 focus:ring-1 focus:ring-primary-10 resize-y transition-all"
                   />
-                  <div class="mt-1 flex justify-end text-[11px] text-zinc-500">
+                  <div class="mt-1 flex justify-end text-[11px] text-text-tertiary">
                     <span>{{ submissionNote.length }}/300</span>
                   </div>
                 </div>
@@ -473,28 +470,28 @@
                   <div class="flex min-w-0 items-center gap-2">
                     <div class="min-w-0">
                       <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-xs font-black text-zinc-200">点歌券</span>
+                        <span class="text-xs font-black text-text-primary">{{ locale.cardCode }}</span>
                         <span
                           :class="[
                             'rounded-full border px-1.5 py-0.5 text-[9px] font-black',
                             cardCodeFieldMeta.required
-                              ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300'
-                              : 'border-zinc-700 bg-zinc-800/70 text-zinc-400'
+                              ? 'border-warning-30 bg-warning-10 text-warning-300'
+                              : 'border-border-tertiary bg-bg-tertiary-70 text-text-tertiary'
                           ]"
                         >
-                          {{ cardCodeFieldMeta.required ? '必填' : '可选' }}
+                          {{ cardCodeFieldMeta.required ? locale.required : locale.optional }}
                         </span>
                       </div>
                       <p
                         :class="[
                           'mt-1 truncate text-[11px]',
                           cardCodeValidation.valid
-                            ? 'text-emerald-300/80'
+                            ? 'text-success-300'
                             : cardCodeValidation.valid === false
-                              ? 'text-red-300/80'
+                              ? 'text-error-80'
                               : cardCodeFieldMeta.required
-                                ? 'text-yellow-300/80'
-                                : 'text-zinc-500'
+                                ? 'text-warning-300'
+                                : 'text-text-tertiary'
                         ]"
                       >
                         {{ cardCodeStatusText }}
@@ -503,17 +500,17 @@
                   </div>
                   <div class="flex shrink-0 items-center gap-2">
                     <button
-                      class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-yellow-500/25 bg-yellow-500/10 px-3 text-xs font-black text-yellow-200 transition-all hover:border-yellow-400/40 hover:bg-yellow-500/15"
+                      class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-warning-25 bg-warning-10 px-3 text-xs font-black text-warning-200 transition-all hover:border-warning-40 hover:bg-warning-15"
                       type="button"
                       @click="openCardCodeModal"
                     >
                       <Icon :size="13" :name="trimmedCardCode ? 'edit' : 'plus'" />
-                      {{ trimmedCardCode ? '修改' : '添加' }}
+                      {{ trimmedCardCode ? locale.editCardCode : locale.addCardCode }}
                     </button>
                     <button
                       v-if="trimmedCardCode"
-                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/80 text-zinc-500 transition-all hover:border-red-500/30 hover:text-red-300"
-                      title="清除点歌券"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border-secondary bg-bg-secondary-80 text-text-tertiary transition-all hover:border-error-30 hover:text-error"
+                      :title="locale.clearCardCode"
                       type="button"
                       @click="clearCardCode"
                     >
@@ -542,7 +539,15 @@
                   <span class="flex min-w-0 items-center gap-2">
                     <Icon
                       :size="14"
-                      :name="cardCodeValidation.checking ? 'loader' : trimmedCardCode ? (cardCodeValidation.valid === false ? 'close' : 'check') : 'plus'"
+                      :name="
+                        cardCodeValidation.checking
+                          ? 'loader'
+                          : trimmedCardCode
+                            ? cardCodeValidation.valid === false
+                              ? 'close'
+                              : 'check'
+                            : 'plus'
+                      "
                     />
                     <span class="truncate">{{ cardCodeStatusText }}</span>
                   </span>
@@ -553,8 +558,8 @@
 
             <!-- 加载状态 -->
             <div v-if="searching" class="loading-state">
-              <div class="loading-spinner" />
-              <p class="loading-text">处理中...</p>
+              <AppSpinner :size="40" />
+              <p class="loading-text">{{ locale.processing }}</p>
             </div>
 
             <!-- 搜索结果列表 -->
@@ -572,10 +577,10 @@
                     >
                       <img
                         :src="convertToHttps(result.cover)"
-                        alt="封面"
+                        :alt="locale.coverAlt"
                         class="cover-img"
                         referrerpolicy="no-referrer"
-                      >
+                      />
                       <div v-if="!isBilibiliMultiP(result)" class="play-overlay-container">
                         <div class="play-button-wrapper">
                           <Icon name="play" :size="20" class="play-icon" />
@@ -588,10 +593,10 @@
                       <p
                         v-if="result.album"
                         :class="['result-album', { 'clickable-album': isNeteaseAlbum(result) }]"
-                        :title="isNeteaseAlbum(result) ? '点击查看专辑详情' : result.album"
+                        :title="isNeteaseAlbum(result) ? locale.albumDetailsTitle : result.album"
                         @click.stop="isNeteaseAlbum(result) ? openAlbumDetails(result) : null"
                       >
-                        <span class="album-label">专辑：</span>
+                        <span class="album-label">{{ locale.album }}</span>
                         <span class="album-name">{{ result.album }}</span>
                         <Icon
                           v-if="isNeteaseAlbum(result)"
@@ -606,7 +611,7 @@
                       <button
                         v-if="isTencentSource(result)"
                         class="cloud-disk-btn"
-                        title="上传到网易云音乐云盘"
+                        :title="locale.uploadToNeteaseCloud"
                         @click.stop.prevent="openUploadDialog(result)"
                       >
                         <Icon name="cloud-upload" :size="18" />
@@ -619,7 +624,15 @@
                         "
                         class="similar-song-info"
                       >
-                        <span class="similar-text">所有剧集已存在</span>
+                        <span class="similar-text">{{ locale.allEpisodesSubmitted }}</span>
+                        <button
+                          v-if="canResubmitBilibiliEpisodes(result)"
+                          :disabled="submitting"
+                          class="select-btn"
+                          @click.stop.prevent="submitSong(result, { replayRequest: true })"
+                        >
+                          {{ locale.chooseEpisodes }}
+                        </button>
                       </div>
                       <div
                         v-else-if="
@@ -628,13 +641,13 @@
                         "
                         class="similar-song-info"
                       >
-                        <span class="similar-text">部分剧集已存在</span>
+                        <span class="similar-text">{{ locale.partialEpisodesSubmitted }}</span>
                         <button
                           :disabled="submitting"
                           class="select-btn"
                           @click.stop.prevent="submitSong(result)"
                         >
-                          选择剧集
+                          {{ locale.chooseEpisodes }}
                         </button>
                       </div>
                       <!-- 检查是否已存在相似歌曲 -->
@@ -644,40 +657,23 @@
                           v-if="getSimilarSong(result)?.played"
                           class="similar-text status-played"
                         >
-                          {{
-                            isSuperAdmin
-                              ? '歌曲已播放'
-                              : enableReplayRequests
-                                ? '歌曲已播放'
-                                : '歌曲已播放'
-                          }}
+                          {{ locale.songPlayed }}
                         </span>
                         <span
                           v-else-if="getSimilarSong(result)?.scheduled"
                           class="similar-text status-scheduled"
-                          >歌曲已排期</span
+                          >{{ locale.songScheduled }}</span
                         >
-                        <span v-else class="similar-text">歌曲已存在</span>
+                        <span v-else class="similar-text">{{ locale.songExists }}</span>
 
-                        <!-- 超级管理员对已播放的相似歌曲：显示继续投稿 -->
+                        <!-- 已播放且允许重播申请：管理员显示选择投稿，普通用户显示申请重播 -->
                         <button
-                          v-if="getSimilarSong(result)?.played && isSuperAdmin"
+                          v-if="getSimilarSong(result)?.played && enableReplayRequests"
                           :disabled="submitting"
                           class="select-btn"
-                          @click.stop.prevent="submitSong(result, { forceResubmit: true })"
+                          @click.stop.prevent="submitSong(result, { replayRequest: true })"
                         >
-                          继续投稿
-                        </button>
-
-                        <!-- 开启重播申请且非管理员对已播放的相似歌曲：显示申请重播 -->
-                        <button
-                          v-else-if="getSimilarSong(result)?.played && enableReplayRequests"
-                          :disabled="isReplayButtonDisabled(getSimilarSong(result))"
-                          :title="getReplayButtonTitle(getSimilarSong(result))"
-                          class="replay-btn"
-                          @click.stop.prevent="handleRequestReplay(getSimilarSong(result))"
-                        >
-                          {{ getReplayButtonText(getSimilarSong(result)) }}
+                          {{ auth.isAdmin.value ? locale.chooseSubmit : locale.requestReplay }}
                         </button>
 
                         <!-- 其他用户：显示点赞按钮，根据状态设置不同样式 -->
@@ -698,12 +694,12 @@
                           "
                           :title="
                             getSimilarSong(result)?.played
-                              ? '已播放的歌曲不能点赞'
+                              ? locale.playedCannotLike
                               : getSimilarSong(result)?.scheduled
-                                ? '已排期的歌曲不能点赞'
+                                ? locale.scheduledCannotLike
                                 : getSimilarSong(result)?.voted
-                                  ? '已点赞'
-                                  : '点赞'
+                                  ? locale.liked
+                                  : locale.like
                           "
                           class="like-btn"
                           @click.stop.prevent="
@@ -724,15 +720,22 @@
                           </svg>
                           {{
                             getSimilarSong(result)?.played
-                              ? '已播放'
+                              ? locale.played
                               : getSimilarSong(result)?.scheduled
-                                ? '已排期'
+                                ? locale.scheduled
                                 : getSimilarSong(result)?.voted
-                                  ? '已点赞'
-                                  : '点赞'
+                                  ? locale.liked
+                                  : locale.like
                           }}
                         </button>
                       </div>
+                      <button
+                        v-else-if="!user"
+                        class="select-btn login-btn"
+                        @click.stop.prevent="handleLoginRedirect"
+                      >
+                        {{ locale.loginRequiredToSubmit }}
+                      </button>
                       <button
                         v-else
                         :disabled="submitting"
@@ -741,12 +744,12 @@
                       >
                         {{
                           submitting
-                            ? '处理中...'
+                            ? locale.processing
                             : platform === 'netease' && searchType === 1009
-                              ? '选择节目'
+                              ? locale.chooseProgram
                               : isBilibiliMultiP(result)
-                                ? '选择剧集'
-                                : '选择投稿'
+                                ? locale.chooseEpisodes
+                                : locale.chooseSubmit
                         }}
                       </button>
                     </div>
@@ -755,8 +758,11 @@
 
                 <!-- 手动输入按钮 -->
                 <div class="no-results-action">
-                  <button class="manual-submit-btn" type="button" @click="showManualModal = true">
-                    以上没有我想要的歌曲，手动输入提交
+                  <button v-if="!user" class="manual-submit-btn" type="button" @click="handleLoginRedirect">
+                    {{ locale.loginRequiredToSubmit }}
+                  </button>
+                  <button v-else class="manual-submit-btn" type="button" @click="showManualModal = true">
+                    {{ locale.manualSubmitLong }}
                   </button>
                 </div>
               </div>
@@ -764,17 +770,20 @@
               <!-- 空状态 -->
               <div v-else-if="!searching && hasSearched" key="empty" class="empty-state">
                 <div class="empty-icon">🔍</div>
-                <p class="empty-text">未找到相关歌曲</p>
-                <p class="empty-hint">试试其他关键词或切换平台</p>
-                <button class="manual-submit-btn" type="button" @click="showManualModal = true">
-                  手动输入提交
+                <p class="empty-text">{{ locale.noResults }}</p>
+                <p class="empty-hint">{{ locale.noResultsHint }}</p>
+                <button v-if="!user" class="manual-submit-btn" type="button" @click="handleLoginRedirect">
+                  {{ locale.loginRequiredToSubmit }}
+                </button>
+                <button v-else class="manual-submit-btn" type="button" @click="showManualModal = true">
+                  {{ locale.manualSubmit }}
                 </button>
               </div>
 
               <!-- 初始状态 -->
               <div v-else-if="!searching" key="initial" class="initial-state">
                 <div class="search-illustration">
-                  <img alt="搜索歌曲" class="search-svg" :src="searchIcon" >
+                  <img :alt="locale.searchSongsAlt" class="search-svg" :src="getSearchIcon()" >
                 </div>
               </div>
             </Transition>
@@ -824,6 +833,7 @@
       :episodes="bilibiliEpisodes"
       :submitted-episodes="getBilibiliEpisodeStatus(selectedBilibiliVideo)?.submittedEpisodes || []"
       :current-user-id="user?.id"
+      :allow-played-resubmit="enableReplayRequests"
       @close="showBilibiliEpisodesModal = false"
       @play="handleBilibiliEpisodePlay"
       @submit="handleBilibiliEpisodeSelect"
@@ -880,7 +890,7 @@
       v-model:show="showUserSearchModal"
       :exclude-ids="[user?.id, ...collaborators.map((u) => u.id)]"
       :multiple="true"
-      title="添加联合投稿人"
+      :title="locale.addCollaboratorTitle"
       @select="handleUserSelect"
     />
 
@@ -896,32 +906,32 @@
       >
         <div
           v-if="showCardCodeModal"
-          class="fixed inset-0 z-[105] flex items-end justify-center bg-zinc-950/80 p-3 backdrop-blur-sm sm:items-center sm:p-6"
+          class="fixed inset-0 z-[105] flex items-end justify-center bg-bg-primary-80 p-3 backdrop-blur-sm sm:items-center sm:p-6"
           @click.self="closeCardCodeModal"
         >
           <div
-            class="w-full max-w-md overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 shadow-2xl"
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-border-secondary bg-bg-secondary shadow-2xl"
             @click.stop
           >
-            <div class="flex items-center justify-between border-b border-zinc-800/70 px-5 py-4">
+            <div class="flex items-center justify-between border-b border-border-secondary-70 px-5 py-4">
               <div>
                 <div class="flex items-center gap-2">
-                  <h3 class="text-base font-black text-zinc-100">点歌券</h3>
+                  <h3 class="text-base font-black text-text-primary">{{ locale.cardCode }}</h3>
                   <span
                     :class="[
                       'rounded-full border px-1.5 py-0.5 text-[9px] font-black',
                       cardCodeFieldMeta.required
-                        ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-300'
-                        : 'border-zinc-700 bg-zinc-800/70 text-zinc-400'
+                        ? 'border-warning-30 bg-warning-10 text-warning-300'
+                        : 'border-border-tertiary bg-bg-tertiary-70 text-text-tertiary'
                     ]"
                   >
-                    {{ cardCodeFieldMeta.required ? '必填' : '可选' }}
+                    {{ cardCodeFieldMeta.required ? locale.required : locale.optional }}
                   </span>
                 </div>
-                <p class="mt-1 text-[11px] text-zinc-500">{{ cardCodeFieldMeta.helper }}</p>
+                <p class="mt-1 text-[11px] text-text-tertiary">{{ cardCodeFieldMeta.helper }}</p>
               </div>
               <button
-                class="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-800/60 text-zinc-400 transition-all hover:bg-zinc-800 hover:text-zinc-100"
+                class="flex h-9 w-9 items-center justify-center rounded-xl bg-bg-tertiary-60 text-text-tertiary transition-all hover:bg-bg-tertiary hover:text-text-primary"
                 type="button"
                 @click="closeCardCodeModal"
               >
@@ -932,27 +942,27 @@
             <div class="px-5 py-5">
               <label
                 for="card-code-modal"
-                class="px-1 text-[10px] font-black uppercase tracking-widest text-zinc-600"
+                class="px-1 text-[10px] font-black uppercase tracking-widest text-text-disabled"
               >
-                券码
+                {{ locale.cardCodeLabel }}
               </label>
               <input
                 id="card-code-modal"
                 ref="cardCodeInputRef"
                 v-model="cardCodeDraft"
                 :placeholder="cardCodeFieldMeta.placeholder"
-                class="mt-2 w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm font-bold text-zinc-100 placeholder-zinc-600 transition-all focus:border-yellow-400/50 focus:outline-none focus:ring-1 focus:ring-yellow-400/20"
+                class="mt-2 w-full rounded-xl border border-border-secondary bg-bg-primary px-4 py-3 text-sm font-bold text-text-primary placeholder-text-disabled transition-all focus:border-warning-50 focus:outline-none focus:ring-1 focus:ring-warning-10"
                 type="text"
                 @keydown.enter.prevent="saveCardCode"
-              >
+              />
               <p
                 :class="[
                   'mt-2 px-1 text-[11px]',
                   cardCodeValidation.valid
-                    ? 'text-emerald-300/80'
+                    ? 'text-success-300'
                     : cardCodeValidation.valid === false
-                      ? 'text-red-300/80'
-                      : 'text-zinc-500'
+                      ? 'text-error-80'
+                      : 'text-text-tertiary'
                 ]"
               >
                 {{ cardCodeModalHint }}
@@ -960,30 +970,30 @@
             </div>
 
             <div
-              class="flex flex-col-reverse gap-2 border-t border-zinc-800/70 bg-zinc-900/70 px-5 py-4 sm:flex-row sm:justify-end"
+              class="flex flex-col-reverse gap-2 border-t border-border-secondary-70 bg-bg-secondary-70 px-5 py-4 sm:flex-row sm:justify-end"
             >
               <button
-                class="rounded-lg px-4 py-2.5 text-xs font-bold text-zinc-500 transition-all hover:text-zinc-300"
+                class="rounded-lg px-4 py-2.5 text-xs font-bold text-text-tertiary transition-all hover:text-text-secondary"
                 type="button"
                 @click="closeCardCodeModal"
               >
-                取消
+                {{ locale.cancel }}
               </button>
               <button
                 v-if="trimmedCardCode"
-                class="rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs font-bold text-zinc-400 transition-all hover:border-red-500/30 hover:text-red-300"
+                class="rounded-lg border border-border-secondary bg-bg-primary px-4 py-2.5 text-xs font-bold text-text-tertiary transition-all hover:border-error-30 hover:text-error"
                 type="button"
                 @click="clearCardCode"
               >
-                清除
+                {{ locale.clear }}
               </button>
               <button
                 :disabled="cardCodeValidation.checking"
-                class="rounded-lg bg-yellow-500 px-5 py-2.5 text-xs font-black text-zinc-950 transition-all hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-60"
+                class="rounded-lg bg-warning px-5 py-2.5 text-xs font-black text-text-primary transition-all hover:bg-warning disabled:cursor-not-allowed disabled:opacity-60"
                 type="button"
                 @click="saveCardCode"
               >
-                {{ cardCodeValidation.checking ? '验证中...' : '保存' }}
+                {{ cardCodeValidation.checking ? locale.validatingCardCode : locale.save }}
               </button>
             </div>
           </div>
@@ -1002,10 +1012,10 @@
       >
         <div
           v-if="showAudioMatchModal"
-          class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/85 backdrop-blur-sm"
+          class="fixed inset-0 z-[110] flex items-center justify-center p-4 sm:p-6 bg-bg-primary-85 backdrop-blur-sm"
         >
           <div
-            class="relative w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
+            class="relative w-full max-w-md bg-bg-secondary border border-border-secondary rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden"
             @click.stop
           >
             <div class="px-8 py-7 flex flex-col items-center text-center">
@@ -1014,26 +1024,26 @@
                   class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500"
                   :class="
                     audioMatchRecording
-                      ? 'bg-red-500/20 text-red-400 scale-110'
+                      ? 'bg-error-20 text-error scale-110'
                       : audioMatchError
-                        ? 'bg-zinc-800/50 text-zinc-500'
-                        : 'bg-blue-500/10 text-blue-400'
+                        ? 'bg-bg-tertiary-50 text-text-tertiary'
+                        : 'bg-primary-10 text-primary'
                   "
                 >
                   <Icon :size="32" name="mic" />
                 </div>
                 <div
                   v-if="audioMatchRecording"
-                  class="absolute inset-0 rounded-full border-2 border-red-400 animate-ping opacity-30"
+                  class="absolute inset-0 rounded-full border-2 border-error animate-ping opacity-30"
                 />
               </div>
 
-              <h3 class="mt-6 text-xl font-bold text-zinc-100 tracking-tight">听歌识曲</h3>
+              <h3 class="mt-6 text-xl font-bold text-text-primary tracking-tight">{{ locale.audioMatch }}</h3>
 
-              <p class="mt-2 text-sm text-zinc-400 max-w-[260px]">
+              <p class="mt-2 text-sm text-text-tertiary max-w-[260px]">
                 {{
                   audioMatchStatus ||
-                  (audioMatchError ? audioMatchError : '靠近音源播放，录制 3 秒识别歌曲')
+                  (audioMatchError ? audioMatchError : locale.audioMatchHint)
                 }}
               </p>
 
@@ -1047,10 +1057,10 @@
                 >
                   {{
                     audioMatchPreparing
-                      ? '准备中...'
+                      ? locale.preparing
                       : audioMatchProcessing
-                        ? '识别中...'
-                        : '开始识曲'
+                        ? locale.recognizing
+                        : locale.startAudioMatch
                   }}
                 </button>
                 <button
@@ -1061,10 +1071,10 @@
                   @click="stopAudioMatchRecording"
                 >
                   <span class="recording-dot" />
-                  录制中...
+                  {{ locale.recording }}
                 </button>
                 <button class="audio-match-cancel-btn" type="button" @click="closeAudioMatchModal">
-                  取消
+                  {{ locale.cancel }}
                 </button>
               </div>
             </div>
@@ -1073,8 +1083,8 @@
               v-if="audioMatchResults.length"
               class="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar"
             >
-              <div class="border-t border-zinc-800/60 pt-5">
-                <h4 class="text-sm font-semibold text-zinc-300 mb-4">识别结果</h4>
+              <div class="border-t border-border-secondary-60 pt-5">
+                <h4 class="text-sm font-semibold text-text-secondary mb-4">{{ locale.audioMatchResults }}</h4>
                 <div class="space-y-2">
                   <button
                     v-for="match in audioMatchResults"
@@ -1085,27 +1095,27 @@
                   >
                     <div class="flex items-center gap-3 min-w-0 flex-1">
                       <div
-                        class="relative shrink-0 w-11 h-11 rounded-xl overflow-hidden group/cover bg-zinc-800/50 flex items-center justify-center"
+                        class="relative shrink-0 w-11 h-11 rounded-xl overflow-hidden group/cover bg-bg-tertiary-50 flex items-center justify-center"
                         @click.stop="playAudioMatchResult(match)"
                       >
                         <img
                           v-if="match.cover"
                           :src="match.cover"
                           class="w-full h-full object-cover"
-                        >
-                        <Music v-else class="w-5 h-5 text-zinc-500" />
+                        />
+                        <Music v-else class="w-5 h-5 text-text-tertiary" />
                         <div
-                          class="absolute inset-0 bg-black/50 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center transition-all"
+                          class="absolute inset-0 bg-bg-primary-50 opacity-0 group-hover/cover:opacity-100 flex items-center justify-center transition-all"
                         >
-                          <Play class="w-4 h-4 text-white fill-white" />
+                          <Play class="w-4 h-4 text-text-primary fill-white" />
                         </div>
                       </div>
                       <div class="min-w-0 text-left flex-1">
-                        <p class="truncate text-sm font-medium text-zinc-100">{{ match.name }}</p>
-                        <p class="truncate text-xs text-zinc-400 mt-0.5">{{ match.artist }}</p>
+                        <p class="truncate text-sm font-medium text-text-primary">{{ match.name }}</p>
+                        <p class="truncate text-xs text-text-tertiary mt-0.5">{{ match.artist }}</p>
                       </div>
                       <div class="shrink-0 text-right">
-                        <span class="text-[11px] font-mono text-blue-400">
+                        <span class="text-[11px] font-mono text-primary">
                           {{ (match.startTime / 1000).toFixed(1) }}s
                         </span>
                       </div>
@@ -1131,27 +1141,27 @@
       >
         <div
           v-if="showManualModal"
-          class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-zinc-950/80 backdrop-blur-sm"
+          class="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-bg-primary-80 backdrop-blur-sm"
           @click.self="showManualModal = false"
         >
           <div
-            class="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+            class="relative w-full max-w-2xl bg-bg-secondary border border-border-secondary rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
             @click.stop
           >
             <!-- Header -->
             <div
-              class="px-8 py-6 border-b border-zinc-800/50 flex items-center justify-between shrink-0"
+              class="px-8 py-6 border-b border-border-secondary-50 flex items-center justify-between shrink-0"
             >
               <div class="flex items-center gap-4">
                 <div
-                  class="w-12 h-12 rounded-2xl bg-blue-600/10 flex items-center justify-center text-blue-500"
+                  class="w-12 h-12 rounded-2xl bg-primary-hover-10 flex items-center justify-center text-primary"
                 >
                   <Edit3 :size="24" />
                 </div>
-                <h3 class="text-xl font-black text-zinc-100 tracking-tight">手动输入歌曲信息</h3>
+                <h3 class="text-xl font-black text-text-primary tracking-tight">{{ locale.manualTitle }}</h3>
               </div>
               <button
-                class="w-10 h-10 flex items-center justify-center rounded-xl bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100 transition-all"
+                class="w-10 h-10 flex items-center justify-center rounded-xl bg-bg-tertiary-50 text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary transition-all"
                 @click="showManualModal = false"
               >
                 <X class="w-5 h-5" />
@@ -1163,18 +1173,18 @@
               <div class="grid grid-cols-1 gap-6">
                 <!-- 歌曲名称 -->
                 <div class="space-y-2">
-                  <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
-                    >歌曲名称</label
+                  <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
+                    >{{ locale.songName }}</label
                   >
                   <div class="relative group">
                     <input
                       :value="title"
-                      class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-400 font-bold focus:outline-none cursor-not-allowed transition-all"
+                      class="w-full bg-bg-primary border border-border-secondary rounded-xl px-4 py-3 text-sm text-text-tertiary font-bold focus:outline-none cursor-not-allowed transition-all"
                       readonly
                       type="text"
-                    >
+                    />
                     <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-                      <Lock class="w-4 h-4 text-zinc-600" />
+                      <Lock class="w-4 h-4 text-text-disabled" />
                     </div>
                   </div>
                 </div>
@@ -1183,44 +1193,44 @@
                 <div class="space-y-2">
                   <label
                     for="modal-artist"
-                    class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
-                    >歌手名称</label
+                    class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
+                    >{{ locale.artistName }}</label
                   >
                   <input
                     id="modal-artist"
                     v-model="manualArtist"
-                    class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-blue-500/30 transition-all"
-                    placeholder="请输入歌手名称"
+                    class="w-full bg-bg-primary border border-border-secondary rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary-30 transition-all"
+                    :placeholder="locale.artistPlaceholder"
                     required
                     type="text"
-                  >
+                  />
                 </div>
 
                 <!-- 歌曲封面地址 -->
                 <div class="space-y-2">
                   <label
                     for="modal-cover"
-                    class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
-                    >歌曲封面地址（选填）</label
+                    class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
+                    >{{ locale.coverUrl }}</label
                   >
                   <div class="relative group">
                     <input
                       id="modal-cover"
                       v-model="manualCover"
                       :class="[
-                        'w-full bg-zinc-950 border rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all',
+                        'w-full bg-bg-primary border rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-disabled focus:outline-none transition-all',
                         manualCover && !coverValidation.valid
-                          ? 'border-red-500/50 focus:border-red-500/50'
-                          : 'border-zinc-800 focus:border-blue-500/30'
+                          ? 'border-error-50 focus:border-error-50'
+                          : 'border-border-secondary focus:border-primary-30'
                       ]"
-                      placeholder="请输入歌曲封面图片URL"
+                      :placeholder="locale.coverPlaceholder"
                       type="url"
-                    >
+                    />
                     <div
                       v-if="coverValidation.validating"
                       class="absolute inset-y-0 right-4 flex items-center"
                     >
-                      <Loader2 class="w-4 h-4 text-zinc-400 animate-spin" />
+                      <Loader2 class="w-4 h-4 text-text-tertiary animate-spin" />
                     </div>
                   </div>
                   <Transition
@@ -1231,15 +1241,15 @@
                     <div v-if="manualCover && !coverValidation.validating" class="px-1 pt-1">
                       <p
                         v-if="!coverValidation.valid"
-                        class="text-[10px] font-bold text-red-500/80 flex items-center gap-1"
+                        class="text-[10px] font-bold text-error-80 flex items-center gap-1"
                       >
                         <X class="w-3 h-3" /> {{ coverValidation.error }}
                       </p>
                       <p
                         v-else
-                        class="text-[10px] font-bold text-emerald-500/80 flex items-center gap-1"
+                        class="text-[10px] font-bold text-success-80 flex items-center gap-1"
                       >
-                        <Check class="w-3 h-3" /> URL有效
+                        <Check class="w-3 h-3" /> {{ locale.validUrl }}
                       </p>
                     </div>
                   </Transition>
@@ -1249,27 +1259,27 @@
                 <div class="space-y-2">
                   <label
                     for="modal-play-url"
-                    class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-1"
-                    >播放地址（选填）</label
+                    class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
+                    >{{ locale.playUrl }}</label
                   >
                   <div class="relative group">
                     <input
                       id="modal-play-url"
                       v-model="manualPlayUrl"
                       :class="[
-                        'w-full bg-zinc-950 border rounded-xl px-4 py-3 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none transition-all',
+                        'w-full bg-bg-primary border rounded-xl px-4 py-3 text-sm text-text-primary placeholder-text-disabled focus:outline-none transition-all',
                         manualPlayUrl && !playUrlValidation.valid
-                          ? 'border-red-500/50 focus:border-red-500/50'
-                          : 'border-zinc-800 focus:border-blue-500/30'
+                          ? 'border-error-50 focus:border-error-50'
+                          : 'border-border-secondary focus:border-primary-30'
                       ]"
-                      placeholder="请输入歌曲播放URL"
+                      :placeholder="locale.playUrlPlaceholder"
                       type="url"
-                    >
+                    />
                     <div
                       v-if="playUrlValidation.validating"
                       class="absolute inset-y-0 right-4 flex items-center"
                     >
-                      <Loader2 class="w-4 h-4 text-zinc-400 animate-spin" />
+                      <Loader2 class="w-4 h-4 text-text-tertiary animate-spin" />
                     </div>
                   </div>
                   <Transition
@@ -1280,15 +1290,15 @@
                     <div v-if="manualPlayUrl && !playUrlValidation.validating" class="px-1 pt-1">
                       <p
                         v-if="!playUrlValidation.valid"
-                        class="text-[10px] font-bold text-red-500/80 flex items-center gap-1"
+                        class="text-[10px] font-bold text-error-80 flex items-center gap-1"
                       >
                         <X class="w-3 h-3" /> {{ playUrlValidation.error }}
                       </p>
                       <p
                         v-else
-                        class="text-[10px] font-bold text-emerald-500/80 flex items-center gap-1"
+                        class="text-[10px] font-bold text-success-80 flex items-center gap-1"
                       >
-                        <Check class="w-3 h-3" /> URL有效
+                        <Check class="w-3 h-3" /> {{ locale.validUrl }}
                       </p>
                     </div>
                   </Transition>
@@ -1298,22 +1308,22 @@
 
             <!-- Footer -->
             <div
-              class="px-8 py-6 bg-zinc-900/50 border-t border-zinc-800/50 flex gap-3 justify-end shrink-0"
+              class="px-8 py-6 bg-bg-secondary-50 border-t border-border-secondary-50 flex gap-3 justify-end shrink-0"
             >
               <button
-                class="px-6 py-2.5 text-xs font-bold text-zinc-500 hover:text-zinc-300 transition-all"
+                class="px-6 py-2.5 text-xs font-bold text-text-tertiary hover:text-text-secondary transition-all"
                 type="button"
                 @click="showManualModal = false"
               >
-                取消
+                {{ locale.cancel }}
               </button>
               <button
                 :disabled="!canSubmitManualForm || submitting"
-                class="px-8 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition-all disabled:opacity-50"
+                class="px-8 py-2.5 bg-primary-hover hover:bg-primary text-text-primary text-xs font-black rounded-lg transition-all disabled:opacity-50"
                 type="button"
                 @click="handleManualSubmit"
               >
-                {{ submitting ? '提交中...' : '确认提交' }}
+                {{ submitting ? locale.submitting : locale.confirmSubmit }}
               </button>
             </div>
           </div>
@@ -1327,15 +1337,15 @@
       style="display: none"
       type="file"
       @change="handleImportData"
-    >
+    />
   </div>
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import searchIcon from '~~/public/images/search.svg'
-import { X, Lock, Loader2, Check, Edit3, Music, Play } from 'lucide-vue-next'
+import { X, Lock, Loader2, Check, Edit3, Music, Play } from '@lucide/vue'
 import { useSongs } from '~/composables/useSongs'
+import { useThemeImage } from '~/composables/useThemeImage'
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
 import { useAudioPlayerControl } from '~/composables/useAudioPlayerControl'
 import { useSiteConfig } from '~/composables/useSiteConfig'
@@ -1343,13 +1353,16 @@ import { useAuth } from '~/composables/useAuth'
 import { useSemesters } from '~/composables/useSemesters'
 import { useMusicSources } from '~/composables/useMusicSources'
 import { useAudioQuality } from '~/composables/useAudioQuality'
+import { usePlatformConfig } from '~/composables/usePlatformConfig'
+import { useLocale } from '~/utils/locale'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
+import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import Icon from '../UI/Icon.vue'
 import { convertToHttps, validateUrl } from '~/utils/url'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
 import { getLoginStatus } from '~/utils/neteaseApi'
 import { getMusicUrl as resolveMusicUrl } from '~/utils/musicUrl'
-
+import { renderMarkdown } from '~/utils/markdown'
 import ImportSongsModal from './ImportSongsModal.vue'
 import NeteaseLoginModal from './NeteaseLoginModal.vue'
 import QQMusicLoginModal from './QQMusicLoginModal.vue'
@@ -1369,6 +1382,11 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['request', 'vote'])
+const { songs: songsLocale } = useLocale()
+const locale = computed(() => useSafeLocale(songsLocale.value?.requestForm || {}))
+const { t: callLocale } = useLocaleText(locale)
+const { localize: localizeServerError } = useServerErrors()
+const { getSearchIcon } = useThemeImage()
 
 // 站点配置
 const {
@@ -1377,14 +1395,18 @@ const {
   enableReplayRequests,
   enableCollaborativeSubmission,
   enableSubmissionRemarks,
+  enableSubmissionLimit,
   enableCardCodeRequests,
-  requireCardCodeForRequests
+  requireCardCodeForRequests,
+  enableCardCodeLimitBypass
 } = useSiteConfig()
+
+// 将投稿须知 Markdown 渲染为安全 HTML
+const renderedGuidelines = computed(() => renderMarkdown(submissionGuidelines.value))
 
 // 用户认证
 const auth = useAuth()
 const user = computed(() => auth.user.value)
-const isSuperAdmin = computed(() => user.value?.role === 'SUPER_ADMIN')
 
 // 学期管理
 const { fetchCurrentSemester, currentSemester, fetchSemesterOptions, semesters } = useSemesters()
@@ -1412,7 +1434,21 @@ const error = ref('')
 const success = ref('')
 const submitting = ref(false)
 const voting = ref(false)
-const requestingReplay = ref(false)
+
+const { getAvailablePlatforms, loadPlatformConfig, loaded: platformConfigLoaded } = usePlatformConfig()
+const availablePlatforms = computed(() => getAvailablePlatforms())
+
+// 监听平台可用性变化：当当前平台被管理员禁用时，自动切换到第一个可用平台
+watch(availablePlatforms, (available) => {
+  if (available.length > 0 && !available.includes(platform.value)) {
+    platform.value = available[0]
+    if (window.$showNotification) {
+      const switchedName = locale.value.platforms[platform.value] || ''
+      const msg = callLocale('notifications.platformAutoSwitched', '', switchedName)
+      window.$showNotification(msg, 'info')
+    }
+  }
+})
 
 const showImportSongsModal = ref(false)
 const showLoginModal = ref(false)
@@ -1441,36 +1477,49 @@ const playTimes = ref([])
 const playTimeSelectionEnabled = ref(false)
 const loadingPlayTimes = ref(false)
 
+const cardCodeEnabled = computed(
+  () => enableCardCodeRequests.value || requireCardCodeForRequests.value
+)
+const cardCodeLimitBypassActive = computed(
+  () => enableSubmissionLimit.value && cardCodeEnabled.value && enableCardCodeLimitBypass.value
+)
+
 const cardCodeFieldMeta = computed(() => ({
   required: requireCardCodeForRequests.value,
   helper: requireCardCodeForRequests.value
-    ? '开启强制点歌券后，提交点歌时必须填写有效点歌券。'
-    : '填写点歌券可用于抵扣或提交点歌。',
-  placeholder: '请输入点歌券'
+    ? cardCodeLimitBypassActive.value
+      ? locale.value.cardCodeRequiredBypassHelper
+      : locale.value.cardCodeRequiredHelper
+    : cardCodeLimitBypassActive.value
+      ? locale.value.cardCodeOptionalBypassHelper
+      : locale.value.cardCodeOptionalHelper,
+  placeholder: locale.value.cardCodePlaceholder
 }))
 
-const cardCodeEnabled = computed(() => enableCardCodeRequests.value || requireCardCodeForRequests.value)
 const trimmedCardCode = computed(() => cardCode.value.trim())
 const cardCodeStatusText = computed(() => {
-  if (cardCodeValidation.value.checking) return '正在验证点歌券...'
+  if (cardCodeValidation.value.checking) return locale.value.validatingCardCode
   if (trimmedCardCode.value) {
-    return cardCodeValidation.value.message || '已填写点歌券，提交前会验证'
+    if (cardCodeValidation.value.valid && cardCodeLimitBypassActive.value) {
+      return locale.value.cardCodeAvailableBypass
+    }
+    return cardCodeValidation.value.message || locale.value.cardCodeWillValidate
   }
-  return cardCodeFieldMeta.value.required ? '提交前需要添加有效点歌券' : '可选添加点歌券'
+  return cardCodeFieldMeta.value.required ? locale.value.cardCodeRequiredStatus : locale.value.cardCodeOptionalStatus
 })
 const mobileCardCodeLabel = computed(() => {
-  if (cardCodeValidation.value.checking) return '验证中'
+  if (cardCodeValidation.value.checking) return locale.value.validatingShort
   if (trimmedCardCode.value) {
-    if (cardCodeValidation.value.valid === false) return '点歌券无效'
-    if (cardCodeValidation.value.valid) return '点歌券可用'
-    return '已填点歌券'
+    if (cardCodeValidation.value.valid === false) return locale.value.cardCodeInvalid
+    if (cardCodeValidation.value.valid) return locale.value.cardCodeAvailable
+    return locale.value.cardCodeFilled
   }
-  return cardCodeFieldMeta.value.required ? '点歌券必填' : '点歌券可选'
+  return cardCodeFieldMeta.value.required ? locale.value.cardCodeRequiredShort : locale.value.cardCodeOptionalShort
 })
 const cardCodeModalHint = computed(() => {
-  if (cardCodeValidation.value.checking) return '正在验证点歌券...'
+  if (cardCodeValidation.value.checking) return locale.value.validatingCardCode
   if (cardCodeValidation.value.message) return cardCodeValidation.value.message
-  return '保存时会先验证点歌券是否可用。'
+  return locale.value.cardCodeSaveHint
 })
 
 const resetCardCodeValidation = () => {
@@ -1507,7 +1556,7 @@ const validateCardCode = async (code) => {
   cardCodeValidation.value = {
     checking: true,
     valid: null,
-    message: '正在验证点歌券...'
+    message: locale.value.validatingCardCode
   }
 
   try {
@@ -1520,12 +1569,11 @@ const validateCardCode = async (code) => {
     cardCodeValidation.value = {
       checking: false,
       valid: true,
-      message: response?.message || '点歌券可用'
+      message: locale.value.cardCodeAvailable
     }
     return true
   } catch (err) {
-    const message =
-      err?.data?.message || err?.message || err?.statusMessage || '点歌券验证失败，请稍后重试'
+    const message = localizeServerError(err, locale.value.cardCodeValidateFailed)
     cardCodeValidation.value = {
       checking: false,
       valid: false,
@@ -1542,7 +1590,7 @@ const saveCardCode = async () => {
   const draft = cardCodeDraft.value.trim().toUpperCase()
   if (requireCardCodeForRequests.value && !draft) {
     if (window.$showNotification) {
-      window.$showNotification('请先填写点歌券', 'warning')
+      window.$showNotification(locale.value.cardCodeRequiredWarning, 'warning')
     }
     return
   }
@@ -1579,7 +1627,7 @@ const ensureCardCodeForSubmit = async () => {
 
     await openCardCodeModal()
     if (window.$showNotification) {
-      window.$showNotification('请先填写点歌券', 'warning')
+      window.$showNotification(locale.value.cardCodeRequiredWarning, 'warning')
     }
     return false
   }
@@ -1631,6 +1679,7 @@ const showManualModal = ref(false)
 const showBilibiliEpisodesModal = ref(false)
 const selectedBilibiliVideo = ref(null)
 const bilibiliEpisodes = ref([])
+const bilibiliEpisodeSubmitOptions = ref({})
 
 // 专辑详情相关
 const showAlbumDetailsModal = ref(false)
@@ -1702,7 +1751,7 @@ const loadAudioMatchScript = (src) =>
     script.async = true
     script.dataset.audioMatch = src
     script.onload = () => resolve()
-    script.onerror = () => reject(new Error(`加载识曲资源失败: ${src}`))
+    script.onerror = () => reject(new Error(callLocale('audioMatchScriptLoadFailed', '', src)))
     document.head.appendChild(script)
   })
 
@@ -1718,7 +1767,7 @@ const ensureAudioMatchScripts = async () => {
       .then(() => loadAudioMatchScript('/audio-match/afp.js'))
       .then(() => {
         if (typeof window.GenerateFP !== 'function') {
-          throw new Error('识曲引擎初始化失败')
+          throw new Error(locale.value.audioMatchEngineFailed)
         }
       })
       .catch((err) => {
@@ -1747,8 +1796,8 @@ const parseAudioMatchResults = (response) => {
     return {
       key: `${song.id || 'unknown'}-${index}`,
       id: song.id,
-      name: song.name || '未知歌曲',
-      artist: artists.join(' / ') || '未知歌手',
+      name: song.name || locale.value.unknownSong,
+      artist: artists.join(' / ') || locale.value.unknownArtist,
       album: song.album?.name || '',
       cover: song.album?.picUrl || song.al?.picUrl || '',
       startTime: typeof item?.startTime === 'number' ? item.startTime : 0
@@ -1759,7 +1808,7 @@ const parseAudioMatchResults = (response) => {
 const handleAudioMatchFingerprint = async (recording) => {
   try {
     audioMatchProcessing.value = true
-    audioMatchStatus.value = '正在生成指纹并识别...'
+    audioMatchStatus.value = locale.value.audioMatchGenerating
 
     const fingerprint = await window.GenerateFP(recording)
     const response = await $fetch('/api/api-enhanced/netease/audio/match', {
@@ -1772,14 +1821,14 @@ const handleAudioMatchFingerprint = async (recording) => {
 
     const matches = parseAudioMatchResults(response)
     if (!matches.length) {
-      throw new Error('未识别到匹配歌曲，请换一段更清晰的副歌重试')
+      throw new Error(locale.value.audioMatchNoMatch)
     }
 
     audioMatchResults.value = matches
-    audioMatchStatus.value = `识别完成，找到 ${matches.length} 个候选结果`
+    audioMatchStatus.value = callLocale('audioMatchDone', '', matches.length)
   } catch (err) {
     console.error('听歌识曲失败:', err)
-    audioMatchError.value = err?.message || '听歌识曲失败，请稍后重试'
+    audioMatchError.value = err?.message || locale.value.audioMatchFailed
     audioMatchStatus.value = ''
     audioMatchResults.value = []
   } finally {
@@ -1792,7 +1841,7 @@ const initializeAudioMatch = async () => {
   await stopAudioMatchSession()
 
   audioMatchPreparing.value = true
-  audioMatchStatus.value = '正在请求麦克风权限...'
+  audioMatchStatus.value = locale.value.microphoneRequesting
 
   try {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext
@@ -1802,7 +1851,7 @@ const initializeAudioMatch = async () => {
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error('当前环境不支持麦克风访问，请确保使用 HTTPS 访问或 localhost 调试')
+      throw new Error(locale.value.microphoneUnsupported)
     }
 
     if (audioMatchContext.audioWorklet) {
@@ -1814,7 +1863,7 @@ const initializeAudioMatch = async () => {
           case 'bufferhealth': {
             const progress = Math.min(1, Number(event.data.health) || 0)
             const currentSeconds = (AUDIO_MATCH_DURATION * progress).toFixed(1)
-            audioMatchStatus.value = `录音中 ${currentSeconds}s / ${AUDIO_MATCH_DURATION}s`
+            audioMatchStatus.value = callLocale('audioMatchRecordingProgress', '', currentSeconds, AUDIO_MATCH_DURATION)
             break
           }
           case 'finished':
@@ -1844,7 +1893,7 @@ const initializeAudioMatch = async () => {
 
         // 提高更新频率以改善用户体验
         if (bufIndex % bufferSize === 0) {
-          audioMatchStatus.value = `录音中 ${currentSeconds}s / ${AUDIO_MATCH_DURATION}s`
+          audioMatchStatus.value = callLocale('audioMatchRecordingProgress', '', currentSeconds, AUDIO_MATCH_DURATION)
         }
 
         if (bufIndex + channelL.length > maxLength) {
@@ -1897,7 +1946,7 @@ const initializeAudioMatch = async () => {
       }),
       new Promise((_, reject) =>
         setTimeout(
-          () => reject(new Error('麦克风授权超时，请在系统设置中确认已允许麦克风权限')),
+          () => reject(new Error(locale.value.microphoneTimeout)),
           GET_USER_MEDIA_TIMEOUT_MS
         )
       )
@@ -1905,7 +1954,7 @@ const initializeAudioMatch = async () => {
 
     audioMatchMicSourceNode = audioMatchContext.createMediaStreamSource(audioMatchMicStream)
     audioMatchMicSourceNode.connect(audioMatchRecorderNode)
-    audioMatchStatus.value = '麦克风已连接，点击开始识曲'
+    audioMatchStatus.value = locale.value.microphoneReady
   } catch (err) {
     await stopAudioMatchSession()
     throw err
@@ -1922,7 +1971,7 @@ const openAudioMatchModal = async () => {
     await initializeAudioMatch()
   } catch (err) {
     console.error('初始化听歌识曲失败:', err)
-    audioMatchError.value = err?.message || '无法初始化听歌识曲，请检查麦克风权限'
+    audioMatchError.value = err?.message || locale.value.audioMatchInitFailed
   }
 }
 
@@ -1966,12 +2015,12 @@ const startAudioMatchRecording = async () => {
       await initializeAudioMatch()
     } catch (err) {
       console.error('重新初始化听歌识曲失败:', err)
-      audioMatchError.value = err?.message || '无法访问麦克风，请稍后重试'
+      audioMatchError.value = err?.message || locale.value.microphoneAccessFailed
       return
     }
   }
 
-  audioMatchStatus.value = `录音中 0.0s / ${AUDIO_MATCH_DURATION}s`
+  audioMatchStatus.value = callLocale('audioMatchRecordingProgress', '', '0.0', AUDIO_MATCH_DURATION)
   audioMatchRecording.value = true
   audioMatchRecorderNode.port.postMessage({
     message: 'start',
@@ -2006,7 +2055,7 @@ const handleImportSuccess = async () => {
   // showImportSongsModal.value = false
   // 刷新歌曲列表以便检查相似歌曲
   try {
-    await songService.fetchSongs(true, currentSemester.value?.name, false, true)
+    await songService.fetchSongs(true, currentSemester.value?.name, true)
   } catch (error) {
     console.error('刷新歌曲列表失败:', error)
   }
@@ -2099,7 +2148,7 @@ const handleExportData = () => {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
   if (window.$showNotification) {
-    window.$showNotification('导出成功', 'success')
+    window.$showNotification(locale.value.notifications.exportSuccess, 'success')
   }
 }
 
@@ -2117,7 +2166,7 @@ const handleImportData = async (event) => {
     if (data.cookie) {
       checkingNeteaseLogin.value = true
       if (window.$showNotification) {
-        window.$showNotification('正在验证Cookie有效性...', 'info')
+        window.$showNotification(locale.value.notifications.validatingCookie, 'info')
       }
 
       const res = await getLoginStatus(data.cookie)
@@ -2128,22 +2177,22 @@ const handleImportData = async (event) => {
           user: dataObj.profile || dataObj.account
         })
         if (window.$showNotification) {
-          window.$showNotification('导入成功', 'success')
+          window.$showNotification(locale.value.notifications.importSuccess, 'success')
         }
       } else {
         if (window.$showNotification) {
-          window.$showNotification('导入的Cookie无效或已过期', 'error')
+          window.$showNotification(locale.value.notifications.cookieInvalid, 'error')
         }
       }
     } else {
       if (window.$showNotification) {
-        window.$showNotification('文件格式错误', 'error')
+        window.$showNotification(locale.value.notifications.fileFormatError, 'error')
       }
     }
   } catch (e) {
     console.error('导入失败', e)
     if (window.$showNotification) {
-      window.$showNotification('导入失败: ' + e.message, 'error')
+      window.$showNotification(callLocale('notifications.importFailed', '', getErrorMessage(e)), 'error')
     }
   } finally {
     checkingNeteaseLogin.value = false
@@ -2192,15 +2241,15 @@ const checkQQMusicLoginStatus = () => {
   isQQMusicLoggedIn.value = true
 
   try {
-    qqMusicUser.value = userStr ? JSON.parse(userStr) : { nickname: 'QQ音乐已登录' }
+    qqMusicUser.value = userStr ? JSON.parse(userStr) : { nickname: locale.value.qqLoggedIn }
   } catch {
-    qqMusicUser.value = { nickname: 'QQ音乐已登录' }
+    qqMusicUser.value = { nickname: locale.value.qqLoggedIn }
   }
 }
 
 const handleQQLoginSuccess = (data) => {
   qqMusicCookie.value = data.cookie
-  qqMusicUser.value = data.user || { nickname: 'QQ音乐已登录' }
+  qqMusicUser.value = data.user || { nickname: locale.value.qqLoggedIn }
   isQQMusicLoggedIn.value = true
 
   if (import.meta.client) {
@@ -2247,6 +2296,8 @@ watch(
 )
 
 onMounted(async () => {
+  // 后台加载平台配置（不阻塞其他初始化）；平台可用性变化由 watch 自动处理
+  loadPlatformConfig()
   checkNeteaseLoginStatus()
   checkQQMusicLoginStatus()
   fetchPlayTimes()
@@ -2262,6 +2313,22 @@ onMounted(async () => {
     } catch (error) {
       console.error('加载歌曲列表失败:', error)
     }
+
+    try {
+      const pendingSearch = sessionStorage.getItem('pending_search')
+      if (pendingSearch) {
+        const saved = JSON.parse(pendingSearch)
+        sessionStorage.removeItem('pending_search')
+        if (saved.title) {
+          title.value = saved.title
+          if (saved.platform) platform.value = saved.platform
+          await checkNeteaseLoginStatus()
+          await handleSearch()
+        }
+      }
+    } catch {
+      // 浏览器禁用会话存储时不影响页面初始化。
+    }
   }
   // 音源健康检查功能已移除
 })
@@ -2276,7 +2343,7 @@ const formattedPlayTimes = computed(() => {
     ...pt,
     displayName: pt.startTime || pt.endTime ? `${pt.name} (${formatPlayTimeRange(pt)})` : pt.name
   }))
-  return [{ id: '', displayName: '不指定时段' }, ...options]
+  return [{ id: '', displayName: locale.value.choosePlayTime }, ...options]
 })
 
 // 格式化播出时段时间范围
@@ -2286,12 +2353,12 @@ const formatPlayTimeRange = (playTime) => {
   if (playTime.startTime && playTime.endTime) {
     return `${playTime.startTime} - ${playTime.endTime}`
   } else if (playTime.startTime) {
-    return `${playTime.startTime} 开始`
+    return `${playTime.startTime}`
   } else if (playTime.endTime) {
-    return `${playTime.endTime} 结束`
+    return `${playTime.endTime}`
   }
 
-  return '不限时间'
+  return locale.value.choosePlayTime
 }
 
 // 监听用户状态变化，当用户登录后重新获取投稿状态
@@ -2336,7 +2403,7 @@ watch(cardCodeDraft, (value) => {
 const handleEpisodeVote = async (episode) => {
   if (!episode.songId) {
     if (window.$showNotification) {
-      window.$showNotification('无法投票：缺少歌曲ID', 'error')
+      window.$showNotification(locale.value.notifications.missingSongId, 'error')
     }
     return
   }
@@ -2360,7 +2427,7 @@ const handleEpisodeVote = async (episode) => {
     })
   } catch (err) {
     if (window.$showNotification) {
-      window.$showNotification(err.message || '点赞失败', 'error')
+      window.$showNotification(getErrorMessage(err) || locale.value.notifications.likeFailed, 'error')
     }
   } finally {
     voting.value = false
@@ -2420,7 +2487,9 @@ const handleLikeFromSearch = async (song, originalResult = null) => {
 
   if (song.played || song.scheduled) {
     if (window.$showNotification) {
-      const message = song.played ? '已播放的歌曲不能点赞' : '已排期的歌曲不能点赞'
+      const message = song.played
+        ? locale.value.playedCannotLike
+        : locale.value.scheduledCannotLike
       window.$showNotification(message, 'warning')
     }
     return
@@ -2430,6 +2499,7 @@ const handleLikeFromSearch = async (song, originalResult = null) => {
   if (originalResult && isBilibiliMultiP(originalResult)) {
     selectedBilibiliVideo.value = originalResult
     bilibiliEpisodes.value = originalResult.pages
+    bilibiliEpisodeSubmitOptions.value = {}
     showBilibiliEpisodesModal.value = true
     return
   }
@@ -2470,9 +2540,9 @@ const handleSearch = async () => {
   searchError.value = ''
 
   if (!title.value.trim()) {
-    error.value = '歌曲名称不能为空'
+    error.value = locale.value.notifications.songNameRequired
     if (window.$showNotification) {
-      window.$showNotification('歌曲名称不能为空', 'error')
+      window.$showNotification(locale.value.notifications.songNameRequired, 'error')
     }
     return
   }
@@ -2500,14 +2570,16 @@ const handleSearch = async () => {
       limit: 20,
       signal: signal, // 传递AbortSignal
       type: requestPlatform === 'netease' ? requestSearchType : 1,
-      cookie: requestPlatform === 'netease'
-        ? neteaseCookie.value
-        : requestPlatform === 'tencent'
-          ? qqMusicCookie.value
-          : undefined
+      cookie:
+        requestPlatform === 'netease'
+          ? neteaseCookie.value
+          : requestPlatform === 'tencent'
+            ? qqMusicCookie.value
+            : undefined
     }
 
     console.log('开始多音源搜索:', searchParams)
+    // 平台可用性检查已由 searchSongs 内部统一处理
     const results = await musicSources.searchSongs(searchParams)
 
     // 再次检查是否被中断，防止竞态条件
@@ -2552,7 +2624,7 @@ const handleSearch = async () => {
       console.log('搜索成功，找到', results.data.length, '首歌曲')
     } else {
       searchResults.value = []
-      const errorMsg = results && results.error ? results.error : '没有找到匹配的歌曲'
+      const errorMsg = results && results.error ? results.error : locale.value.noMatchingSongs
       error.value = errorMsg
       if (window.$showNotification) {
         window.$showNotification(errorMsg, 'info')
@@ -2566,7 +2638,7 @@ const handleSearch = async () => {
     }
 
     console.error('搜索错误:', err)
-    searchError.value = err.message || '搜索请求失败，请稍后重试'
+    searchError.value = getErrorMessage(err) || locale.value.searchRequestFailed
     error.value = searchError.value
 
     if (window.$showNotification) {
@@ -2595,7 +2667,7 @@ const getAudioUrl = async (result) => {
     if (sourceType === 'bilibili' || isBilibiliSong(result)) {
       try {
         const songId = result.musicId || result.id
-        if (!songId) throw new Error('缺少歌曲ID参数')
+        if (!songId) throw new Error(locale.value.notifications.missingSongId)
 
         const options = result.bilibiliCid ? { bilibiliCid: String(result.bilibiliCid) } : undefined
         const urlResult = await musicSources.getSongUrl(songId, 0, 'bilibili', undefined, options)
@@ -2614,7 +2686,7 @@ const getAudioUrl = async (result) => {
     if (sourceType === 'vkeys-v3') {
       try {
         const songId = result.musicId || result.id
-        if (!songId) throw new Error('缺少歌曲ID参数')
+        if (!songId) throw new Error(locale.value.notifications.missingSongId)
 
         const { getQuality } = useAudioQuality()
         const quality = getQuality(platform.value) || 8
@@ -2650,7 +2722,7 @@ const getAudioUrl = async (result) => {
         if (platform.value === 'tencent') {
           try {
             const songId = result.musicId || result.id
-            if (!songId) throw new Error('缺少歌曲ID参数')
+            if (!songId) throw new Error(locale.value.notifications.missingSongId)
 
             const { getQuality } = useAudioQuality()
             const quality = getQuality(platform.value) || 8
@@ -2798,7 +2870,12 @@ const getAudioUrl = async (result) => {
             mediaId:
               result.sourceInfo?.strMediaMid ||
               result.sourceInfo?.mediaId ||
-              result.sourceInfo?.mediaMid
+              result.sourceInfo?.mediaMid,
+            musicInfo: {
+              name: result.title,
+              artist: result.artist,
+              album: result.album || undefined
+            }
           }
         )
         if (fallbackUrl) {
@@ -2812,9 +2889,9 @@ const getAudioUrl = async (result) => {
 
     return result
   } catch (err) {
-    error.value = '获取音乐URL失败，请稍后重试'
+    error.value = locale.value.notifications.musicUrlFailedRetry
     if (window.$showNotification) {
-      window.$showNotification('获取音乐URL失败，请稍后重试', 'error')
+      window.$showNotification(locale.value.notifications.musicUrlFailedRetry, 'error')
     }
     return result
   }
@@ -2829,9 +2906,9 @@ const playSong = async (result, playlist, playlistIndex) => {
 
   // 对于非哔哩哔哩平台，如果没有URL则提示错误
   if (!result.url && !isBilibiliSong(result)) {
-    error.value = '该歌曲无法播放，可能是付费内容'
+    error.value = locale.value.notifications.songUnavailable
     if (window.$showNotification) {
-      window.$showNotification('该歌曲无法播放，可能是付费内容', 'error')
+      window.$showNotification(locale.value.notifications.songUnavailable, 'error')
     }
     return
   }
@@ -2857,6 +2934,8 @@ const playSong = async (result, playlist, playlistIndex) => {
     musicUrl: result.url || null, // 哔哩哔哩可能没有音频URL
     musicPlatform: result.musicPlatform || platform.value,
     musicId: finalMusicId,
+    albumId: result.albumId,
+    sourceInfo: result.sourceInfo,
     bilibiliCid: result.bilibiliCid // 确保传递 cid
   }
 
@@ -2886,7 +2965,7 @@ const playSong = async (result, playlist, playlistIndex) => {
   if (!playResult) {
     console.error('[RequestForm] 播放器返回 false，播放失败')
     if (window.$showNotification) {
-      window.$showNotification('播放失败，请稍后重试', 'error')
+      window.$showNotification(locale.value.notifications.playFailed, 'error')
     }
     return
   }
@@ -2900,7 +2979,11 @@ const playSong = async (result, playlist, playlistIndex) => {
       const lyrics = useLyrics()
       // 请求歌词（对于bilibili，传递原始的bvid，不包含cid）
       const lyricMusicId = result.bilibiliCid ? result.musicId : song.musicId
-      await lyrics.fetchLyrics(song.musicPlatform, lyricMusicId)
+      await lyrics.fetchLyrics(song.musicPlatform, lyricMusicId, {
+        title: song.title,
+        artist: song.artist,
+        album: result.album || ''
+      })
     } catch (error) {
       console.error('获取歌词失败:', error)
       // 歌词获取失败不影响播放
@@ -2929,9 +3012,9 @@ const selectResult = async (result) => {
 
   // 如果没有URL，给出提示
   if (!result.url) {
-    success.value = '已选择歌曲，但可能无法播放完整版本'
+    success.value = locale.value.notifications.songSelectedMaybeLimited
     if (window.$showNotification) {
-      window.$showNotification('已选择歌曲，但可能无法播放完整版本', 'info')
+      window.$showNotification(locale.value.notifications.songSelectedMaybeLimited, 'info')
     }
   }
 
@@ -2955,6 +3038,20 @@ const openUploadDialog = (result) => {
 const handleShowLogin = () => {
   showUploadDialog.value = false
   showLoginModal.value = true
+}
+
+const handleLoginRedirect = async () => {
+  if (title.value.trim()) {
+    try {
+      sessionStorage.setItem('pending_search', JSON.stringify({
+        title: title.value.trim(),
+        platform: platform.value
+      }))
+    } catch {
+      // 浏览器禁用会话存储时仍可继续登录。
+    }
+  }
+  await navigateTo(`/login?redirect=${encodeURIComponent('/?tab=request')}`)
 }
 
 // 提交选中的歌曲
@@ -2988,29 +3085,18 @@ const submitSong = async (result, options = {}) => {
     console.log('打开 Bilibili 剧集列表:', result)
     selectedBilibiliVideo.value = result
     bilibiliEpisodes.value = result.pages
+    bilibiliEpisodeSubmitOptions.value = options.replayRequest === true ? { replayRequest: true } : {}
     showBilibiliEpisodesModal.value = true
     return
   }
 
   console.log('执行submitSong，提交歌曲:', result.title || result.song)
 
-  if (!(await ensureCardCodeForSubmit())) {
-    return false
-  }
-
-  // 检查投稿限额
-  const limitCheck = checkSubmissionLimit()
-  if (!limitCheck.canSubmit) {
-    error.value = limitCheck.message
-    if (window.$showNotification) {
-      window.$showNotification(limitCheck.message, 'error')
-    }
-    return
-  }
-
   // 使用搜索结果中的数据
   const songTitle = result.song || result.title
   const songArtist = result.singer || result.artist
+
+  let replayTargetSong = null
 
   // 只有在用户已登录且歌曲列表已加载时才检查是否已存在完全匹配的歌曲
   if (auth.isAuthenticated.value && songService.songs.value && songService.songs.value.length > 0) {
@@ -3033,12 +3119,14 @@ const submitSong = async (result, options = {}) => {
       )
 
       if (existingSong) {
-        const allowOverride =
-          options.forceResubmit === true || (isSuperAdmin.value && existingSong.played)
+        if (options.replayRequest === true && existingSong.played) {
+          replayTargetSong = existingSong
+        }
+        const allowOverride = options.replayRequest === true && existingSong.played
         if (!allowOverride) {
           if (window.$showNotification) {
             window.$showNotification(
-              '这首歌曲已经在列表中了，不能重复投稿。您可以为它点赞支持！',
+              locale.value.notifications.duplicateSong,
               'warning'
             )
           }
@@ -3054,12 +3142,14 @@ const submitSong = async (result, options = {}) => {
       )
 
       if (existingSong) {
-        const allowOverride =
-          options.forceResubmit === true || (isSuperAdmin.value && existingSong.played)
+        if (options.replayRequest === true && existingSong.played) {
+          replayTargetSong = existingSong
+        }
+        const allowOverride = options.replayRequest === true && existingSong.played
         if (!allowOverride) {
           if (window.$showNotification) {
             window.$showNotification(
-              '这首歌曲已经在列表中了，不能重复投稿。您可以为它点赞支持！',
+              locale.value.notifications.duplicateSong,
               'warning'
             )
           }
@@ -3077,6 +3167,60 @@ const submitSong = async (result, options = {}) => {
   selectedCover.value = result.cover || ''
   selectedUrl.value = result.url || result.file || ''
 
+  if (options.replayRequest === true) {
+    try {
+      // 严格匹配未命中时回退到归一化模糊匹配，与相似歌曲检测保持一致
+      if (!replayTargetSong) {
+        const similarSong = getSimilarSong(result)
+        if (similarSong?.played) {
+          replayTargetSong = similarSong
+        }
+      }
+
+      if (!replayTargetSong) {
+        throw new Error(locale.value.notifications?.replayOriginalNotFound || '未找到可申请重播的原歌曲')
+      }
+
+      const replayResult = await songService.requestReplay(replayTargetSong.id, {
+        preferredPlayTimeId: preferredPlayTimeId.value ? parseInt(preferredPlayTimeId.value) : null,
+        submissionNote: submissionNote.value.trim() || null,
+        submissionNotePublic: submissionNotePublic.value
+      })
+
+      if (!replayResult) return false
+      resetForm()
+      return true
+    } catch (err) {
+      // 服务端错误按错误码本地化；replayRequestFailed 是带参数的词典函数，需用 formatLocaleValue 求值
+      const replayErrorMessage = localizeServerError(err)
+      error.value =
+        formatLocaleValue(locale.value.notifications?.replayRequestFailed, replayErrorMessage || '') ||
+        replayErrorMessage
+      if (window.$showNotification) {
+        window.$showNotification(error.value, 'error')
+      }
+      return false
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  if (!(await ensureCardCodeForSubmit())) {
+    submitting.value = false
+    return false
+  }
+
+  // 检查投稿限额
+  const limitCheck = checkSubmissionLimit()
+  if (!limitCheck.canSubmit) {
+    error.value = limitCheck.message
+    if (window.$showNotification) {
+      window.$showNotification(limitCheck.message, 'error')
+    }
+    submitting.value = false
+    return
+  }
+
   // 管理员不受黑名单限制
   if (!auth.isAdmin.value) {
     try {
@@ -3091,7 +3235,7 @@ const submitSong = async (result, options = {}) => {
 
       if (blacklistCheck.isBlocked) {
         const reasons = blacklistCheck.reasons.map((r) => r.reason).join('; ')
-        error.value = `该歌曲无法点歌: ${reasons}`
+        error.value = callLocale('notifications.blacklistedSong', '', reasons)
         if (window.$showNotification) {
           window.$showNotification(error.value, 'error')
         }
@@ -3138,10 +3282,10 @@ const submitSong = async (result, options = {}) => {
       bilibiliCid: bilibiliCid || null,
       bilibiliPage: bilibiliPage
     }
-      // 如果用户填写了点歌券，传递给后端
-      if (cardCode.value && cardCode.value.trim()) {
-        songData.cardCode = cardCode.value.trim()
-      }
+    // 如果用户填写了点歌券，传递给后端
+    if (cardCode.value && cardCode.value.trim()) {
+      songData.cardCode = cardCode.value.trim()
+    }
 
     // 只emit事件，让父组件处理实际的API调用
     emit('request', songData)
@@ -3150,7 +3294,7 @@ const submitSong = async (result, options = {}) => {
     resetForm()
     return true
   } catch (err) {
-    error.value = err.message || '投稿失败，请稍后重试'
+    error.value = getErrorMessage(err) || locale.value.notifications.submitFailed
     if (window.$showNotification) {
       window.$showNotification(error.value, 'error')
     }
@@ -3204,7 +3348,7 @@ const handleSubmit = async () => {
     // 成功提示由父组件处理，这里只重置表单
     resetForm()
   } catch (err) {
-    error.value = err.message || '投稿失败，请稍后重试'
+    error.value = getErrorMessage(err) || locale.value.notifications.submitFailed
     if (window.$showNotification) {
       window.$showNotification(error.value, 'error')
     }
@@ -3251,14 +3395,27 @@ const getBilibiliEpisodeStatus = (result) => {
   }
 }
 
+const canResubmitBilibiliEpisodes = (result) => {
+  if (!enableReplayRequests.value) return false
+
+  const episodeStatus = getBilibiliEpisodeStatus(result)
+  if (!episodeStatus || episodeStatus.submittedEpisodes.length === 0) return false
+
+  return episodeStatus.submittedEpisodes.every((song) => song.played)
+}
+
 const formatDuration = (seconds) => {
   const minutes = Math.floor(seconds / 60)
   const secs = seconds % 60
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
-const handleBilibiliEpisodeSelect = async (episode) => {
+const handleBilibiliEpisodeSelect = async (payload) => {
   if (!selectedBilibiliVideo.value) return
+
+  const episode = payload?.episode || payload
+  const episodeStatus = payload?.status || null
+  const isReplayEpisode = episodeStatus?.played === true
 
   const episodeResult = {
     ...selectedBilibiliVideo.value,
@@ -3268,12 +3425,14 @@ const handleBilibiliEpisodeSelect = async (episode) => {
   }
 
   const success = await submitSong(episodeResult, {
+    ...(isReplayEpisode ? { replayRequest: true } : bilibiliEpisodeSubmitOptions.value),
     isBilibiliEpisode: true,
     episode: episode
   })
 
   if (success) {
     showBilibiliEpisodesModal.value = false
+    bilibiliEpisodeSubmitOptions.value = {}
     if (bilibiliModalRef.value && bilibiliModalRef.value.resetSubmissionState) {
       bilibiliModalRef.value.resetSubmissionState()
     }
@@ -3397,7 +3556,7 @@ const handleAlbumSongVote = async (song) => {
   if (voting.value) return
   if (!song.songId) {
     if (window.$showNotification) {
-      window.$showNotification('无法投票：缺少歌曲ID', 'error')
+      window.$showNotification(locale.value.notifications.missingSongId, 'error')
     }
     return
   }
@@ -3411,7 +3570,7 @@ const handleAlbumSongVote = async (song) => {
     await songService.voteSong(song.songId)
 
     if (window.$showNotification) {
-      window.$showNotification('点赞成功！', 'success')
+      window.$showNotification(locale.value.notifications.likeSuccess, 'success')
     }
 
     // 静默刷新歌曲列表
@@ -3421,7 +3580,7 @@ const handleAlbumSongVote = async (song) => {
   } catch (error) {
     console.error('点赞失败:', error)
     if (window.$showNotification) {
-      window.$showNotification(error.message || '点赞失败，请稍后重试', 'error')
+      window.$showNotification(getErrorMessage(error) || locale.value.notifications.likeFailedRetry, 'error')
     }
   } finally {
     voting.value = false
@@ -3486,26 +3645,26 @@ const handlePlaylistPlay = async (song) => {
 // 手动输入相关方法
 const handleManualSubmit = async () => {
   if (!title.value.trim() || !manualArtist.value.trim()) {
-    error.value = '请输入完整的歌曲信息'
+    error.value = locale.value.notifications.completeSongInfoRequired
     if (window.$showNotification) {
-      window.$showNotification('请输入完整的歌曲信息', 'error')
+      window.$showNotification(locale.value.notifications.completeSongInfoRequired, 'error')
     }
     return
   }
 
   // 验证URL
   if (manualCover.value && !coverValidation.value.valid) {
-    error.value = '请修正封面URL错误后再提交'
+    error.value = locale.value.notifications.fixCoverUrl
     if (window.$showNotification) {
-      window.$showNotification('请修正封面URL错误后再提交', 'error')
+      window.$showNotification(locale.value.notifications.fixCoverUrl, 'error')
     }
     return
   }
 
   if (manualPlayUrl.value && !playUrlValidation.value.valid) {
-    error.value = '请修正播放地址URL错误后再提交'
+    error.value = locale.value.notifications.fixPlayUrl
     if (window.$showNotification) {
-      window.$showNotification('请修正播放地址URL错误后再提交', 'error')
+      window.$showNotification(locale.value.notifications.fixPlayUrl, 'error')
     }
     return
   }
@@ -3541,7 +3700,7 @@ const handleManualSubmit = async () => {
 
       if (blacklistCheck.isBlocked) {
         const reasons = blacklistCheck.reasons.map((r) => r.reason).join('; ')
-        error.value = `该歌曲无法点歌: ${reasons}`
+        error.value = callLocale('notifications.blacklistedSong', '', reasons)
         if (window.$showNotification) {
           window.$showNotification(error.value, 'error')
         }
@@ -3582,134 +3741,13 @@ const handleManualSubmit = async () => {
     resetForm()
     showManualModal.value = false
   } catch (err) {
-    error.value = err.message || '投稿失败，请稍后重试'
+    error.value = getErrorMessage(err) || locale.value.notifications.submitFailed
     if (window.$showNotification) {
       window.$showNotification(error.value, 'error')
     }
   } finally {
     submitting.value = false
   }
-}
-
-// 申请重播
-const handleRequestReplay = async (song) => {
-  if (requestingReplay.value || !song) return
-
-  // 如果已经申请过，不执行
-  if (song.replayRequested) {
-    if (window.$showNotification) {
-      window.$showNotification('该歌曲已申请过重播', 'info')
-    }
-    return
-  }
-
-  requestingReplay.value = true
-  try {
-    await songService.requestReplay(song.id)
-    // 刷新歌曲状态
-    setTimeout(() => {
-      songService.refreshSongsSilent().catch(console.error)
-    }, 500)
-    if (window.$showNotification) {
-      window.$showNotification('申请重播成功', 'success')
-    }
-  } catch (err) {
-    console.error('申请重播失败:', err)
-    if (window.$showNotification) {
-      window.$showNotification('申请重播失败: ' + err.message, 'error')
-    }
-  } finally {
-    requestingReplay.value = false
-  }
-}
-
-// 获取重播按钮文本
-const getReplayButtonText = (song) => {
-  if (requestingReplay.value) return '申请中...'
-  if (!song) return '申请重播'
-
-  // 检查学期
-  if (currentSemester.value && song.semester !== currentSemester.value.name) {
-    return '非本学期'
-  }
-
-  // 检查重播申请状态
-  if (song.replayRequestStatus === 'REJECTED') {
-    // 如果在冷却期内
-    if (song.replayRequestCooldownRemaining && song.replayRequestCooldownRemaining > 0) {
-      return `已拒绝（${song.replayRequestCooldownRemaining}小时后可重新申请）`
-    }
-    // 冷却期已过
-    return '申请重播'
-  }
-
-  if (song.replayRequestStatus === 'FULFILLED') {
-    return '已重播'
-  }
-
-  if (song.replayRequested || song.replayRequestStatus === 'PENDING') {
-    return '已申请重播'
-  }
-
-  return '申请重播'
-}
-
-// 获取重播按钮标题（tooltip）
-const getReplayButtonTitle = (song) => {
-  if (!song) return '申请重播'
-
-  // 检查学期
-  if (currentSemester.value && song.semester !== currentSemester.value.name) {
-    return '只能申请重播当前学期的歌曲'
-  }
-
-  // 检查重播申请状态
-  if (song.replayRequestStatus === 'REJECTED') {
-    if (song.replayRequestCooldownRemaining && song.replayRequestCooldownRemaining > 0) {
-      return `申请被拒绝，需要等待 ${song.replayRequestCooldownRemaining} 小时后才能重新申请`
-    }
-    return '申请重播'
-  }
-
-  if (song.replayRequestStatus === 'FULFILLED') {
-    return '该歌曲已重播'
-  }
-
-  if (song.replayRequested || song.replayRequestStatus === 'PENDING') {
-    return '该歌曲已申请过重播'
-  }
-
-  return '申请重播'
-}
-
-// 检查重播按钮是否应该禁用
-const isReplayButtonDisabled = (song) => {
-  if (requestingReplay.value || !song) return true
-
-  // 检查学期
-  if (currentSemester.value && song.semester !== currentSemester.value.name) {
-    return true
-  }
-
-  // 检查重播申请状态
-  if (song.replayRequestStatus === 'REJECTED') {
-    // 如果在冷却期内，禁用按钮
-    if (song.replayRequestCooldownRemaining && song.replayRequestCooldownRemaining > 0) {
-      return true
-    }
-    // 冷却期已过，允许重新申请
-    return false
-  }
-
-  if (song.replayRequestStatus === 'FULFILLED') {
-    return true
-  }
-
-  if (song.replayRequested || song.replayRequestStatus === 'PENDING') {
-    return true
-  }
-
-  return false
 }
 
 // 重置表单
@@ -3766,15 +3804,15 @@ const checkSubmissionLimit = () => {
     return { canSubmit: true, message: '' }
   }
 
-  if (!submissionStatus.value || !submissionStatus.value.limitEnabled) {
+  if (!submissionStatus.value) {
     return { canSubmit: true, message: '' }
   }
 
   // 检查投稿是否已关闭
   if (submissionStatus.value.submissionClosed) {
-    let message = '投稿功能已关闭'
+    let message = locale.value.submissionClosed
     if (submissionStatus.value.timeLimitationEnabled && !submissionStatus.value.currentTimePeriod) {
-      message = '当前不在投稿开放时段'
+      message = locale.value.outsideRequestTime
     }
     return {
       canSubmit: false,
@@ -3788,9 +3826,18 @@ const checkSubmissionLimit = () => {
     if (expected > 0 && accepted >= expected) {
       return {
         canSubmit: false,
-        message: `当前时段投稿名额已满 (${accepted}/${expected})`
+        message: callLocale('notifications.periodQuotaFull', '', accepted, expected)
       }
     }
+  }
+
+
+  if (!submissionStatus.value.limitEnabled) {
+    return { canSubmit: true, message: '' }
+  }
+
+  if (cardCodeLimitBypassActive.value && trimmedCardCode.value && cardCodeValidation.value.valid === true) {
+    return { canSubmit: true, message: '' }
   }
 
   const { dailyLimit, weeklyLimit, monthlyLimit, dailyUsed, weeklyUsed, monthlyUsed } =
@@ -3800,7 +3847,7 @@ const checkSubmissionLimit = () => {
   if (dailyLimit && dailyUsed >= dailyLimit) {
     return {
       canSubmit: false,
-      message: `今日投稿已达上限 (${dailyUsed}/${dailyLimit})`
+      message: callLocale('notifications.dailyLimitReached', '', dailyUsed, dailyLimit)
     }
   }
 
@@ -3808,7 +3855,7 @@ const checkSubmissionLimit = () => {
   if (weeklyLimit && weeklyUsed >= weeklyLimit) {
     return {
       canSubmit: false,
-      message: `本周投稿已达上限 (${weeklyUsed}/${weeklyLimit})`
+      message: callLocale('notifications.weeklyLimitReached', '', weeklyUsed, weeklyLimit)
     }
   }
 
@@ -3816,7 +3863,7 @@ const checkSubmissionLimit = () => {
   if (monthlyLimit && monthlyUsed >= monthlyLimit) {
     return {
       canSubmit: false,
-      message: `本月投稿已达上限 (${monthlyUsed}/${monthlyLimit})`
+      message: callLocale('notifications.monthlyLimitReached', '', monthlyUsed, monthlyLimit)
     }
   }
 
@@ -3912,7 +3959,7 @@ defineExpose({
 <style scoped>
 .request-form {
   width: 100%;
-  color: #ffffff;
+  color: var(--text-primary);
   display: flex;
   gap: 2rem;
   height: calc(100vh - 160px);
@@ -3929,7 +3976,7 @@ defineExpose({
 }
 
 .rules-section {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--surface-card-bg);
   border-radius: 13px;
   padding: 1.25rem;
   flex: 0 0 35%; /* 稍微缩小规则区域占比 */
@@ -3943,7 +3990,7 @@ defineExpose({
   font-weight: 400;
   font-size: 15px;
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   margin-bottom: 0.75rem;
 }
 
@@ -3953,7 +4000,7 @@ defineExpose({
   font-size: 15px;
   line-height: 1.7;
   letter-spacing: 0.04em;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .rules-content-desktop p {
@@ -3961,7 +4008,6 @@ defineExpose({
 }
 
 .guidelines-content {
-  white-space: pre-line;
   overflow-wrap: anywhere;
 }
 
@@ -3972,19 +4018,19 @@ defineExpose({
   gap: 0.5rem;
   font-size: 15px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--overlay-90);
   margin-bottom: 1.25rem;
 }
 
 .rules-icon {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .rules-content {
   font-family: 'MiSans', sans-serif;
   font-size: 13px;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--overlay-50);
 }
 
 .rule-item {
@@ -3994,7 +4040,7 @@ defineExpose({
 
 .rule-item span {
   margin-right: 0.5rem;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--overlay-30);
   font-weight: 600;
 }
 
@@ -4031,14 +4077,15 @@ defineExpose({
   align-items: center;
   gap: 0.75rem;
   flex: 1.5;
-  min-width: 400px; /* 增加最小宽度，确保搜索框、标签和按钮有足够空间 */
+  min-width: 460px; /* 增加最小宽度，确保搜索框、标签和按钮有足够空间 */
+  flex-wrap: wrap; /* 允许在窄屏下换行 */
 }
 
 .search-label {
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 15px;
-  color: #ffffff;
+  color: var(--text-primary);
   white-space: nowrap;
   flex-shrink: 0; /* 防止标签被压缩 */
 }
@@ -4047,33 +4094,33 @@ defineExpose({
   display: flex;
   gap: 0.5rem;
   flex: 1;
-  min-width: 0; /* 允许内部元素正常压缩 */
+  min-width: 220px; /* 保证按钮与输入框同行不重叠 */
 }
 
 .search-input {
-  background: #040e15;
-  border: 1px solid #242f38;
+  background: var(--panel-bg-quaternary);
+  border: 1px solid var(--panel-border-active);
   border-radius: 8px;
   padding: 0.6rem 0.85rem;
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   flex: 1;
-  min-width: 100px; /* 确保输入框不会缩到太小 */
+  min-width: 80px; /* 确保输入框不会缩到太小 */
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #0b5afe;
+  border-color: var(--color-accent);
 }
 
 .search-button {
-  background: linear-gradient(180deg, #0043f8 0%, #0075f8 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
-  padding: 0.75rem 1.5rem;
-  color: #ffffff;
+  padding: 0.75rem 1.2rem;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
@@ -4085,7 +4132,7 @@ defineExpose({
 
 .search-button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 67, 248, 0.3);
+  box-shadow: 0 4px 12px var(--primary-30);
 }
 
 .search-button:disabled {
@@ -4099,11 +4146,11 @@ defineExpose({
   align-items: center;
   justify-content: center;
   gap: 0.35rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--overlay-8);
+  border: 1px solid var(--overlay-12);
   border-radius: 8px;
-  padding: 0.75rem 0.9rem;
-  color: rgba(255, 255, 255, 0.85);
+  padding: 0.75rem 0.75rem;
+  color: var(--overlay-85);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 13px;
@@ -4113,10 +4160,14 @@ defineExpose({
   flex-shrink: 0;
 }
 
+.audio-match-btn .btn-text {
+  display: none;
+}
+
 .audio-match-btn:hover:not(:disabled) {
-  background: rgba(59, 130, 246, 0.18);
-  border-color: rgba(96, 165, 250, 0.35);
-  color: #ffffff;
+  background: var(--primary-18);
+  border-color: var(--requestform-audio-match-hover-border);
+  color: var(--text-primary);
 }
 
 .audio-match-btn:disabled {
@@ -4137,7 +4188,7 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 16px;
-  color: #ffffff;
+  color: var(--text-primary);
   white-space: nowrap;
   flex-shrink: 0; /* 防止标签被压缩 */
 }
@@ -4153,18 +4204,18 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(11, 90, 254, 0.1);
-  border: 1px solid rgba(11, 90, 254, 0.2);
+  background: var(--color-accent-alpha-10);
+  border: 1px solid var(--color-accent-alpha-20);
   border-radius: 6px;
   padding: 0.25rem 0.5rem;
   font-size: 14px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .remove-collaborator {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -4172,26 +4223,26 @@ defineExpose({
 }
 
 .remove-collaborator:hover {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .add-collaborator-btn {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--overlay-5);
+  border: 1px solid var(--overlay-10);
   border-radius: 6px;
   padding: 0.25rem 0.75rem;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--overlay-80);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .add-collaborator-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--overlay-10);
+  color: var(--text-primary);
 }
 
 /* 自定义复选框样式 */
@@ -4214,8 +4265,8 @@ defineExpose({
   width: 14px;
   height: 14px;
   border-radius: 4px;
-  border: 1px solid #3f3f46;
-  background: rgba(24, 24, 27, 0.5);
+  border: 1px solid var(--panel-bg-hover);
+  background: var(--panel-bg-overlay);
   transition: all 0.2s ease;
 }
 
@@ -4229,8 +4280,8 @@ defineExpose({
 }
 
 .custom-checkbox-input:checked + .custom-checkbox-box {
-  background: #3b82f6;
-  border-color: #3b82f6;
+  background: var(--color-accent-light);
+  border-color: var(--color-accent-light);
 }
 
 .custom-checkbox-input:checked + .custom-checkbox-box .custom-checkbox-icon {
@@ -4240,25 +4291,62 @@ defineExpose({
 
 .custom-checkbox-text {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--text-muted);
   transition: color 0.2s ease;
 }
 
 .custom-checkbox-input:checked ~ .custom-checkbox-text {
-  color: #d1d5db;
+  color: var(--text-primary-lighter);
 }
 
 .custom-checkbox-wrapper:hover .custom-checkbox-box {
-  border-color: #60a5fa;
+  border-color: var(--color-accent-light);
 }
 
 /* 横向投稿状态样式 */
+.login-required-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--primary-10);
+  border-color: var(--primary-30);
+}
+
+.login-required-notice .notice-icon {
+  flex-shrink: 0;
+  color: var(--color-accent-light);
+}
+
+.login-required-notice .notice-text {
+  color: var(--text-link-hover);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.login-required-notice .login-link-btn {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--primary-40);
+  border-radius: 4px;
+  background: var(--primary-20);
+  color: var(--color-accent-light);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.login-required-notice .login-link-btn:hover {
+  background: var(--primary-35);
+  color: var(--text-link-hover);
+}
+
 .submission-status-horizontal {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--surface-card-bg-medium);
   border-radius: 8px;
   padding: 0.4rem 0.75rem;
   margin-bottom: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--overlay-10);
 }
 
 .admin-notice-horizontal {
@@ -4276,7 +4364,7 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   font-size: 13px;
-  color: #ffd700;
+  color: var(--text-highlight);
 }
 
 .submission-closed-notice {
@@ -4294,7 +4382,7 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   font-size: 13px;
-  color: #ff6b6b;
+  color: var(--color-error-light);
 }
 
 .status-content-horizontal {
@@ -4315,23 +4403,23 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 13px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .status-item-horizontal .status-value {
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 13px;
-  color: #0b5afe;
+  color: var(--color-accent);
 }
 
 .status-item-horizontal .status-remaining {
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(11, 90, 254, 0.1);
-  border: 1px solid rgba(11, 90, 254, 0.3);
+  color: var(--overlay-70);
+  background: var(--color-accent-alpha-10);
+  border: 1px solid var(--color-accent-alpha-30);
   border-radius: 4px;
   padding: 0.15rem 0.4rem;
 }
@@ -4359,9 +4447,9 @@ defineExpose({
 .desktop-card-code-panel {
   min-height: 94px;
   height: 100%;
-  border: 1px solid rgba(39, 39, 42, 0.8);
+  border: 1px solid var(--panel-bg-deep);
   border-radius: 12px;
-  background: rgba(24, 24, 27, 0.35);
+  background: var(--panel-bg-overlay);
   padding: 0.75rem;
   display: flex;
   align-items: center;
@@ -4388,7 +4476,7 @@ defineExpose({
   font-weight: 600;
   font-size: 15px;
   letter-spacing: 0.02em;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--overlay-90);
   margin-bottom: 0.25rem;
 }
 
@@ -4398,21 +4486,21 @@ defineExpose({
 
 .form-input,
 .form-select {
-  background: #040e15;
-  border: 1px solid #242f38;
+  background: var(--panel-bg-quaternary);
+  border: 1px solid var(--panel-border-active);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   width: 100%;
 }
 
 .form-input:focus,
 .form-select:focus {
   outline: none;
-  border-color: #0b5afe;
+  border-color: var(--color-accent);
 }
 
 /* 平台选择按钮样式 */
@@ -4476,19 +4564,19 @@ defineExpose({
 .login-title {
   font-size: 13px;
   font-weight: 500;
-  color: #a1a1aa;
+  color: var(--text-muted-light);
   margin: 0;
 }
 
 .login-hint {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--overlay-45);
   margin: 2px 0 0 0;
   line-height: 1.3;
 }
 
 .login-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--color-accent-light) 0%, var(--color-accent-hover) 100%);
   color: white;
   border: none;
   padding: 0.45rem 0.85rem;
@@ -4499,22 +4587,22 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 4px 10px var(--primary-15);
 }
 
 .login-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 5px 14px rgba(59, 130, 246, 0.25);
+  box-shadow: 0 5px 14px var(--primary-25);
   filter: brightness(1.1);
 }
 
 .qq-login-btn {
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
-  box-shadow: 0 4px 10px rgba(6, 182, 212, 0.15);
+  background: linear-gradient(135deg, var(--color-teal) 0%, var(--color-teal) 100%);
+  box-shadow: 0 4px 10px var(--requestform-qq-login-shadow);
 }
 
 .qq-login-btn:hover {
-  box-shadow: 0 5px 14px rgba(6, 182, 212, 0.25);
+  box-shadow: 0 5px 14px var(--requestform-qq-login-shadow-hover);
 }
 
 .header-actions {
@@ -4529,7 +4617,7 @@ defineExpose({
   gap: 0.25rem;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--overlay-50);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   font-size: 11px;
@@ -4538,8 +4626,8 @@ defineExpose({
 }
 
 .header-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  background: var(--overlay-8);
 }
 
 .login-actions {
@@ -4549,9 +4637,9 @@ defineExpose({
 }
 
 .import-btn {
-  background: rgba(255, 255, 255, 0.04);
-  color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--overlay-4);
+  color: var(--overlay-70);
+  border: 1px solid var(--overlay-8);
   padding: 0.45rem 0.75rem;
   border-radius: 7px;
   font-size: 12px;
@@ -4566,9 +4654,9 @@ defineExpose({
 }
 
 .import-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: var(--overlay-8);
+  border-color: var(--overlay-15);
+  color: var(--text-primary);
 }
 
 .user-status {
@@ -4594,7 +4682,7 @@ defineExpose({
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid var(--overlay-10);
 }
 
 .qq-user-avatar {
@@ -4605,14 +4693,14 @@ defineExpose({
   height: 24px;
   flex-shrink: 0;
   border-radius: 50%;
-  color: #22d3ee;
-  background: rgba(6, 182, 212, 0.12);
-  border: 1.5px solid rgba(6, 182, 212, 0.22);
+  color: var(--color-cyan);
+  background: var(--requestform-user-icon-bg);
+  border: 1.5px solid var(--requestform-user-icon-border);
 }
 
 .user-name {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--overlay-90);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -4628,9 +4716,9 @@ defineExpose({
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--overlay-4);
+  border: 1px solid var(--overlay-6);
+  color: var(--overlay-70);
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
   font-size: 11px;
@@ -4641,9 +4729,9 @@ defineExpose({
 }
 
 .action-btn-compact:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--overlay-8);
+  color: var(--text-primary);
+  border-color: var(--overlay-12);
 }
 
 .audio-waveform {
@@ -4657,7 +4745,7 @@ defineExpose({
   display: block;
   width: 3px;
   height: 100%;
-  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(180deg, var(--color-accent-light) 0%, var(--color-accent-light-hover) 100%);
   border-radius: 2px;
   animation: wave 1.2s ease-in-out infinite;
 }
@@ -4703,20 +4791,20 @@ defineExpose({
 }
 
 .audio-match-primary-btn {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, var(--color-accent-hover) 0%, var(--color-accent-light-hover) 100%);
   border: none;
   border-radius: 12px;
   padding: 0.875rem 2rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 4px 14px var(--requestform-login-btn-hover-shadow);
 }
 
 .audio-match-primary-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 6px 20px var(--requestform-login-btn-hover-shadow-lg);
 }
 
 .audio-match-primary-btn:disabled {
@@ -4727,15 +4815,15 @@ defineExpose({
 }
 
 .audio-match-record-btn {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  background: linear-gradient(135deg, var(--color-error-hover) 0%, var(--color-error-hover) 100%);
   border: none;
   border-radius: 12px;
   padding: 0.875rem 2rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.35);
+  box-shadow: 0 4px 14px var(--requestform-like-btn-hover-shadow);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4743,14 +4831,14 @@ defineExpose({
 
 .audio-match-record-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.45);
+  box-shadow: 0 6px 20px var(--requestform-like-btn-hover-shadow-lg);
 }
 
 .recording-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--text-primary);
   animation: pulse-dot 1s ease-in-out infinite;
 }
 
@@ -4768,19 +4856,19 @@ defineExpose({
 
 .audio-match-cancel-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--overlay-10);
   border-radius: 12px;
   padding: 0.875rem 1.5rem;
-  color: #a1a1aa;
+  color: var(--text-muted-light);
   font-weight: 500;
   font-size: 14px;
   cursor: pointer;
 }
 
 .audio-match-cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #e4e4e7;
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--overlay-5);
+  color: var(--text-primary-lighter);
+  border-color: var(--overlay-15);
 }
 
 .audio-match-result-item {
@@ -4790,24 +4878,24 @@ defineExpose({
   justify-content: space-between;
   gap: 1rem;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--overlay-8);
+  background: var(--overlay-3);
   padding: 0.95rem 1rem;
   cursor: pointer;
 }
 
 .audio-match-result-item:hover {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(96, 165, 250, 0.22);
+  background: var(--primary-10);
+  border-color: var(--requestform-audio-match-hover-border-light);
   transform: translateY(-1px);
 }
 
 .search-type-switch {
   display: flex;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-card-bg-soft);
   border-radius: 6px;
   padding: 2px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--overlay-5);
 }
 
 .radio-label {
@@ -4815,7 +4903,7 @@ defineExpose({
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--overlay-40);
   cursor: pointer;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
@@ -4823,10 +4911,10 @@ defineExpose({
 }
 
 .radio-label.active {
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--overlay-8);
+  box-shadow: 0 1px 3px var(--mask-10);
 }
 
 .radio-label input {
@@ -4839,7 +4927,7 @@ defineExpose({
   gap: 0.2rem;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--overlay-40);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   font-size: 11px;
@@ -4848,39 +4936,39 @@ defineExpose({
 }
 
 .logout-btn:hover {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.05);
+  color: var(--overlay-70);
+  background: var(--overlay-5);
 }
 
 .platform-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--overlay-8);
+  border: 1px solid var(--overlay-12);
   border-radius: 8px;
   padding: 0.45rem 0.85rem;
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--overlay-50);
   cursor: pointer;
   transition: all 0.3s ease;
   white-space: nowrap;
 }
 
 .platform-btn.active {
-  background: linear-gradient(180deg, #0043f8 0%, #0075f8 100%);
-  border-color: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border-color: var(--overlay-16);
+  color: var(--text-primary);
 }
 
 .platform-btn:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--overlay-20);
+  color: var(--overlay-80);
 }
 
 /* 音源状态显示 */
 .source-status-display {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--overlay-5);
+  border: 1px solid var(--overlay-10);
   border-radius: 12px;
   padding: 1rem;
   margin-bottom: 1rem;
@@ -4897,14 +4985,14 @@ defineExpose({
 .status-title {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--overlay-90);
   font-family: 'MiSans', sans-serif;
 }
 
 .status-summary {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--overlay-60);
+  background: var(--overlay-10);
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   font-family: 'MiSans', sans-serif;
@@ -4931,25 +5019,25 @@ defineExpose({
 }
 
 .source-item.healthy {
-  background: rgba(34, 197, 94, 0.15);
-  border-color: rgba(34, 197, 94, 0.3);
-  color: #4ade80;
+  background: var(--requestform-source-healthy-bg);
+  border-color: var(--requestform-source-healthy-border);
+  color: var(--color-success-light);
 }
 
 .source-item.unhealthy {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: var(--error-15);
+  border-color: var(--error-30);
+  color: var(--color-error-light);
 }
 
 .source-item.checking {
-  background: rgba(251, 191, 36, 0.15);
-  border-color: rgba(251, 191, 36, 0.3);
-  color: #fbbf24;
+  background: var(--requestform-source-checking-bg);
+  border-color: var(--requestform-source-checking-border);
+  color: var(--color-warning-light);
 }
 
 .source-item.current {
-  box-shadow: 0 0 0 2px rgba(11, 90, 254, 0.4);
+  box-shadow: 0 0 0 2px var(--color-accent-alpha-40);
   transform: scale(1.02);
 }
 
@@ -4965,18 +5053,18 @@ defineExpose({
 }
 
 .source-item.healthy .source-indicator {
-  background: #22c55e;
-  box-shadow: 0 0 6px rgba(34, 197, 94, 0.6);
+  background: var(--color-success-hover);
+  box-shadow: 0 0 6px var(--requestform-source-healthy-glow);
 }
 
 .source-item.unhealthy .source-indicator {
-  background: #ef4444;
-  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+  background: var(--color-error);
+  box-shadow: 0 0 6px var(--error-60);
 }
 
 .source-item.checking .source-indicator {
-  background: #fbbf24;
-  box-shadow: 0 0 6px rgba(251, 191, 36, 0.6);
+  background: var(--color-warning-light);
+  box-shadow: 0 0 6px var(--requestform-source-checking-glow);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -4996,10 +5084,10 @@ defineExpose({
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding: 0.5rem 0.75rem;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: var(--error-15);
+  border: 1px solid var(--error-30);
   border-radius: 6px;
-  color: #f87171;
+  color: var(--color-error-light);
   font-size: 12px;
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
@@ -5008,7 +5096,7 @@ defineExpose({
 /* 搜索结果容器样式 */
 .search-results-container {
   flex: 1;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--surface-card-bg);
   border-radius: 13px;
   display: flex;
   flex-direction: column;
@@ -5036,17 +5124,8 @@ defineExpose({
   min-height: 200px; /* 添加最小高度 */
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(11, 90, 254, 0.2);
-  border-top-color: #0b5afe;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
 .loading-text {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   margin: 0;
@@ -5085,17 +5164,17 @@ defineExpose({
 }
 
 .results-grid::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--overlay-10);
   border-radius: 3px;
 }
 
 .results-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--overlay-30);
   border-radius: 3px;
 }
 
 .results-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--overlay-50);
 }
 
 /* 空状态和初始状态 */
@@ -5123,13 +5202,13 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 15px;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .empty-hint,
 .initial-hint {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   font-size: 13px;
   margin: 0;
 }
@@ -5157,25 +5236,25 @@ defineExpose({
 .manual-input-trigger {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--overlay-10);
   text-align: center;
 }
 
 .manual-submit-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--overlay-10);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1.5rem;
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .manual-submit-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
   transform: translateY(-2px);
 }
 
@@ -5184,7 +5263,7 @@ defineExpose({
   font-weight: 600;
   font-size: 14px;
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--overlay-40);
   margin-top: 0.5rem;
 }
 
@@ -5195,14 +5274,14 @@ defineExpose({
 }
 
 .submit-button {
-  background: linear-gradient(180deg, #0043f8 0%, #0075f8 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1.5rem;
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -5232,7 +5311,7 @@ defineExpose({
 }
 
 .alert-icon {
-  color: #f59e0b;
+  color: var(--color-warning);
   flex-shrink: 0;
 }
 
@@ -5240,7 +5319,7 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 16px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .alert-content {
@@ -5258,7 +5337,7 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 0.4rem 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--overlay-5);
 }
 
 .similar-song-item:last-child {
@@ -5273,7 +5352,7 @@ defineExpose({
 .song-title {
   margin: 0 0 0.25rem 0;
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -5297,21 +5376,21 @@ defineExpose({
 }
 
 .status-played {
-  color: #ef4444;
+  color: var(--color-error);
 }
 
 .status-scheduled {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .alert-hint {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   font-size: 14px;
   margin-top: 0.5rem;
 }
 
 .voted-status {
-  color: #10b981;
+  color: var(--color-success);
   font-size: 14px;
   font-weight: 600;
   margin-top: 0.5rem;
@@ -5327,11 +5406,11 @@ defineExpose({
 }
 
 .vote-btn {
-  background: linear-gradient(180deg, #0043f8 0%, #0075f8 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
@@ -5341,21 +5420,21 @@ defineExpose({
 
 .vote-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 67, 248, 0.3);
+  box-shadow: 0 2px 8px var(--primary-30);
 }
 
 .vote-btn:disabled {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
   cursor: not-allowed;
   transform: none;
 }
 
 .ignore-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--overlay-10);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
@@ -5436,13 +5515,13 @@ defineExpose({
 }
 
 /* 弹窗样式 */
-.modal-overlay {
+.requestform-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--mask-60);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -5452,13 +5531,13 @@ defineExpose({
 }
 
 .modal-content {
-  background: rgba(20, 20, 25, 0.95);
+  background: var(--requestform-modal-overlay-bg);
   border-radius: 16px;
   width: 90%;
   max-width: 500px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px var(--mask-50);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--overlay-10);
   transform-origin: center;
 }
 
@@ -5467,13 +5546,13 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--overlay-5);
+  background: var(--overlay-2);
 }
 
 .modal-header h3 {
   margin: 0;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 18px;
@@ -5483,7 +5562,7 @@ defineExpose({
 .close-btn {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--overlay-40);
   font-size: 24px;
   cursor: pointer;
   padding: 0;
@@ -5497,8 +5576,8 @@ defineExpose({
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: var(--overlay-10);
+  color: var(--text-primary);
   transform: rotate(90deg);
 }
 
@@ -5532,27 +5611,27 @@ defineExpose({
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--overlay-5);
+  border-color: var(--overlay-10);
+  color: var(--overlay-80);
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-10);
+  color: var(--text-primary);
+  border-color: var(--overlay-20);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #0043f8 0%, #0075f8 100%);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(0, 67, 248, 0.3);
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border-color: var(--overlay-10);
+  color: var(--text-primary);
+  box-shadow: 0 4px 12px var(--primary-30);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 67, 248, 0.4);
+  box-shadow: 0 6px 16px var(--requestform-submit-btn-hover-shadow);
 }
 
 .btn-primary:disabled {
@@ -5562,8 +5641,8 @@ defineExpose({
 }
 
 .readonly {
-  background: rgba(0, 0, 0, 0.2) !important;
-  color: rgba(255, 255, 255, 0.5) !important;
+  background: var(--surface-card-bg-soft) !important;
+  color: var(--overlay-50) !important;
   cursor: not-allowed;
   border-color: transparent !important;
 }
@@ -5591,7 +5670,7 @@ defineExpose({
   gap: 1rem;
   transition: all 0.2s ease;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--overlay-10);
 }
 
 .result-item:last-child {
@@ -5599,7 +5678,7 @@ defineExpose({
 }
 
 .result-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--overlay-5);
 }
 
 .result-cover {
@@ -5609,8 +5688,8 @@ defineExpose({
   flex-shrink: 0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  background: #18181b;
+  box-shadow: 0 4px 12px var(--mask-20);
+  background: var(--panel-bg-dialog);
 }
 
 .cover-img {
@@ -5627,7 +5706,7 @@ defineExpose({
 .play-overlay-container {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--surface-card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5644,15 +5723,15 @@ defineExpose({
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--overlay-30);
+  box-shadow: 0 8px 16px var(--mask-30);
 }
 
 .play-icon {
@@ -5672,7 +5751,7 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 15px;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -5683,7 +5762,7 @@ defineExpose({
 }
 
 .result-artist {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   font-size: 13px;
   margin: 0.25rem 0;
   white-space: nowrap;
@@ -5694,7 +5773,7 @@ defineExpose({
 .result-album,
 .result-quality,
 .result-pay {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--overlay-40);
   font-size: 11px;
   margin: 0.15rem 0;
 }
@@ -5710,8 +5789,8 @@ defineExpose({
 }
 
 .cloud-disk-btn {
-  background: linear-gradient(180deg, #ec4141 0%, #d83030 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, var(--color-error) 0%, var(--color-error-hover) 100%);
+  border: 1px solid var(--overlay-20);
   border-radius: 50%;
   width: 32px;
   height: 32px;
@@ -5720,25 +5799,25 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px var(--mask-20);
   -webkit-appearance: none;
   appearance: none;
 }
 
 .cloud-disk-btn:hover {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(236, 65, 65, 0.5);
-  background: linear-gradient(180deg, #d83030 0%, #c52020 100%);
-  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 12px var(--requestform-delete-btn-hover-shadow);
+  background: linear-gradient(180deg, var(--color-error-hover) 0%, var(--color-error-hover) 100%);
+  border-color: var(--overlay-40);
 }
 
 .cloud-disk-btn:active {
   transform: translateY(0) scale(0.95);
-  box-shadow: 0 2px 4px rgba(236, 65, 65, 0.3);
+  box-shadow: 0 2px 4px var(--requestform-delete-btn-hover-shadow-sm);
 }
 
 .similar-song-info {
@@ -5751,27 +5830,27 @@ defineExpose({
 
 .similar-text {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
 }
 
 .similar-text.status-played {
-  color: #ef4444;
+  color: var(--color-error);
   font-weight: 600;
 }
 
 .similar-text.status-scheduled {
-  color: #f59e0b;
+  color: var(--color-warning);
   font-weight: 600;
 }
 
 .like-btn {
-  background: linear-gradient(180deg, #ef4444 0%, #dc2626 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, var(--color-error) 0%, var(--color-error-hover) 100%);
+  border: 1px solid var(--overlay-16);
   border-radius: 6px;
   padding: 0.4rem 0.8rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 12px;
@@ -5785,18 +5864,18 @@ defineExpose({
 
 .like-btn:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 2px 8px var(--error-30);
 }
 
 .like-btn:disabled {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
   cursor: not-allowed;
   transform: none;
 }
 
 .like-btn.disabled {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-10);
+  border-color: var(--overlay-20);
   cursor: not-allowed;
   opacity: 0.5;
 }
@@ -5808,11 +5887,11 @@ defineExpose({
 }
 
 .select-btn {
-  background: linear-gradient(180deg, #0043f8 0%, #0075f8 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
@@ -5821,11 +5900,11 @@ defineExpose({
 }
 
 .replay-btn {
-  background: rgba(0, 117, 248, 0.1);
-  border: 1px solid rgba(0, 117, 248, 0.3);
+  background: var(--requestform-replay-btn-bg);
+  border: 1px solid var(--requestform-replay-btn-border);
   border-radius: 6px;
   padding: 0.4rem 0.8rem;
-  color: #3b82f6;
+  color: var(--color-accent-light);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 12px;
@@ -5838,16 +5917,16 @@ defineExpose({
 }
 
 .replay-btn:hover:not(:disabled) {
-  background: rgba(0, 117, 248, 0.2);
-  border-color: rgba(0, 117, 248, 0.5);
-  color: #60a5fa;
+  background: var(--requestform-replay-btn-bg-hover);
+  border-color: var(--requestform-replay-btn-border-hover);
+  color: var(--color-accent-light);
   transform: translateY(-1px);
 }
 
 .replay-btn:disabled {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.3);
+  background: var(--overlay-5);
+  border-color: var(--overlay-10);
+  color: var(--overlay-30);
   cursor: not-allowed;
   transform: none;
 }
@@ -5859,31 +5938,31 @@ defineExpose({
   margin-top: 1rem;
   text-align: center;
   padding: 1rem 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--overlay-10);
 }
 
 .manual-submit-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--overlay-10);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1.5rem;
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .manual-submit-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
   transform: translateY(-2px);
 }
 
 /* 手动输入区域样式 */
 .manual-input-section {
   margin-top: 2rem;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--surface-card-bg);
   border-radius: 13px;
   padding: 1.5rem;
 }
@@ -5893,7 +5972,7 @@ defineExpose({
   font-weight: 600;
   font-size: 18px;
   margin-bottom: 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .manual-form {
@@ -5909,11 +5988,11 @@ defineExpose({
 }
 
 .manual-cancel-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--overlay-10);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
@@ -5922,15 +6001,15 @@ defineExpose({
 }
 
 .manual-cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
 }
 
 .manual-confirm-btn {
-  background: linear-gradient(180deg, #0043f8 0%, #0075f8 100%);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent) 100%);
+  border: 1px solid var(--overlay-16);
   border-radius: 8px;
   padding: 0.5rem 1rem;
-  color: #ffffff;
+  color: var(--text-primary);
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
@@ -5940,7 +6019,7 @@ defineExpose({
 
 .manual-confirm-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 67, 248, 0.3);
+  box-shadow: 0 4px 12px var(--primary-30);
 }
 
 .manual-confirm-btn:disabled {
@@ -5953,6 +6032,7 @@ defineExpose({
   /* Netease Options Mobile Optimization */
   .netease-options {
     padding: 0.75rem;
+    min-width: unset; /* 移除桌面端的最小宽度限制 */
   }
 
   .user-compact-row {
@@ -5969,11 +6049,16 @@ defineExpose({
   .search-type-switch {
     width: 100%;
     display: flex;
+    min-width: 0;
   }
 
   .radio-label {
     flex: 1;
+    min-width: 0;
     text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-actions-row {
@@ -5986,9 +6071,17 @@ defineExpose({
   /* 移动端下让按钮平分宽度 */
   .user-actions-row .action-btn-compact {
     flex: 1;
+    min-width: 0;
     width: auto;
     justify-content: center;
     padding: 0.6rem 0.4rem;
+  }
+
+  /* 按钮文字过窄时省略号截断 */
+  .user-actions-row .action-btn-compact span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* 移动端显示/隐藏控制 */
@@ -6013,23 +6106,23 @@ defineExpose({
     height: auto;
     margin-bottom: 1.5rem;
     padding: 1.25rem;
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--overlay-4);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--overlay-8);
     border-radius: 18px;
   }
 
   .rules-title {
     font-size: 15px;
     font-weight: 700;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--overlay-90);
     margin-bottom: 1.25rem;
     letter-spacing: normal;
   }
 
   .rules-icon {
     display: block;
-    color: #f59e0b;
+    color: var(--color-warning);
   }
 
   .form-container {
@@ -6067,9 +6160,9 @@ defineExpose({
     display: flex;
     flex-direction: column;
     margin-bottom: 2rem;
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--overlay-2);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--overlay-8);
     border-radius: 20px;
     /* 允许容器内容触发页面滚动 */
     touch-action: pan-y;
@@ -6161,8 +6254,8 @@ defineExpose({
   }
 
   .search-input {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--overlay-5);
+    border: 1px solid var(--overlay-10);
     border-radius: 12px;
     padding: 0.75rem 1rem;
     font-size: 15px;
@@ -6192,32 +6285,36 @@ defineExpose({
   .platform-selection-container {
     flex-direction: column;
     align-items: stretch;
+    min-width: 0;
   }
 
   .platform-selection {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--surface-card-bg-soft);
     padding: 4px;
     border-radius: 12px;
     margin-bottom: 0.5rem;
     display: flex;
-    overflow: visible;
+    min-width: 0;
   }
 
   .platform-btn {
     flex: 1;
-    padding: 0.5rem;
-    font-size: 13px;
+    min-width: 0;
+    padding: 0.5rem 0.25rem;
+    font-size: 12px;
+    line-height: 1.3;
     border-radius: 10px;
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.5);
-    min-width: auto;
+    color: var(--overlay-50);
+    white-space: normal;
+    word-break: break-word;
   }
 
   .platform-btn.active {
-    background: #0b5afe;
-    color: #ffffff;
-    box-shadow: 0 2px 8px rgba(11, 90, 254, 0.3);
+    background: var(--color-accent);
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px var(--color-accent-alpha-30);
   }
 
   /* 移动端音源状态显示 */
@@ -6286,9 +6383,9 @@ defineExpose({
     gap: 0.35rem;
     min-height: 28px;
     border-radius: 999px;
-    border: 1px solid rgba(113, 113, 122, 0.45);
-    background: rgba(39, 39, 42, 0.75);
-    color: rgba(212, 212, 216, 0.9);
+    border: 1px solid var(--requestform-mobile-chip-border);
+    background: var(--requestform-mobile-chip-bg);
+    color: var(--requestform-mobile-chip-text);
     padding: 0.25rem 0.55rem;
     font-size: 11px;
     font-weight: 800;
@@ -6303,9 +6400,9 @@ defineExpose({
     width: 100%;
     min-height: 42px;
     border-radius: 12px;
-    border: 1px solid rgba(113, 113, 122, 0.4);
-    background: rgba(24, 24, 27, 0.65);
-    color: rgba(228, 228, 231, 0.9);
+    border: 1px solid var(--requestform-mobile-chip-border-sm);
+    background: var(--panel-bg-overlay);
+    color: var(--requestform-mobile-button-text);
     padding: 0.65rem 0.85rem;
     font-size: 13px;
     font-weight: 800;
@@ -6313,29 +6410,29 @@ defineExpose({
 
   .mobile-card-code-chip.is-required,
   .mobile-card-code-button.is-required {
-    border-color: rgba(234, 179, 8, 0.35);
-    background: rgba(234, 179, 8, 0.1);
-    color: #fde68a;
+    border-color: var(--requestform-chip-required-border);
+    background: var(--requestform-chip-required-bg);
+    color: var(--color-warning-light);
   }
 
   .mobile-card-code-chip.has-code,
   .mobile-card-code-button.has-code {
-    border-color: rgba(234, 179, 8, 0.3);
-    color: #facc15;
+    border-color: var(--requestform-chip-required-border-sm);
+    color: var(--color-warning-light);
   }
 
   .mobile-card-code-chip.is-valid,
   .mobile-card-code-button.is-valid {
-    border-color: rgba(16, 185, 129, 0.35);
-    background: rgba(16, 185, 129, 0.1);
-    color: #6ee7b7;
+    border-color: var(--requestform-chip-valid-border);
+    background: var(--success-10);
+    color: var(--color-success-light);
   }
 
   .mobile-card-code-chip.is-invalid,
   .mobile-card-code-button.is-invalid {
-    border-color: rgba(248, 113, 113, 0.35);
-    background: rgba(248, 113, 113, 0.1);
-    color: #fca5a5;
+    border-color: var(--requestform-chip-invalid-border);
+    background: var(--requestform-chip-invalid-bg);
+    color: var(--color-error-light);
   }
 
   .form-group label {
@@ -6392,9 +6489,9 @@ defineExpose({
 
   /* 移动端搜索结果优化 */
   .result-item {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--overlay-3);
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--overlay-6);
     margin-bottom: 0.5rem;
     padding: 10px;
     flex-direction: row;
@@ -6526,14 +6623,14 @@ defineExpose({
 .netease-loading-state .loading-spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid rgba(239, 68, 68, 0.2);
-  border-top-color: #ef4444;
+  border: 2px solid var(--error-20);
+  border-top-color: var(--color-error);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 .netease-loading-state .loading-text {
-  color: #a1a1aa;
+  color: var(--text-muted-light);
   font-size: 13px;
   font-weight: 500;
   margin: 0;
@@ -6541,7 +6638,7 @@ defineExpose({
 
 /* URL验证状态样式 */
 .validation-loading {
-  color: #fbbf24;
+  color: var(--color-warning-light);
   font-size: 0.875rem;
   margin-top: 0.25rem;
   display: flex;
@@ -6550,31 +6647,31 @@ defineExpose({
 }
 
 .validation-error {
-  color: #ef4444;
+  color: var(--color-error);
   font-size: 0.875rem;
   margin-top: 0.25rem;
 }
 
 .validation-success {
-  color: #10b981;
+  color: var(--color-success);
   font-size: 0.875rem;
   margin-top: 0.25rem;
 }
 
 .form-input.error {
-  border-color: #ef4444;
-  box-shadow: 0 0 0 1px #ef4444;
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 1px var(--color-error);
 }
 
 .import-semester-btn {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--overlay-8);
+  border: 1px solid var(--overlay-12);
   border-radius: 8px;
   padding: 0.6rem 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--overlay-80);
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   font-size: 13px;
@@ -6586,9 +6683,9 @@ defineExpose({
 }
 
 .import-semester-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-15);
+  color: var(--text-primary);
+  border-color: var(--overlay-20);
 }
 
 @media (max-width: 768px) {
@@ -6605,7 +6702,7 @@ defineExpose({
 
 .video-info {
   padding: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--overlay-10);
   margin-bottom: 1rem;
 }
 
@@ -6613,14 +6710,14 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   font-size: 16px;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .video-author {
   font-family: 'MiSans', sans-serif;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
 }
 
 .episodes-list {
@@ -6635,16 +6732,16 @@ defineExpose({
   align-items: center;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--overlay-5);
+  border: 1px solid var(--overlay-10);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .episode-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-10);
+  border-color: var(--overlay-20);
   transform: translateX(4px);
 }
 
@@ -6652,8 +6749,8 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 600;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--overlay-80);
+  background: var(--overlay-10);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   min-width: 40px;
@@ -6671,13 +6768,13 @@ defineExpose({
   font-family: 'MiSans', sans-serif;
   font-weight: 500;
   font-size: 14px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .episode-duration {
   font-family: 'MiSans', sans-serif;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--overlay-50);
 }
 
 /* 专辑详情样式 */
@@ -6691,12 +6788,12 @@ defineExpose({
 }
 
 .clickable-album:hover .album-name {
-  color: #3b82f6;
+  color: var(--color-accent-light);
   text-decoration: underline;
 }
 
 .album-label {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--overlay-40);
 }
 
 .album-link-icon {

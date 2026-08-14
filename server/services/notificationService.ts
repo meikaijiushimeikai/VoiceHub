@@ -6,7 +6,6 @@ import {
   schedules,
   songCollaborators,
   songs,
-  systemSettings,
   users,
   votes
 } from '~/drizzle/schema'
@@ -14,6 +13,14 @@ import { and, eq, gte, inArray } from 'drizzle-orm'
 import { sendBatchMeowNotifications, sendMeowNotificationToUser } from './meowNotificationService'
 import { sendBatchEmailNotifications, sendEmailNotificationToUser } from './smtpService'
 import { formatDateTime, getBeijingTime } from '~/utils/timeUtils'
+import { getSystemSettingsCached } from '~~/server/utils/system-settings-helper'
+import {
+  createNotificationSenderSnapshot,
+  resolveNotificationSource,
+  shouldDeliverSystemNotification,
+  type NotificationSenderInput
+} from '~~/server/utils/important-notification-policy'
+import { randomUUID } from 'node:crypto'
 
 /**
  * 创建联合投稿邀请通知
@@ -61,7 +68,7 @@ export async function createCollaborationInvitationNotification(
         'notification.collaborationInvite',
         {
           inviterName: inviter?.name || '未知用户',
-          songTitle,
+          songTitle
         }
       )
     } catch (error) {
@@ -126,8 +133,7 @@ export async function createSongSelectedNotification(
 ) {
   try {
     // 获取系统设置，检查是否启用播出时段功能
-    const systemSettingsResult = await db.select().from(systemSettings).limit(1)
-    const systemConfig = systemSettingsResult[0]
+    const systemConfig = await getSystemSettingsCached()
     const isPlayTimeEnabled = systemConfig?.enablePlayTimeSelection || false
 
     // 获取排期对应的播出时段
@@ -223,6 +229,116 @@ export async function createSongSelectedNotification(
             (schedule.playTime.startTime || schedule.playTime.endTime)
               ? `${schedule.playTime.startTime || ''}${schedule.playTime.startTime && schedule.playTime.endTime ? '-' : ''}${schedule.playTime.endTime || ''}`
               : ''
+        }
+      )
+    } catch (error) {
+      console.error('发送邮件通知失败:', error)
+    }
+
+    return notification
+  } catch (err) {
+    return null
+  }
+}
+
+/**
+ * 创建重播申请已安排排期的通知（发送给重播申请人）
+ */
+export async function createReplaySongSelectedNotification(
+  userId: number,
+  songId: number,
+  songInfo: {
+    title: string
+    artist: string
+    playDate: Date
+  },
+  scheduleId?: number
+) {
+  try {
+    // 获取系统设置，检查是否启用播出时段功能
+    const systemConfig = await getSystemSettingsCached()
+    const isPlayTimeEnabled = systemConfig?.enablePlayTimeSelection || false
+
+    // 优先按排期 ID 精确查询，避免同日同歌多排期时取错时段
+    const scheduleResult = await db
+      .select({
+        id: schedules.id,
+        playTime: {
+          id: playTimes.id,
+          name: playTimes.name,
+          startTime: playTimes.startTime,
+          endTime: playTimes.endTime
+        }
+      })
+      .from(schedules)
+      .leftJoin(playTimes, eq(schedules.playTimeId, playTimes.id))
+      .where(
+        scheduleId
+          ? eq(schedules.id, scheduleId)
+          : and(eq(schedules.songId, songId), eq(schedules.playDate, songInfo.playDate))
+      )
+      .limit(1)
+    const schedule = scheduleResult[0]
+
+    // 获取用户通知设置
+    const settingsResult = await db
+      .select()
+      .from(notificationSettings)
+      .where(eq(notificationSettings.userId, userId))
+      .limit(1)
+    const settings = settingsResult[0]
+
+    if (settings && !settings.enabled) {
+      return null
+    }
+
+    let message = `您申请重播的歌曲《${songInfo.title}》已安排播放，播放日期：${formatDate(songInfo.playDate)}。`
+
+    if (isPlayTimeEnabled && schedule?.playTime) {
+      let timeInfo = ''
+      if (schedule.playTime.startTime && schedule.playTime.endTime) {
+        timeInfo = `(${schedule.playTime.startTime}-${schedule.playTime.endTime})`
+      } else if (schedule.playTime.startTime) {
+        timeInfo = `(开始时间：${schedule.playTime.startTime})`
+      } else if (schedule.playTime.endTime) {
+        timeInfo = `(结束时间：${schedule.playTime.endTime})`
+      }
+      message += `播出时段：${schedule.playTime.name}${timeInfo ? ' ' + timeInfo : ''}。`
+    }
+
+    let notification
+    try {
+      const notificationResult = await db
+        .insert(notifications)
+        .values({
+          userId,
+          type: 'SONG_SELECTED',
+          message,
+          songId
+        })
+        .returning()
+      notification = notificationResult[0]
+    } catch (error) {
+      throw error
+    }
+
+    try {
+      await sendMeowNotificationToUser(userId, '重播已安排', message)
+    } catch (error) {
+      console.error('发送 MeoW 通知失败:', error)
+    }
+
+    try {
+      await sendEmailNotificationToUser(
+        userId,
+        '重播申请已安排',
+        message,
+        undefined,
+        'notification.replaySongSelected',
+        {
+          songTitle: songInfo.title,
+          playDate: formatDate(songInfo.playDate),
+          playTimeName: isPlayTimeEnabled && schedule?.playTime ? schedule.playTime.name : ''
         }
       )
     } catch (error) {
@@ -333,7 +449,7 @@ export async function createSongPlayedNotification(songId: number) {
             undefined,
             'notification.songPlayed',
             {
-              songTitle: song.title,
+              songTitle: song.title
             }
           )
         } catch (error) {
@@ -353,10 +469,7 @@ export async function createSongPlayedNotification(songId: number) {
 /**
  * 创建歌曲获得投票的通知
  */
-export async function createSongVotedNotification(
-  songId: number,
-  voterId: number
-) {
+export async function createSongVotedNotification(songId: number, voterId: number) {
   try {
     // 获取歌曲信息
     const songResult = await db.select().from(songs).where(eq(songs.id, songId)).limit(1)
@@ -464,7 +577,7 @@ export async function createSongVotedNotification(
         'notification.songVoted',
         {
           songTitle: song.title,
-          votesCount: songVotes.length,
+          votesCount: songVotes.length
         }
       )
     } catch (error) {
@@ -555,7 +668,9 @@ export async function createSubmissionNoteClearedNotification(
   reason?: string
 ) {
   try {
-    const uniqueUserIds = [...new Set(userIds.filter((userId) => Number.isInteger(userId) && userId > 0))]
+    const uniqueUserIds = [
+      ...new Set(userIds.filter((userId) => Number.isInteger(userId) && userId > 0))
+    ]
 
     if (uniqueUserIds.length === 0) {
       return []
@@ -579,9 +694,14 @@ export async function createSubmissionNoteClearedNotification(
 export async function createSystemNotification(
   userId: number,
   title: string,
-  content: string
+  content: string,
+  important = false,
+  sender: NotificationSenderInput | null = null
 ) {
   try {
+    const batchId = randomUUID()
+    const senderSnapshot = createNotificationSenderSnapshot(sender)
+    const source = resolveNotificationSource(sender)
     // 获取用户通知设置
     const settingsResult = await db
       .select()
@@ -591,7 +711,7 @@ export async function createSystemNotification(
     const settings = settingsResult[0]
 
     // 如果用户关闭了通知，则不发送
-    if (settings && !settings.enabled) {
+    if (!shouldDeliverSystemNotification(important, settings?.enabled)) {
       return null
     }
 
@@ -601,7 +721,12 @@ export async function createSystemNotification(
       .values({
         userId: userId,
         type: 'SYSTEM_NOTICE',
-        message: content
+        batchId,
+        source,
+        ...senderSnapshot,
+        title,
+        message: content,
+        important
       })
       .returning()
     const notification = notificationResult[0]
@@ -615,11 +740,7 @@ export async function createSystemNotification(
 
     // 同步发送邮件通知
     try {
-      await sendEmailNotificationToUser(
-        userId,
-        title,
-        content
-      )
+      await sendEmailNotificationToUser(userId, title, content)
     } catch (error) {
       console.error('发送邮件通知失败:', error)
     }
@@ -636,12 +757,18 @@ export async function createSystemNotification(
 export async function createBatchSystemNotifications(
   userIds: number[],
   title: string,
-  content: string
+  content: string,
+  important = false,
+  sender: NotificationSenderInput | null = null
 ) {
   try {
     if (!userIds.length) {
       return []
     }
+
+    const batchId = randomUUID()
+    const senderSnapshot = createNotificationSenderSnapshot(sender)
+    const source = resolveNotificationSource(sender)
 
     // 获取用户通知设置
     const userSettings = await db
@@ -662,14 +789,19 @@ export async function createBatchSystemNotifications(
       const settings = settingsMap.get(userId)
 
       // 如果用户关闭了通知，则不发送
-      if (settings && !settings.enabled) {
+      if (!shouldDeliverSystemNotification(important, settings?.enabled)) {
         continue
       }
 
       notificationsToCreate.push({
         userId,
         type: 'SYSTEM_NOTICE',
-        message: content
+        batchId,
+        source,
+        ...senderSnapshot,
+        title,
+        message: content,
+        important
       })
     }
 
@@ -696,11 +828,7 @@ export async function createBatchSystemNotifications(
     // 同步发送邮件通知
     let emailResults = { success: 0, failed: 0 }
     try {
-      emailResults = await sendBatchEmailNotifications(
-        userIds,
-        title,
-        content
-      )
+      emailResults = await sendBatchEmailNotifications(userIds, title, content)
     } catch (error) {
       console.error('批量发送邮件通知失败:', error)
     }

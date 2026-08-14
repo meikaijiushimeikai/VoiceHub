@@ -1,29 +1,37 @@
 import { computed, readonly, ref, watch } from 'vue'
+import { useLocale } from '~/utils/locale'
 
 // 音质配置
 export const QUALITY_OPTIONS = {
   netease: [
-    { value: 2, label: '标准', description: '适合流量有限的情况' },
-    { value: 4, label: 'HQ极高', description: '高品质音乐体验' },
-    { value: 5, label: 'SQ无损', description: '无损音质，文件较大' },
-    { value: 6, label: 'Hi-Res', description: '高解析度无损' },
-    { value: 9, label: '超清母带', description: '最高音质' }
+    { value: 2, key: 'standard' },
+    { value: 4, key: 'neteaseHq' },
+    { value: 5, key: 'neteaseSq' },
+    { value: 6, key: 'neteaseHiRes' },
+    { value: 9, key: 'neteaseMaster' }
   ],
   tencent: [
-    { value: 4, label: '标准', description: '适合流量有限的情况' },
-    { value: 8, label: 'HQ高音质', description: '高品质音乐体验' },
-    { value: 10, label: 'SQ无损', description: '无损音质，文件较大' },
-    { value: 11, label: 'Hi-Res', description: '高解析度音质' },
-    { value: 14, label: '臻品母带2.0', description: '最高音质' }
+    { value: 4, key: 'standard' },
+    { value: 8, key: 'tencentHq' },
+    { value: 10, key: 'tencentSq' },
+    { value: 11, key: 'tencentHiRes' },
+    { value: 14, key: 'tencentMaster' }
   ],
-  bilibili: [{ value: 1, label: '默认', description: '默认音质' }]
+  bilibili: [{ value: 1, key: 'bilibiliDefault' }],
+  migu: [
+    { value: 1, key: 'standard' },
+    { value: 2, key: 'miguHq' },
+    { value: 3, key: 'miguSq' },
+    { value: 4, key: 'miguZq24' },
+  ]
 }
 
 // 默认音质设置
 const DEFAULT_QUALITY = {
   netease: 4, // HQ极高 (320k)
   tencent: 8, // HQ高音质
-  bilibili: 1
+  bilibili: 1,
+  migu: 1 // 标准音质（咪咕匿名仅提供 128k）
 }
 
 // 全局音质状态，确保所有组件共享同一个状态
@@ -33,6 +41,9 @@ const isNeteaseLoggedIn = ref(false)
 let isLoginStatusInitialized = false
 
 export function useAudioQuality() {
+  const { ui } = useLocale()
+  const locale = computed(() => ui.value?.audioQuality || {})
+
   // 检查网易云登录状态
   const checkNeteaseLoginStatus = () => {
     if (typeof window === 'undefined') return
@@ -61,7 +72,7 @@ export function useAudioQuality() {
         try {
           localStorage.setItem('audioQuality', JSON.stringify(newValue))
         } catch (error) {
-          console.error('保存音质设置失败:', error)
+          console.error('[audioQuality] Failed to save quality settings:', error)
         }
       },
       { deep: true }
@@ -94,7 +105,15 @@ export function useAudioQuality() {
       platform = 'netease'
     }
 
-    return audioQuality.value[platform] || DEFAULT_QUALITY[platform]
+    const stored = audioQuality.value[platform]
+    // 已保存的音质值不再存在于选项列表时（如咪咕音质收敛后残留旧值），回落默认值
+    const platformOptions =
+      (QUALITY_OPTIONS as Record<string, Array<{ value: number; key: string }>>)[platform] || []
+    const isValid = platformOptions.some((option) => option.value === stored)
+    if (isValid) {
+      return stored
+    }
+    return (DEFAULT_QUALITY as Record<string, number>)[platform]
   }
 
   // 获取指定平台的音质选项
@@ -104,7 +123,11 @@ export function useAudioQuality() {
       platform = 'netease'
     }
 
-    return QUALITY_OPTIONS[platform] || []
+    return (QUALITY_OPTIONS[platform] || []).map((option) => ({
+      ...option,
+      label: locale.value?.options?.[option.key]?.label || option.key,
+      description: locale.value?.options?.[option.key]?.description || '使用推荐音质设置'
+    }))
   }
 
   // 获取音质标签
@@ -115,7 +138,7 @@ export function useAudioQuality() {
     }
     const options = getQualityOptions(platform)
     const option = options.find((opt) => opt.value === quality)
-    return option ? option.label : '未知音质'
+    return option ? option.label : locale.value.unknown
   }
 
   // 获取音质描述

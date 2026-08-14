@@ -1,31 +1,22 @@
 import { db } from '~/drizzle/db'
-import { requestTimes, songs, systemSettings } from '~/drizzle/schema'
-import { and, count, eq, gt, gte, lt, lte } from 'drizzle-orm'
-import {
-  getBeijingEndOfDay,
-  getBeijingEndOfWeek,
-  getBeijingEndOfMonth,
-  getBeijingStartOfDay,
-  getBeijingStartOfWeek,
-  getBeijingStartOfMonth,
-  getBeijingTimeISOString
-} from '~/utils/timeUtils'
+import { requestTimes } from '~/drizzle/schema'
+import { and, eq, gt, lte } from 'drizzle-orm'
+import { getBeijingTimeISOString } from '~/utils/timeUtils'
+import { getSubmissionCount, isCardCodeLimitBypassActive } from '~~/server/utils/submissionLimit'
+import { getSystemSettingsCached } from '~~/server/utils/system-settings-helper'
+import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证
   const user = event.context.user
 
   if (!user) {
-    throw createError({
-      statusCode: 401,
-      message: '需要登录才能查看投稿状态'
-    })
+    throw createApiError(401, 'SONG_LOGIN_REQUIRED_VIEW_STATUS', '需要登录才能查看投稿状态')
   }
 
   try {
     // 获取系统设置
-    const systemSettingsResult = await db.select().from(systemSettings).limit(1)
-    const systemSettingsData = systemSettingsResult[0]
+    const systemSettingsData = await getSystemSettingsCached()
 
     // 超级管理员和管理员不受投稿限制
     const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
@@ -42,7 +33,7 @@ export default defineEventHandler(async (event) => {
       dailyRemaining: null,
       weeklyRemaining: null,
       monthlyRemaining: null,
-      submissionClosed: false,
+      submissionClosed: !!(systemSettingsData?.forceBlockAllRequests && !isAdmin),
       timeLimitationEnabled: systemSettingsData?.enableRequestTimeLimitation || false,
       currentTimePeriod: null
     }
@@ -111,54 +102,14 @@ export default defineEventHandler(async (event) => {
     let weeklyUsed = 0
     let monthlyUsed = 0
 
+    const excludeCardCodeRequests = isCardCodeLimitBypassActive(systemSettingsData)
+
     if (limitType === 'daily' && effectiveLimit && effectiveLimit > 0) {
-      const startOfDay = getBeijingStartOfDay()
-      const endOfDay = getBeijingEndOfDay()
-
-      const dailyUsedResult = await db
-        .select({ count: count() })
-        .from(songs)
-        .where(
-          and(
-            eq(songs.requesterId, user.id),
-            gte(songs.createdAt, startOfDay),
-            lte(songs.createdAt, endOfDay)
-          )
-        )
-
-      dailyUsed = dailyUsedResult[0]?.count || 0
+      dailyUsed = await getSubmissionCount(db, user.id, 'daily', { excludeCardCodeRequests })
     } else if (limitType === 'weekly' && effectiveLimit && effectiveLimit > 0) {
-      const startOfWeek = getBeijingStartOfWeek()
-      const endOfWeek = getBeijingEndOfWeek()
-
-      const weeklyUsedResult = await db
-        .select({ count: count() })
-        .from(songs)
-        .where(
-          and(
-            eq(songs.requesterId, user.id),
-            gte(songs.createdAt, startOfWeek),
-            lte(songs.createdAt, endOfWeek)
-          )
-        )
-
-      weeklyUsed = weeklyUsedResult[0]?.count || 0
+      weeklyUsed = await getSubmissionCount(db, user.id, 'weekly', { excludeCardCodeRequests })
     } else if (limitType === 'monthly' && effectiveLimit && effectiveLimit > 0) {
-      const startOfMonth = getBeijingStartOfMonth()
-      const endOfMonth = getBeijingEndOfMonth()
-
-      const monthlyUsedResult = await db
-        .select({ count: count() })
-        .from(songs)
-        .where(
-          and(
-            eq(songs.requesterId, user.id),
-            gte(songs.createdAt, startOfMonth),
-            lte(songs.createdAt, endOfMonth)
-          )
-        )
-
-      monthlyUsed = monthlyUsedResult[0]?.count || 0
+      monthlyUsed = await getSubmissionCount(db, user.id, 'monthly', { excludeCardCodeRequests })
     }
 
     status.dailyLimit = limitType === 'daily' ? effectiveLimit : null
@@ -177,9 +128,6 @@ export default defineEventHandler(async (event) => {
     return status
   } catch (error) {
     console.error('获取投稿状态失败:', error)
-    throw createError({
-      statusCode: 500,
-      message: '获取投稿状态失败'
-    })
+    throw createApiError(500, 'SONG_FETCH_STATUS_FAILED', '获取投稿状态失败')
   }
 })

@@ -17,20 +17,20 @@
         <!-- 移动端侧边栏遮罩 -->
         <div
           v-if="sidebarOpen"
-          class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
+          class="fixed inset-0 bg-bg-primary-60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
           @click="closeSidebar"
         />
 
         <!-- 主内容区域 -->
         <main
-          class="flex-1 flex flex-col h-screen overflow-hidden lg:ml-64 relative bg-[#09090b] text-zinc-100"
+          class="flex-1 flex flex-col h-screen overflow-hidden lg:ml-64 relative bg-bg-primary text-text-primary"
         >
           <header
-            class="h-16 shrink-0 flex items-center justify-between px-4 md:px-8 border-b border-zinc-800 bg-zinc-950/60 backdrop-blur-xl z-30"
+            class="h-16 shrink-0 flex items-center justify-between px-4 md:px-8 border-b border-border-secondary bg-bg-primary-60 backdrop-blur-xl z-30"
           >
             <div class="flex items-center gap-3">
               <button
-                class="lg:hidden p-2 text-zinc-400 hover:bg-zinc-800 rounded-lg transition-colors"
+                class="lg:hidden p-2 text-text-tertiary hover:bg-bg-tertiary rounded-lg transition-colors"
                 @click="toggleSidebar"
               >
                 <Menu :size="20" />
@@ -48,8 +48,8 @@
             <!-- 移动端返回顶部按钮 -->
             <button
               v-if="showBackToTop"
-              aria-label="返回顶部"
-              class="fixed bottom-8 right-8 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all z-50"
+              :aria-label="locale.backToTop"
+              class="fixed bottom-8 right-8 p-3 bg-primary-hover text-text-primary rounded-full shadow-lg hover:bg-primary transition-all z-50"
               @click="scrollToTop"
             >
               <ChevronUp :size="24" />
@@ -159,6 +159,14 @@
               <LazyAdminSiteConfigManager />
             </div>
 
+            <!-- 音源控制 -->
+            <div
+              v-if="activeTab === 'music-source' && permissions.canAccessPage('music-source')"
+              class="animate-in fade-in slide-in-from-bottom-4 duration-500"
+            >
+              <LazyAdminMusicSourceController />
+            </div>
+
             <!-- 数据库操作 -->
             <div
               v-if="activeTab === 'database' && permissions.canAccessPage('database')"
@@ -190,14 +198,16 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, provide, ref, watch } from 'vue'
-import { Menu, ChevronUp } from 'lucide-vue-next'
+import { Menu, ChevronUp } from '@lucide/vue'
 import { useAuth } from '~/composables/useAuth'
-import logo from '~~/public/images/logo.svg'
 import { usePermissions } from '~/composables/usePermissions'
 import { useSiteConfig } from '~/composables/useSiteConfig'
+import { useLocale } from '~/utils/locale'
 
 // 使用站点配置
 const { siteTitle, initSiteConfig } = useSiteConfig()
+const { pages } = useLocale()
+const locale = computed(() => pages.value?.dashboard || {})
 
 // 导入组件
 
@@ -231,23 +241,7 @@ const permissions = usePermissions()
 
 // 方法
 const getPageTitle = () => {
-  const titles = {
-    overview: '数据概览',
-    songs: '歌曲管理',
-    schedule: '排期管理',
-    print: '打印排期',
-    'card-codes': '卡密管理',
-    users: '用户管理',
-    notifications: '通知管理',
-    'smtp-config': '邮件配置',
-    playtimes: '播出时段',
-    'request-times': '投稿管理',
-    semesters: '学期管理',
-    blacklist: '黑名单管理',
-    'site-config': '站点配置',
-    database: '数据库操作'
-  }
-  return titles[activeTab.value] || '管理后台'
+  return locale.value.tabs[activeTab.value] || locale.value.fallbackTitle
 }
 
 // 动态页面标题
@@ -256,7 +250,7 @@ const dynamicTitle = computed(() => {
   if (siteTitle && siteTitle.value) {
     return `${currentPageTitle} | ${siteTitle.value}`
   }
-  return `${currentPageTitle} | 校园广播站点歌系统`
+  return `${currentPageTitle} | ${locale.value.defaultSiteTitle}`
 })
 
 // 监听activeTab变化，更新页面标题
@@ -281,13 +275,7 @@ watch(
 )
 
 const getRoleDisplayName = (role) => {
-  const roleNames = {
-    USER: '普通用户',
-    SONG_ADMIN: '歌曲管理员',
-    ADMIN: '超级管理员',
-    SUPER_ADMIN: '超级管理员'
-  }
-  return roleNames[role] || role
+  return locale.value.roles[role] || role
 }
 
 const handleLogout = async () => {
@@ -433,8 +421,8 @@ onUnmounted(() => {
 .admin-layout {
   display: flex;
   min-height: 100vh;
-  background: #0a0a0a;
-  color: #ffffff;
+  background: var(--panel-bg-deepest);
+  color: var(--text-primary);
   position: relative;
 }
 
@@ -446,10 +434,10 @@ onUnmounted(() => {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--panel-bg-alt);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--panel-bg-hover);
 }
 </style>

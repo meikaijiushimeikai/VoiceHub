@@ -1,10 +1,12 @@
 <template>
-  <div class="app" data-theme="dark" data-color-scheme="custom">
+  <div class="app" data-color-scheme="custom">
     <!-- 注入 PWA Manifest -->
     <VitePwaManifest />
 
     <!-- 全局通知容器组件 -->
     <LazyUINotificationContainer ref="notificationContainer" />
+
+    <ImportantNotificationModal />
 
     <!-- 全局音频播放器 - 使用isPlayerVisible控制显示/隐藏 -->
     <LazyUIAudioPlayer
@@ -29,11 +31,16 @@ import { computed, onMounted, ref, watch } from 'vue'
 // 导入通知容器组件和音频播放器
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
 import { useAuth } from '~/composables/useAuth'
+import { useImportantNotification } from '~/composables/useImportantNotification'
+import ImportantNotificationModal from '~/components/UI/ImportantNotificationModal.vue'
 import { useRoute } from 'vue-router'
 
-// 获取运行时配置
-const config = useRuntimeConfig()
 const route = useRoute()
+const { user, isAuthenticated } = useAuth()
+const {
+  checkImportantNotification,
+  resetImportantNotification
+} = useImportantNotification()
 const pageViewRouteName = computed(() => {
   if (typeof route.name === 'string' && route.name) {
     return route.name
@@ -49,6 +56,7 @@ const notificationContainer = ref(null)
 const audioPlayer = useAudioPlayer()
 const currentSong = ref(null)
 const isPlayerVisible = ref(false) // 控制播放器显示/隐藏
+const shouldHidePlayer = computed(() => route.path === '/change-password')
 
 // 判断是否为播放列表模式
 // 投稿页面、搜索预览等场景不是播放列表模式，不应该自动跳过
@@ -65,7 +73,12 @@ const isPlaylistMode = computed(() => {
 // 监听路由变化，控制播放器显示/隐藏
 watch(
   () => route.path,
-  (newPath) => {
+  () => {
+    if (shouldHidePlayer.value) {
+      isPlayerVisible.value = false
+      return
+    }
+
     // 其他页面，如果有当前歌曲则显示播放器
     if (currentSong.value) {
       isPlayerVisible.value = true
@@ -81,7 +94,7 @@ watch(
     if (newSong) {
       currentSong.value = newSong
       // 显示播放器
-      isPlayerVisible.value = true
+      isPlayerVisible.value = !shouldHidePlayer.value
     } else {
       // 当没有歌曲时，不立即隐藏播放器，而是让动画完成
       currentSong.value = null
@@ -120,10 +133,6 @@ const handlePlayerSongChange = (song) => {
   currentSong.value = song
   audioPlayer.playSong(song)
 }
-
-// 使用onMounted确保只在客户端初始化认证
-let auth = null
-let isAuthenticated = false
 
 // 设置鸿蒙系统控制事件监听
 const setupHarmonyOSListeners = () => {
@@ -194,21 +203,29 @@ const setupHarmonyOSListeners = () => {
 
 // 在组件挂载后初始化认证（只会在客户端执行）
 onMounted(async () => {
-  auth = useAuth()
-  isAuthenticated = auth.isAuthenticated.value
-
   // 初始化鸿蒙系统控制事件监听
   setupHarmonyOSListeners()
 })
 
-// 使用计算属性确保安全地访问auth对象
-const safeIsAuthenticated = computed(() => auth?.isAuthenticated?.value || false)
+// 重要通知仅在登录或会话恢复时检查一次，不做轮询，避免增加服务器负担
+watch(
+  [
+    () => isAuthenticated.value,
+    () => user.value?.id,
+    () => user.value?.requirePasswordChange
+  ],
+  async ([authenticated, userId, requirePasswordChange]) => {
+    if (import.meta.server) return
 
-const handleLogout = () => {
-  if (auth) {
-    auth.logout()
-  }
-}
+    if (!authenticated || !userId || requirePasswordChange === true) {
+      resetImportantNotification()
+      return
+    }
+
+    await checkImportantNotification()
+  },
+  { immediate: true }
+)
 </script>
 
 <style>

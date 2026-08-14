@@ -16,14 +16,15 @@
           <!-- 动态背景 -->
           <div ref="backgroundContainer" class="background-layer">
             <div
-              v-if="backgroundConfig.type === 'gradient'"
-              :class="{ dynamic: backgroundConfig.dynamic }"
+              v-if="!currentCoverUrl"
+              :class="{ dynamic: backgroundConfig.dynamic, visible: showBackgroundFallback }"
               class="gradient-background"
             />
             <div
-              v-else-if="backgroundConfig.type === 'cover' && currentSong?.cover"
+              v-else
               ref="coverBlurContainer"
-              :style="{ backgroundImage: `url(${convertToHttps(currentSong.cover)})` }"
+              :class="{ visible: showBackgroundFallback }"
+              :style="{ backgroundImage: `url(${currentCoverUrl})` }"
               class="cover-background"
             />
             <!-- 叠加暗化层，提升白色背景下歌词对比度 -->
@@ -65,7 +66,7 @@
               :src="convertToHttps(currentSong.cover)"
               class="cover-image"
               referrerpolicy="no-referrer"
-            >
+            />
             <div v-else class="default-cover">
               <Icon name="music" size="64" />
             </div>
@@ -95,7 +96,7 @@
                       class="cover-image"
                       referrerpolicy="no-referrer"
                       @error="handleCoverError"
-                    >
+                    />
                     <div v-else class="default-cover">
                       <Icon name="music" size="64" />
                     </div>
@@ -106,9 +107,9 @@
               <div ref="pageOneInfoRef" class="song-info-container">
                 <div class="song-details">
                   <h1 class="song-title">
-                    {{ currentSong?.title || '未知歌曲' }}
+                    {{ currentSong?.title || locale.unknownSong }}
                   </h1>
-                  <p class="song-artist">{{ currentSong?.artist || '未知艺术家' }}</p>
+                  <p class="song-artist">{{ currentSong?.artist || locale.unknownArtist }}</p>
 
                   <!-- 音质标识 (歌手名下方) -->
                   <div
@@ -156,7 +157,7 @@
                   @click="activePanel = 'lyrics'"
                 >
                   <Icon name="lyrics" size="16" />
-                  <span>歌词</span>
+                  <span>{{ locale.lyrics }}</span>
                 </button>
                 <button
                   class="switcher-button"
@@ -164,7 +165,7 @@
                   @click="activePanel = 'comments'"
                 >
                   <Icon name="message-circle" size="16" />
-                  <span>评论</span>
+                  <span>{{ locale.comments }}</span>
                 </button>
               </div>
 
@@ -188,18 +189,18 @@
               <div v-if="activePanel === 'lyrics'" class="lyric-toolbar">
                 <Popover placement="top-end" :offset="12">
                   <template #trigger>
-                    <div class="toolbar-btn" title="歌词设置">
+                    <div class="toolbar-btn" :title="locale.settings">
                       <Icon name="settings" size="20" />
                     </div>
                   </template>
                   <template #content>
                     <div class="lyric-settings-content">
                       <div class="setting-item switch">
-                        <span class="label">AM 风格歌词</span>
-                        <input v-model="lyricSettings.useAMLyrics.value" type="checkbox" >
+                        <span class="label">{{ locale.amStyleLyrics }}</span>
+                        <input v-model="lyricSettings.useAMLyrics.value" type="checkbox" />
                       </div>
                       <div class="setting-item">
-                        <span class="label">字体大小</span>
+                        <span class="label">{{ locale.fontSize }}</span>
                         <div class="control">
                           <button @click="lyricSettings.lyricFontSize.value -= 2">-</button>
                           <span>{{ lyricSettings.lyricFontSize.value }}</span>
@@ -207,7 +208,7 @@
                         </div>
                       </div>
                       <div class="setting-item">
-                        <span class="label">歌词偏移 (ms)</span>
+                        <span class="label">{{ locale.lyricOffset }}</span>
                         <div class="control">
                           <button @click="lyricSettings.lyricOffset.value -= 100">-</button>
                           <span>{{ lyricSettings.lyricOffset.value }}</span>
@@ -215,16 +216,16 @@
                         </div>
                       </div>
                       <div v-if="!lyricSettings.useAMLyrics.value" class="setting-item switch">
-                        <span class="label">显示翻译</span>
-                        <input v-model="lyricSettings.showTranslation.value" type="checkbox" >
+                        <span class="label">{{ locale.showTranslation }}</span>
+                        <input v-model="lyricSettings.showTranslation.value" type="checkbox" />
                       </div>
                       <div v-if="!lyricSettings.useAMLyrics.value" class="setting-item switch">
-                        <span class="label">显示罗马音</span>
-                        <input v-model="lyricSettings.showRoma.value" type="checkbox" >
+                        <span class="label">{{ locale.showRoma }}</span>
+                        <input v-model="lyricSettings.showRoma.value" type="checkbox" />
                       </div>
                       <div v-if="!lyricSettings.useAMLyrics.value" class="setting-item switch">
-                        <span class="label">逐字歌词 (YRC)</span>
-                        <input v-model="lyricSettings.showYrc.value" type="checkbox" >
+                        <span class="label">{{ locale.showYrc }}</span>
+                        <input v-model="lyricSettings.showYrc.value" type="checkbox" />
                       </div>
                     </div>
                   </template>
@@ -269,7 +270,7 @@
                   <Icon name="skip-back" size="28" />
                 </button>
                 <button class="play-pause-btn" @click="togglePlayPause">
-                  <div v-if="isLoadingTrack" class="loading-spinner" />
+                  <AppSpinner v-if="isLoadingTrack" :size="32" />
                   <Icon v-else :name="isPlaying ? 'pause' : 'play'" size="32" />
                 </button>
                 <button :disabled="!hasNext" class="control-btn" @click="nextSong">
@@ -313,6 +314,7 @@ import { useAudioPlayerControl } from '~/composables/useAudioPlayerControl'
 import { useLyricSettings } from '~/composables/useLyricSettings'
 import { useBackgroundRenderer } from '~/composables/useBackgroundRenderer'
 import Icon from '~/components/UI/Icon.vue'
+import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import { useAudioQuality } from '~/composables/useAudioQuality'
 import { useAudioPlayerEnhanced } from '~/composables/useAudioPlayerEnhanced'
 import { useAudioVisualizer } from '~/composables/useAudioVisualizer'
@@ -322,6 +324,7 @@ import DefaultLyric from '~/components/Player/PlayerLyric/DefaultLyric.vue'
 import Popover from '~/components/UI/Common/Popover.vue'
 import VolumeControl from '~/components/UI/AudioPlayer/VolumeControl.vue'
 import SongComments from '~/components/UI/SongComments.vue'
+import { useLocale } from '~/utils/locale'
 
 const props = defineProps({
   isVisible: {
@@ -336,6 +339,8 @@ const emit = defineEmits(['close'])
 const audioPlayer = useAudioPlayer()
 const audioPlayerControl = useAudioPlayerControl()
 const lyricSettings = useLyricSettings()
+const { ui } = useLocale()
+const locale = computed(() => ui.value?.lyricsModal || {})
 
 // 背景渲染器
 const backgroundRenderer = useBackgroundRenderer()
@@ -376,6 +381,16 @@ const currentTime = computed(() => audioPlayer.getCurrentPosition().value)
 const duration = computed(() => audioPlayer.getDuration().value)
 const { getQuality, getQualityLabel, getQualityOptions, saveQuality } = useAudioQuality()
 const enhanced = useAudioPlayerEnhanced()
+const currentCoverUrl = computed(() =>
+  currentSong.value?.cover ? convertToHttps(currentSong.value.cover) : ''
+)
+const hasCurrentLyrics = computed(() => {
+  const lyrics = audioPlayerControl.lyrics.currentLyrics.value
+  return Array.isArray(lyrics) && lyrics.length > 0
+})
+const showBackgroundFallback = computed(
+  () => !backgroundRenderer.isInitialized.value || backgroundRenderer.hasRenderError.value
+)
 
 const currentLyricLine = computed(() => {
   const index = audioPlayerControl.lyrics.currentLyricIndex.value
@@ -391,10 +406,10 @@ const canShowComments = computed(() => {
 
 const currentQualityText = computed(() => {
   const platform = currentSong.value?.musicPlatform
-  if (!platform) return '音质'
+  if (!platform) return locale.value.quality
   const quality = getQuality(platform)
   const label = getQualityLabel(platform, quality)
-  return label.replace(/音质|音乐/, '').trim() || '音质'
+  return label.replace(/音质|音乐|quality|music/gi, '').trim() || locale.value.quality
 })
 
 // 监听音质变化，强制更新显示
@@ -500,7 +515,7 @@ const updateLayoutCache = () => {
     el.style.transformOrigin = '0 0'
     el.style.zIndex = '100'
     el.style.borderRadius = '12px'
-    el.style.boxShadow = '0 16px 36px rgba(0,0,0,0.4)'
+    el.style.boxShadow = '0 16px 36px var(--lyrics-modal-enter-shadow)'
     // 确保硬件加速
     el.style.transform = 'translate3d(0, 0, 0)'
     el.style.willChange = 'transform, border-radius'
@@ -669,13 +684,27 @@ const progressPercentage = computed(() => {
 
 // 背景配置
 const backgroundConfig = ref({
-  type: 'cover',
+  type: 'gradient',
   dynamic: true,
-  blur: 40,
-  brightness: 0.6,
-  saturation: 1.05,
-  flowSpeed: 0.3
+  flowSpeed: 2,
+  fps: 30,
+  renderScale: 0.5
 })
+
+const syncBackgroundState = async () => {
+  await backgroundRenderer.updateConfig({
+    ...backgroundConfig.value,
+    hasLyric: hasCurrentLyrics.value
+  })
+
+  await backgroundRenderer.setCoverBackground(currentCoverUrl.value)
+
+  if (isPlaying.value) {
+    backgroundRenderer.resumeRender()
+  } else {
+    backgroundRenderer.pauseRender()
+  }
+}
 
 // 定义窗口大小变化处理函数（防抖优化）
 const handleResize = () => {
@@ -760,12 +789,12 @@ const playModeIcon = computed(() => {
 const playModeTitle = computed(() => {
   switch (audioPlayerControl.playMode.value) {
     case 'loopOne':
-      return '单曲循环'
+      return locale.value.playMode.loopOne
     case 'order':
-      return '列表循环'
+      return locale.value.playMode.order
     case 'off':
     default:
-      return '单曲播放'
+      return locale.value.playMode.off
   }
 })
 
@@ -773,13 +802,13 @@ const cyclePlayMode = () => {
   const current = audioPlayerControl.playMode.value
   if (current === 'order') {
     audioPlayerControl.setPlayMode('loopOne')
-    if (window.$showNotification) window.$showNotification('已切换为单曲循环', 'info')
+    if (window.$showNotification) window.$showNotification(locale.value.notifications.loopOne, 'info')
   } else if (current === 'loopOne') {
     audioPlayerControl.setPlayMode('off')
-    if (window.$showNotification) window.$showNotification('已切换为单曲播放', 'info')
+    if (window.$showNotification) window.$showNotification(locale.value.notifications.off, 'info')
   } else {
     audioPlayerControl.setPlayMode('order')
-    if (window.$showNotification) window.$showNotification('已切换为列表循环', 'info')
+    if (window.$showNotification) window.$showNotification(locale.value.notifications.order, 'info')
   }
 }
 
@@ -969,26 +998,28 @@ watch(
 
       await nextTick()
 
-      if (backgroundContainer.value) {
-        await backgroundRenderer.initializeBackground(backgroundContainer.value)
-
-        if (coverBlurContainer.value && backgroundConfig.value.type === 'cover') {
-          backgroundRenderer.setCoverBlurElement(coverBlurContainer.value)
-        }
-
-        backgroundRenderer.startRender()
+      // 播放进度同步优先启动，不等待背景（封面经代理加载可能较慢）
+      if (isPlaying.value) {
+        startProgressTimer()
       }
 
-      if (currentSong.value && currentSong.value.cover) {
-        backgroundRenderer.setCoverBackground(currentSong.value.cover)
+      // 背景渲染异步初始化，避免阻塞播放基础功能
+      if (backgroundContainer.value) {
+        void (async () => {
+          await backgroundRenderer.initializeBackground(backgroundContainer.value)
+          if (!props.isVisible) return
+
+          backgroundRenderer.setCoverBlurElement(coverBlurContainer.value)
+          await syncBackgroundState()
+          backgroundRenderer.startRender()
+          if (!isPlaying.value) {
+            backgroundRenderer.pauseRender()
+          }
+        })()
       }
 
       // 歌词由 LyricManager 自动监听 currentTrack 变化并获取，这里不需要手动 fetch
       // 但如果首次打开且没有歌词，可以触发一次检查（Manager 已有 immediate watch）
-
-      if (isPlaying.value) {
-        startProgressTimer()
-      }
 
       document.addEventListener('keydown', handleKeydown)
       await updateMobileState()
@@ -1017,19 +1048,19 @@ watch(
   backgroundConfig,
   async (newConfig) => {
     if (props.isVisible) {
-      await backgroundRenderer.updateConfig(newConfig)
+      await backgroundRenderer.updateConfig({
+        ...newConfig,
+        hasLyric: hasCurrentLyrics.value
+      })
     }
   },
   { deep: true }
 )
 
-watch(currentSong, async (newSong) => {
-  if (!props.isVisible || !newSong) return
+watch(currentCoverUrl, async (coverUrl) => {
+  if (!props.isVisible) return
 
-  if (newSong.cover) {
-    backgroundRenderer.setCoverBackground(newSong.cover)
-    await backgroundRenderer.setGradientFromCover(newSong.cover)
-  }
+  await backgroundRenderer.setCoverBackground(coverUrl)
 })
 
 watch(isPlaying, (playing) => {
@@ -1037,9 +1068,17 @@ watch(isPlaying, (playing) => {
 
   if (playing) {
     startProgressTimer()
+    backgroundRenderer.startRender()
   } else {
     stopProgressTimer()
+    backgroundRenderer.pauseRender()
   }
+})
+
+watch(hasCurrentLyrics, async (hasLyric) => {
+  if (!props.isVisible) return
+
+  await backgroundRenderer.updateConfig({ hasLyric })
 })
 
 watch(canShowComments, (available) => {
@@ -1055,6 +1094,14 @@ const startAnimationLoop = () => {
     requestAnimationFrame(frame)
   }
   requestAnimationFrame(frame)
+}
+
+// 从 rgba/rgb 颜色字符串中提取 R/G/B 并替换为新的 alpha
+const extractColorWithAlpha = (colorStr, alpha) => {
+  const match = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+  if (!match) return colorStr
+  const [, r, g, b] = match
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 const drawSpectrum = () => {
@@ -1078,7 +1125,9 @@ const drawSpectrum = () => {
 
   const step = Math.floor(data.length / 2 / barCount)
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'
+  // 获取当前主题下 overlay 基准色（Canvas 无法直接使用 CSS 变量）
+  const style = getComputedStyle(document.documentElement)
+  const overlayBase = style.getPropertyValue('--overlay-20').trim() || 'rgba(255, 255, 255, 0.2)'
 
   for (let i = 0; i < barCount; i++) {
     const dataIndex = i * step
@@ -1090,7 +1139,9 @@ const drawSpectrum = () => {
     const y = height - i * (blockH + gap) - 100
     if (y < 0) break
 
-    ctx.fillStyle = `rgba(255, 255, 255, ${0.2 + percent * 0.5})`
+    // 根据 percent (0~1) 在 0.2~0.7 之间动态计算 alpha
+    const dynamicAlpha = 0.2 + percent * 0.5
+    ctx.fillStyle = extractColorWithAlpha(overlayBase, dynamicAlpha)
 
     ctx.beginPath()
     ctx.roundRect(0, y, Math.max(4, barW), blockH, 4)
@@ -1108,9 +1159,14 @@ watch(
         window.addEventListener('popstate', handlePopState)
       }
 
+      // 只对支持 CORS 的音频初始化可视化器
+      // 咪咕音乐等不支持 CORS 的音源不应该初始化可视化器
       const audioElements = document.querySelectorAll('audio')
       for (const audio of audioElements) {
-        if (audio.src) {
+        if (audio.src && audio.crossOrigin === 'anonymous') {
+          // 只有当音频元素已设置 crossOrigin 时才初始化可视化器
+          // 这表示音频源支持 CORS（如网易云、QQ音乐）
+          // 咪咕音乐不支持 CORS，audio.crossOrigin 为空
           audioVisualizer.initialize(audio)
           break
         }
@@ -1156,7 +1212,7 @@ onUnmounted(() => {
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.95);
+  background: var(--mask-95);
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -1167,8 +1223,8 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   height: 100%;
-  background: #000000;
-  color: #ffffff;
+  background: var(--bg-primary);
+  color: var(--lyrics-modal-text);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1188,8 +1244,23 @@ onUnmounted(() => {
 }
 
 .gradient-background {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 0;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 30% 30%, var(--lyrics-modal-bg-accent-blue), transparent 34%),
+    radial-gradient(circle at 70% 40%, var(--lyrics-modal-bg-accent-pink), transparent 32%),
+    linear-gradient(135deg, var(--lyrics-modal-bg-base-start) 0%, var(--lyrics-modal-bg-base-end) 100%);
+  background-size: 180% 180%;
+  transition: opacity 0.5s ease;
+}
+
+.gradient-background.visible {
+  opacity: 1;
+  z-index: 1;
 }
 
 .gradient-background.dynamic {
@@ -1209,19 +1280,30 @@ onUnmounted(() => {
 }
 
 .cover-background {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  z-index: 0;
   background-size: cover;
   background-position: center;
   filter: blur(60px) brightness(0.4) saturate(1.4);
   transform: scale(1.3);
-  transition: background-image 0.8s ease-in-out;
+  opacity: 0;
+  transition:
+    background-image 0.8s ease-in-out,
+    opacity 0.5s ease;
+}
+
+.cover-background.visible {
+  opacity: 1;
+  z-index: 1;
 }
 
 .background-overlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.5) 100%);
+  background: radial-gradient(circle at center, var(--mask-10) 0%, var(--mask-50) 100%);
   z-index: 1;
 }
 
@@ -1231,7 +1313,7 @@ onUnmounted(() => {
   top: 2rem;
   right: 2rem;
   z-index: 50;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--lyrics-modal-surface);
   border: none;
   border-radius: 50%;
   width: 40px;
@@ -1239,7 +1321,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--lyrics-modal-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(12px);
@@ -1268,9 +1350,9 @@ onUnmounted(() => {
 }
 
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--lyrics-modal-surface-strong);
   transform: scale(1.05);
-  color: white;
+  color: var(--lyrics-modal-text);
 }
 
 /* 主内容布局 */
@@ -1319,7 +1401,7 @@ onUnmounted(() => {
   height: 100%;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 16px 32px var(--mask-40);
   transform: scale(0.85);
   transition:
     transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -1329,7 +1411,7 @@ onUnmounted(() => {
 
 .song-cover.playing {
   transform: scale(1);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 24px 48px var(--mask-60);
 }
 
 .song-cover:hover {
@@ -1353,11 +1435,11 @@ onUnmounted(() => {
 .default-cover {
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #333, #555);
+  background: linear-gradient(135deg, var(--text-primary), var(--text-disabled));
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--lyrics-modal-text-secondary);
 }
 
 .song-info-container {
@@ -1369,7 +1451,8 @@ onUnmounted(() => {
   font-size: 2.2rem;
   font-weight: 700;
   margin: 0 0 0.5rem 0;
-  color: #ffffff;
+  color: var(--lyrics-modal-text);
+  text-shadow: 0 1px 8px var(--mask-30);
   line-height: 1.2;
   letter-spacing: -0.02em;
   white-space: normal;
@@ -1380,7 +1463,8 @@ onUnmounted(() => {
 
 .song-artist {
   font-size: 1.4rem;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--lyrics-modal-text-secondary);
+  text-shadow: 0 1px 6px var(--mask-30);
   font-weight: 500;
   margin: 0;
   letter-spacing: -0.01em;
@@ -1436,9 +1520,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--lyrics-modal-surface-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--lyrics-modal-surface);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -1452,7 +1536,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--lyrics-modal-text-muted);
   background: transparent;
   cursor: pointer;
   font-size: 0.82rem;
@@ -1461,12 +1545,12 @@ onUnmounted(() => {
 }
 
 .switcher-button:hover {
-  color: #ffffff;
+  color: var(--lyrics-modal-text);
 }
 
 .switcher-button.active {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.18);
+  color: var(--lyrics-modal-text);
+  background: var(--lyrics-modal-surface-strong);
 }
 
 .comments-display-area {
@@ -1483,8 +1567,8 @@ onUnmounted(() => {
   transform: translateX(-50%);
   padding: 0.55rem 1rem;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(0, 0, 0, 0.18);
+  color: var(--lyrics-modal-text);
+  background: var(--mask-18);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   font-size: 1.05rem;
@@ -1540,7 +1624,7 @@ onUnmounted(() => {
 .time-display {
   font-variant-numeric: tabular-nums;
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--lyrics-modal-text-secondary);
   min-width: 45px;
   text-align: center;
   font-weight: 500;
@@ -1551,7 +1635,7 @@ onUnmounted(() => {
   flex: 1;
   min-width: 0;
   height: 5px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--lyrics-modal-track);
   border-radius: 3px;
   position: relative;
   cursor: pointer;
@@ -1564,7 +1648,7 @@ onUnmounted(() => {
 
 .progress-fill {
   height: 100%;
-  background: #ffffff;
+  background: var(--lyrics-modal-text);
   border-radius: 3px;
   pointer-events: none;
 }
@@ -1574,12 +1658,12 @@ onUnmounted(() => {
   top: 50%;
   width: 14px;
   height: 14px;
-  background: #ffffff;
+  background: var(--lyrics-modal-text);
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(0);
   transition: transform 0.1s ease;
   pointer-events: none;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 5px var(--mask-30);
 }
 
 .progress-bar:hover .progress-thumb {
@@ -1616,7 +1700,7 @@ onUnmounted(() => {
 .control-btn {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--lyrics-modal-text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -1626,7 +1710,7 @@ onUnmounted(() => {
 }
 
 .control-btn:hover {
-  color: white;
+  color: var(--lyrics-modal-text);
   transform: scale(1.1);
 }
 
@@ -1637,14 +1721,14 @@ onUnmounted(() => {
 }
 
 .secondary-btn {
-  opacity: 0.4;
+  opacity: 0.6;
   transition: all 0.2s;
 }
 
 .secondary-btn.active {
   opacity: 1;
-  color: #ffffff;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  color: var(--lyrics-modal-text);
+  text-shadow: 0 0 8px var(--overlay-40);
 }
 
 .play-pause-btn {
@@ -1664,21 +1748,6 @@ onUnmounted(() => {
   transform: scale(1.1);
 }
 
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* 歌词工具栏 */
 .lyric-toolbar {
   position: absolute;
@@ -1694,7 +1763,8 @@ onUnmounted(() => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--lyrics-modal-surface);
+  color: var(--lyrics-modal-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1704,7 +1774,8 @@ onUnmounted(() => {
 }
 
 .toolbar-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--lyrics-modal-surface-strong);
+  color: var(--lyrics-modal-text);
 }
 
 .lyric-settings-content {
@@ -1719,7 +1790,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--lyrics-modal-text-secondary);
   font-size: 0.9rem;
 }
 
@@ -1727,7 +1798,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--lyrics-modal-surface);
   border-radius: 6px;
   padding: 2px;
 }
@@ -1745,14 +1816,14 @@ onUnmounted(() => {
 }
 
 .setting-item button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--lyrics-modal-surface);
   border-radius: 4px;
 }
 
 .setting-item input[type='checkbox'] {
   width: 16px;
   height: 16px;
-  accent-color: #fa2d48;
+  accent-color: var(--color-error);
 }
 
 /* 音质菜单动画 */
@@ -1764,14 +1835,14 @@ onUnmounted(() => {
   transform: translateX(-50%) scale(0.9);
   margin-bottom: 12px; /* 底部间距 */
   margin-top: 0;
-  background: rgba(245, 245, 245, 0.9);
+  background: var(--lyrics-modal-badge-menu-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-radius: 12px;
   padding: 4px;
   min-width: 100px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 40px var(--mask-20);
+  border: 1px solid var(--overlay-40);
   z-index: 99999; /* 提高层级 */
   display: flex;
   flex-direction: column;
@@ -1809,7 +1880,7 @@ onUnmounted(() => {
   width: 100%;
   text-align: center;
   background: transparent;
-  color: #333; /* 深色文字 */
+  color: var(--lyrics-modal-badge-menu-text); /* 浅色菜单底上的深色文字 */
   padding: 8px 12px; /* 减小内边距 */
   border-radius: 8px;
   font-size: 0.85rem; /* 稍微减小字体 */
@@ -1822,14 +1893,14 @@ onUnmounted(() => {
 }
 
 .badge-quality-option:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--mask-5);
 }
 
 .badge-quality-option.active {
-  color: #007aff; /* 蓝色字 */
-  background: #ffffff;
+  color: var(--color-accent); /* 蓝色字 */
+  background: var(--lyrics-modal-badge-menu-active-bg);
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px var(--mask-8);
 }
 
 .mobile-pagination-dots {
@@ -1849,7 +1920,7 @@ onUnmounted(() => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--lyrics-modal-track);
   cursor: pointer;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: auto;
@@ -1859,8 +1930,8 @@ onUnmounted(() => {
   width: 20px;
   height: 5px;
   border-radius: 3px;
-  background: #ffffff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+  background: var(--lyrics-modal-text);
+  box-shadow: 0 0 10px var(--overlay-30);
 }
 
 .mobile-quality-badge {
@@ -1870,15 +1941,15 @@ onUnmounted(() => {
   justify-content: center;
   padding: 4px 10px;
   margin-top: 12px;
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--lyrics-modal-surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--lyrics-modal-text);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--lyrics-modal-surface-border);
   transition: all 0.2s ease;
   user-select: none; /* 禁止选择 */
   -webkit-user-select: none;
@@ -1886,7 +1957,7 @@ onUnmounted(() => {
 }
 
 .mobile-quality-badge:active {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--lyrics-modal-surface-strong);
   transform: scale(0.96);
 }
 
@@ -2106,11 +2177,11 @@ onUnmounted(() => {
 
   .progress-bar {
     height: 4px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--lyrics-modal-track);
   }
 
   .progress-fill {
-    background: #ffffff;
+    background: var(--lyrics-modal-text);
   }
 
   .progress-thumb {
@@ -2121,7 +2192,7 @@ onUnmounted(() => {
 
   .time-display {
     font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--lyrics-modal-text-secondary);
   }
 
   .control-buttons {
@@ -2136,7 +2207,7 @@ onUnmounted(() => {
   }
 
   .control-btn {
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--lyrics-modal-text-secondary);
     /* 增加点击区域 */
     min-width: 44px;
     min-height: 44px;
@@ -2146,7 +2217,7 @@ onUnmounted(() => {
   }
 
   .play-pause-btn {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--lyrics-modal-surface);
     width: 64px;
     height: 64px;
     border-radius: 50%;
@@ -2160,7 +2231,7 @@ onUnmounted(() => {
 
   .play-pause-btn:active {
     transform: scale(0.92);
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--lyrics-modal-surface-strong);
   }
 
   .badge-quality-menu {
@@ -2183,7 +2254,7 @@ onUnmounted(() => {
   .toolbar-btn {
     width: 36px;
     height: 36px;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--lyrics-modal-surface);
   }
 
   .comment-current-lyric {
@@ -2240,7 +2311,7 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     letter-spacing: -0.01em;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    text-shadow: 0 1px 4px var(--mask-30);
     line-height: 1.2;
     display: block;
     width: 100%;
@@ -2248,7 +2319,7 @@ onUnmounted(() => {
 
   .mini-artist {
     font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--lyrics-modal-text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2319,5 +2390,15 @@ onUnmounted(() => {
   /* 优化图片渲染 */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
+}
+
+/* 音量按钮：共享组件在深色播放页上强制亮色图标 */
+.right-control :deep(.volume-btn) {
+  color: var(--lyrics-modal-text-secondary);
+}
+
+.right-control :deep(.volume-btn:hover),
+.right-control :deep(.volume-btn.active) {
+  color: var(--lyrics-modal-text);
 }
 </style>

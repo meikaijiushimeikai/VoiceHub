@@ -204,6 +204,76 @@
       "when": 1781481660000,
       "tag": "20260614000100_add_card_code_request_system",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1782432001000,
+      "tag": "20260626000100_add_card_code_auto_delete",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1782527721417,
+      "tag": "20260627023521_add_card_code_foreign_key_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783690428462,
+      "tag": "20260710133348_add_card_code_limit_bypass",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1784419260000,
+      "tag": "20260718000100_add_aggregate_oauth_provider",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1784530957225,
+      "tag": "20260720070237_minimize-redis-add-song-query-indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1785196801000,
+      "tag": "20260727000100_replay_request_seamless",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1785239348895,
+      "tag": "20260728114908_add_password_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1785492048291,
+      "tag": "20260731100048_notification-announcement",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1785578400000,
+      "tag": "20260801000000_add_auto_backup",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1786269600000,
+      "tag": "20260809000000_add_platform_management",
+      "breakpoints": true
     }
   ]
 }

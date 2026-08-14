@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs'
-import { db, eq, users, userIdentities } from '~/drizzle/db'
+import { db, eq, users, userIdentities, systemSettings } from '~/drizzle/db'
 import { JWTEnhanced } from '~~/server/utils/jwt-enhanced'
 import { verifyBindingToken } from '~~/server/utils/oauth-token'
 import {
@@ -13,14 +13,25 @@ import { getClientIP } from '~~/server/utils/ip-utils'
 import { and } from 'drizzle-orm'
 import { getBeijingTime } from '~/utils/timeUtils'
 import { isSecureRequest } from '~~/server/utils/request-utils'
+import {
+  computeRequirePasswordChange,
+  resolveRequirePasswordChange
+} from '~~/server/utils/system-settings-helper'
+import { canBindOAuthIdentity } from '~~/server/utils/auth-route-policy'
+import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody(event)
-  const { username, password } = body
+  const body = await readBody<Record<string, unknown> | null>(event)
+  const username = typeof body?.username === 'string' ? body.username : ''
+  const password = typeof body?.password === 'string' ? body.password : ''
   const bindingToken = getCookie(event, 'binding-token')
 
   if (!bindingToken) {
-    throw createError({ statusCode: 400, message: '绑定会话已过期，请重新通过第三方登录发起' })
+    throw createApiError(
+      400,
+      'AUTH_BINDING_SESSION_EXPIRED',
+      '绑定会话已过期，请重新通过第三方登录发起'
+    )
   }
 
   let payload
@@ -28,14 +39,14 @@ export default defineEventHandler(async (event) => {
     payload = verifyBindingToken(bindingToken)
   } catch (e) {
     deleteCookie(event, 'binding-token')
-    throw createError({ statusCode: 400, message: '无效的绑定令牌' })
+    throw createApiError(400, 'AUTH_INVALID_BINDING_TOKEN', '无效的绑定令牌')
   }
 
   const clientIp = getClientIP(event)
 
   // 验证用户凭据
   if (await isAccountLocked(username)) {
-    throw createError({ statusCode: 423, message: '账户已被锁定，请稍后重试' })
+    throw createApiError(423, 'AUTH_ACCOUNT_LOCKED', '账户已被锁定，请稍后重试')
   }
 
   const user = await db.query.users.findFirst({
@@ -44,30 +55,46 @@ export default defineEventHandler(async (event) => {
 
   if (!user) {
     await recordLoginFailure(username, clientIp)
-    throw createError({ statusCode: 401, message: '用户名或密码错误' })
+    throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
   }
 
-  const valid = await bcrypt.compare(password, user.password)
+  const valid = !!user.password && (await bcrypt.compare(password, user.password))
   if (!valid) {
     await recordLoginFailure(username, clientIp)
-    throw createError({ statusCode: 401, message: '用户名或密码错误' })
+    throw createApiError(401, 'AUTH_INVALID_CREDENTIALS', '用户名或密码错误')
   }
 
   if (user.status === 'withdrawn') {
-    throw createError({ statusCode: 403, message: '该账号已退学，限制访问' })
+    throw createApiError(403, 'AUTH_ACCOUNT_WITHDRAWN', '该账号已退学，限制访问')
   }
 
   if (user.status === 'graduate') {
-    throw createError({ statusCode: 403, message: '该账号已毕业，限制访问' })
+    throw createApiError(403, 'AUTH_ACCOUNT_GRADUATED', '该账号已毕业，限制访问')
   }
 
   if (user.status !== 'active') {
-    throw createError({ statusCode: 403, message: '该账号当前不可用' })
+    throw createApiError(403, 'AUTH_ACCOUNT_CURRENTLY_UNAVAILABLE', '该账号当前不可用')
   }
 
   if (isUserBlocked(user.id)) {
     const remaining = getUserBlockRemainingTime(user.id)
-    throw createError({ statusCode: 423, message: `账户处于风险控制期，请在 ${remaining} 分钟后重试` })
+    throw createApiError(
+      423,
+      'AUTH_ACCOUNT_RISK_CONTROL',
+      `账户处于风险控制期，请在 ${remaining} 分钟后重试`,
+      { params: [remaining] }
+    )
+  }
+
+  if (!canBindOAuthIdentity(await resolveRequirePasswordChange(user))) {
+    deleteCookie(event, 'binding-token')
+    deleteCookie(event, 'pre-auth-token')
+    throw createApiError(
+      403,
+      'AUTH_PASSWORD_CHANGE_REQUIRED',
+      '请先完成密码修改后再绑定第三方账号',
+      { requirePasswordChange: true }
+    )
   }
 
   const totpIdentity = await db.query.userIdentities.findFirst({
@@ -78,6 +105,7 @@ export default defineEventHandler(async (event) => {
     const tempToken = JWTEnhanced.sign(
       {
         userId: user.id,
+        tokenVersion: user.tokenVersion,
         type: 'pre-auth',
         scope: '2fa_pending'
       },
@@ -116,6 +144,45 @@ export default defineEventHandler(async (event) => {
   // 绑定
   try {
     await db.transaction(async (tx) => {
+      const [currentUser] = await tx
+        .select({
+          tokenVersion: users.tokenVersion,
+          forcePasswordChange: users.forcePasswordChange,
+          passwordChangedAt: users.passwordChangedAt
+        })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .for('update')
+
+      if (!currentUser || currentUser.tokenVersion !== user.tokenVersion) {
+        deleteCookie(event, 'binding-token')
+        deleteCookie(event, 'pre-auth-token')
+        throw createApiError(401, 'AUTH_SESSION_EXPIRED', '会话已失效，请重新登录')
+      }
+
+      const [currentSettings] = await tx
+        .select({
+          forcePasswordChangeOnFirstLogin: systemSettings.forcePasswordChangeOnFirstLogin
+        })
+        .from(systemSettings)
+        .limit(1)
+        .for('share')
+      const requirePasswordChange = computeRequirePasswordChange(
+        currentUser,
+        currentSettings?.forcePasswordChangeOnFirstLogin ?? false
+      )
+
+      if (!canBindOAuthIdentity(requirePasswordChange)) {
+        deleteCookie(event, 'binding-token')
+        deleteCookie(event, 'pre-auth-token')
+        throw createApiError(
+          403,
+          'AUTH_PASSWORD_CHANGE_REQUIRED',
+          '请先完成密码修改后再绑定第三方账号',
+          { requirePasswordChange: true }
+        )
+      }
+
       const existing = await tx.query.userIdentities.findFirst({
         where: (t, { eq, and }) =>
           and(eq(t.provider, payload.provider), eq(t.providerUserId, payload.providerUserId))
@@ -123,7 +190,7 @@ export default defineEventHandler(async (event) => {
 
       if (existing) {
         if (existing.userId !== user.id) {
-          throw createError({ statusCode: 409, message: '该第三方账号已被其他用户绑定' })
+          throw createApiError(409, 'AUTH_OAUTH_BOUND_OTHER_USER', '该第三方账号已被其他用户绑定')
         }
         return
       }
@@ -161,7 +228,7 @@ export default defineEventHandler(async (event) => {
     .where(eq(users.id, user.id))
 
   // 登录
-  const token = JWTEnhanced.generateToken(user.id, user.role)
+  const token = JWTEnhanced.generateToken(user.id, user.role, user.tokenVersion)
   const isSecure = isSecureRequest(event)
   setCookie(event, 'auth-token', token, {
     httpOnly: true,

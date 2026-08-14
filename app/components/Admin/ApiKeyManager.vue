@@ -3,51 +3,53 @@
     <!-- 头部区域 -->
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
       <div>
-        <h2 class="text-2xl font-black text-zinc-100 tracking-tight">API密钥管理</h2>
-        <p class="text-xs text-zinc-500 mt-1">管理开放API的访问密钥，控制第三方应用的访问权限</p>
+        <h2 class="text-2xl font-black text-text-primary tracking-tight">{{ locale.title }}</h2>
+        <p class="text-xs text-text-tertiary mt-1">{{ locale.desc }}</p>
       </div>
       <button
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20 active:scale-95"
+        class="flex items-center gap-2 px-4 py-2 bg-primary-hover hover:bg-primary text-text-primary text-xs font-bold rounded-xl transition-all shadow-lg shadow-[var(--primary-glow)] active:scale-95"
         @click="openCreateModal"
       >
-        <Plus :size="14" /> 创建API密钥
+        <Plus :size="14" /> {{ locale.create }}
       </button>
     </div>
 
     <!-- 过滤器栏 -->
     <div
-      class="bg-zinc-900/40 border border-zinc-800/60 rounded-2xl p-3 flex flex-col lg:flex-row gap-3 items-center"
+      class="bg-bg-secondary-40 border border-border-secondary-60 rounded-2xl p-3 flex flex-col lg:flex-row gap-3 items-center"
     >
       <div class="relative flex-1 w-full">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-700" :size="16" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" :size="16" />
         <input
           v-model="filters.search"
           type="text"
-          placeholder="搜索API密钥名称或描述..."
-          class="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-blue-500/30 transition-all placeholder:text-zinc-800 text-zinc-200"
+          :placeholder="locale.searchPlaceholder"
+          class="w-full bg-bg-primary border border-border-secondary-80 rounded-xl pl-10 pr-4 py-2.5 text-xs focus:outline-none focus:border-primary-30 transition-all placeholder:text-text-primary text-text-primary"
           @input="debouncedSearch"
         >
       </div>
       <div class="flex items-center gap-2 w-full lg:w-auto">
         <CustomSelect
-          v-model="statusFilterText"
-          label="状态"
-          :options="['全部状态', '活跃', '非活跃', '已过期']"
+          v-model="filters.status"
+          :label="locale.status"
+          :options="statusFilterOptions"
+          label-key="label"
+          value-key="value"
           class-name="flex-1 lg:w-40"
-          @change="handleStatusFilterChange"
+          @change="loadApiKeys"
         />
         <div class="relative flex-1 lg:w-48">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-700" :size="14" />
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" :size="14" />
           <input
             v-model="filters.createdBy"
             type="text"
-            placeholder="创建者用户名"
-            class="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-4 py-2.5 text-xs focus:outline-none text-zinc-400 placeholder:text-zinc-800"
+            :placeholder="locale.creatorPlaceholder"
+            class="w-full bg-bg-primary border border-border-secondary rounded-xl pl-9 pr-4 py-2.5 text-xs focus:outline-none text-text-tertiary placeholder:text-text-primary"
             @input="debouncedSearch"
           >
         </div>
         <button
-          class="p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-600 hover:text-blue-400 transition-all"
+          class="p-2.5 bg-bg-primary border border-border-secondary rounded-xl text-text-disabled hover:text-primary transition-all flex items-center justify-center"
           @click="loadApiKeys"
         >
           <RefreshCw :size="14" :class="{ 'animate-spin': loading }" />
@@ -60,8 +62,8 @@
       v-if="loading && apiKeys.length === 0"
       class="flex flex-col items-center justify-center py-20"
     >
-      <div class="loading-spinner mb-4" />
-      <p class="text-zinc-500 text-xs">加载中...</p>
+      <AppSpinner :size="24" class="mb-4" />
+      <p class="text-text-tertiary text-xs">{{ locale.loading }}</p>
     </div>
 
     <div
@@ -69,19 +71,19 @@
       class="flex flex-col items-center justify-center py-20 px-4 text-center"
     >
       <div
-        class="w-20 h-20 rounded-3xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6 text-zinc-700 shadow-xl"
+        class="w-20 h-20 rounded-3xl bg-bg-secondary border border-border-secondary flex items-center justify-center mb-6 text-text-secondary shadow-xl"
       >
         <Key :size="32" :stroke-width="1.5" />
       </div>
-      <h3 class="text-lg font-bold text-zinc-200">暂无API密钥</h3>
-      <p class="text-xs text-zinc-500 mt-2 max-w-xs leading-relaxed">
-        您还没有创建任何访问密钥。创建密钥后，您可以安全地将 VoiceHub 集成到第三方应用程序中。
+      <h3 class="text-lg font-bold text-text-primary">{{ locale.emptyTitle }}</h3>
+      <p class="text-xs text-text-tertiary mt-2 max-w-xs leading-relaxed">
+        {{ locale.emptyDesc }}
       </p>
       <button
-        class="mt-8 flex items-center gap-2 px-6 py-3 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-zinc-300 text-xs font-bold rounded-2xl transition-all"
+        class="mt-8 flex items-center gap-2 px-6 py-3 bg-bg-secondary border border-border-secondary hover:border-border-tertiary text-text-secondary text-xs font-bold rounded-2xl transition-all"
         @click="openCreateModal"
       >
-        <Plus :size="16" /> 创建您的第一个密钥
+        <Plus :size="16" /> {{ locale.createFirst }}
       </button>
     </div>
 
@@ -89,37 +91,37 @@
       <div
         v-for="apiKey in apiKeys"
         :key="apiKey.id"
-        class="bg-zinc-900/30 border border-zinc-800/60 rounded-2xl p-6 group hover:border-zinc-700 transition-all relative overflow-hidden"
+        class="bg-bg-secondary-30 border border-border-secondary-60 rounded-2xl p-6 group hover:border-border-tertiary transition-all relative overflow-hidden"
       >
         <div class="flex items-start justify-between relative z-10">
           <div class="space-y-1">
             <div class="flex items-center gap-3">
-              <h4 class="text-sm font-black text-zinc-100 uppercase tracking-widest">
+              <h4 class="text-sm font-black text-text-primary uppercase tracking-widest">
                 {{ apiKey.name }}
               </h4>
               <span
                 v-if="apiKey.status === 'active'"
-                class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-black rounded uppercase border border-emerald-500/20"
-                >活跃</span
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-success-10 text-success text-[10px] font-black rounded uppercase border border-success-20"
+                >{{ locale.active }}</span
               >
               <span
                 v-else-if="apiKey.status === 'inactive'"
-                class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-black rounded uppercase border border-zinc-700/50"
-                >非活跃</span
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-bg-tertiary text-text-tertiary text-[10px] font-black rounded uppercase border border-border-tertiary-50"
+                >{{ locale.inactive }}</span
               >
               <span
                 v-else-if="apiKey.status === 'expired'"
-                class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-red-500/10 text-red-500 text-[10px] font-black rounded uppercase border border-red-500/20"
-                >已过期</span
+                class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-error-10 text-error text-[10px] font-black rounded uppercase border border-error-20"
+                >{{ locale.expired }}</span
               >
             </div>
-            <p class="text-xs text-zinc-500 font-medium">{{ apiKey.description || '暂无描述' }}</p>
+            <p class="text-xs text-text-tertiary font-medium">{{ apiKey.description || locale.noDescription }}</p>
           </div>
           <div
             class="flex items-center gap-1 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all"
           >
             <button
-              class="p-2 text-zinc-500 hover:text-blue-400 transition-colors"
+              class="p-2 text-text-tertiary hover:text-primary transition-colors"
               :disabled="loadingViewId !== null || loadingEditId !== null"
               @click="viewApiKey(apiKey)"
             >
@@ -127,7 +129,7 @@
               <Eye v-else :size="14" />
             </button>
             <button
-              class="p-2 text-zinc-500 hover:text-amber-400 transition-colors"
+              class="p-2 text-text-tertiary hover:text-warning transition-colors"
               :disabled="loadingViewId !== null || loadingEditId !== null"
               @click="editApiKey(apiKey)"
             >
@@ -135,7 +137,7 @@
               <Edit2 v-else :size="14" />
             </button>
             <button
-              class="p-2 text-zinc-500 hover:text-red-400 transition-colors"
+              class="p-2 text-text-tertiary hover:text-error transition-colors"
               :disabled="loadingViewId !== null || loadingEditId !== null"
               @click="deleteApiKey(apiKey)"
             >
@@ -144,30 +146,30 @@
           </div>
         </div>
 
-        <div class="mt-8 grid grid-cols-2 gap-4 border-t border-zinc-800/40 pt-6 relative z-10">
+        <div class="mt-8 grid grid-cols-2 gap-4 border-t border-border-secondary-40 pt-6 relative z-10">
           <div class="space-y-0.5">
-            <span class="text-[9px] font-black text-zinc-600 uppercase tracking-widest"
-              >创建者</span
+            <span class="text-[9px] font-black text-text-disabled uppercase tracking-widest"
+              >{{ locale.creator }}</span
             >
-            <p class="text-xs font-bold text-zinc-400">{{ apiKey.creatorName || '未知' }}</p>
+            <p class="text-xs font-bold text-text-tertiary">{{ apiKey.creatorName || locale.unknown }}</p>
           </div>
           <div class="space-y-0.5">
-            <span class="text-[9px] font-black text-zinc-600 uppercase tracking-widest"
-              >创建时间</span
+            <span class="text-[9px] font-black text-text-disabled uppercase tracking-widest"
+              >{{ locale.createdAt }}</span
             >
-            <p class="text-xs font-bold text-zinc-400">
+            <p class="text-xs font-bold text-text-tertiary">
               {{ formatDate(apiKey.createdAt).split(' ')[0] }}
             </p>
           </div>
           <div class="col-span-2 space-y-1">
-            <span class="text-[9px] font-black text-zinc-600 uppercase tracking-widest"
-              >权限列表</span
+            <span class="text-[9px] font-black text-text-disabled uppercase tracking-widest"
+              >{{ locale.permissions }}</span
             >
             <div class="flex flex-wrap gap-1.5">
               <span
                 v-for="perm in apiKey.permissions"
                 :key="perm"
-                class="text-[9px] font-mono bg-zinc-950 px-1.5 py-0.5 rounded text-zinc-500 border border-zinc-800/50"
+                class="text-[9px] font-mono bg-bg-primary px-1.5 py-0.5 rounded text-text-tertiary border border-border-secondary-50"
               >
                 {{ perm }}
               </span>
@@ -177,7 +179,7 @@
 
         <!-- 背景点缀 -->
         <div
-          class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          class="absolute -right-4 -bottom-4 w-24 h-24 bg-primary-5 blur-3xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
         />
       </div>
     </div>
@@ -187,7 +189,7 @@
       v-model:current-page="pagination.page"
       :total-pages="pagination.totalPages"
       :total-items="pagination.total"
-      item-name="个API密钥"
+      :item-name="locale.itemName"
       @change="loadApiKeys"
     />
 
@@ -198,21 +200,21 @@
         class="fixed inset-0 z-[100] flex items-center justify-center p-4"
       >
         <div
-          class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          class="absolute inset-0 bg-bg-primary-60 backdrop-blur-sm"
           @click="handleBackdropClick"
         />
 
         <!-- 创建/编辑模态框 -->
         <div
           v-if="showCreateModal || showEditModal"
-          class="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+          class="relative w-full max-w-lg bg-bg-secondary border border-border-secondary rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
         >
-          <div class="p-6 border-b border-zinc-800 flex items-center justify-between">
-            <h3 class="text-lg font-black text-zinc-100 uppercase tracking-widest">
-              {{ showCreateModal ? '创建API密钥' : '编辑API密钥' }}
+          <div class="p-6 border-b border-border-secondary flex items-center justify-between">
+            <h3 class="text-lg font-black text-text-primary uppercase tracking-widest">
+              {{ showCreateModal ? locale.create : locale.edit }}
             </h3>
             <button
-              class="text-zinc-500 hover:text-zinc-200 transition-colors"
+              class="text-text-tertiary hover:text-text-primary transition-colors"
               @click="closeModals"
             >
               <X :size="20" />
@@ -221,106 +223,99 @@
 
           <div class="p-6 space-y-5 max-h-[70vh] overflow-y-auto custom-scrollbar">
             <div class="space-y-1.5">
-              <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-0.5"
-                >名称 *</label
+              <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-0.5"
+                >{{ locale.name }}</label
               >
               <input
                 v-model="form.name"
                 type="text"
-                placeholder="输入API密钥名称"
-                class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-blue-500/30 text-zinc-200 placeholder:text-zinc-800"
+                :placeholder="locale.namePlaceholder"
+                class="w-full bg-bg-primary border border-border-secondary rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-primary-30 text-text-primary placeholder:text-text-primary"
               >
             </div>
             <div class="space-y-1.5">
-              <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-0.5"
-                >描述</label
+              <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-0.5"
+                >{{ locale.description }}</label
               >
               <textarea
                 v-model="form.description"
-                placeholder="输入API密钥描述 (可选)"
-                class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-blue-500/30 text-zinc-200 min-h-[80px] resize-none placeholder:text-zinc-800"
+                :placeholder="locale.descriptionPlaceholder"
+                class="w-full bg-bg-primary border border-border-secondary rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-primary-30 text-text-primary min-h-[80px] resize-none placeholder:text-text-primary"
               />
             </div>
             <div class="space-y-1.5">
-              <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-0.5"
-                >过期时间</label
+              <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-0.5"
+                >{{ locale.expiresAt }}</label
               >
               <CustomSelect
                 v-model="expiresAtText"
-                :options="[
-                  '永不过期',
-                  '3天后过期',
-                  '7天后过期',
-                  '30天后过期',
-                  '60天后过期',
-                  '90天后过期'
-                ]"
+                :options="expiresAtOptions"
                 class-name="w-full"
                 @change="handleExpiresAtChange"
               />
             </div>
             <div class="space-y-3">
-              <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-0.5"
-                >权限设置 *</label
+              <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-0.5"
+                >{{ locale.permissionSettings }}</label
               >
               <div class="grid grid-cols-2 gap-2">
                 <label
                   v-for="perm in availablePermissions"
                   :key="perm.value"
-                  class="flex items-start gap-3 p-3 bg-zinc-950 border border-zinc-800 rounded-xl cursor-pointer hover:border-zinc-600 transition-all"
+                  class="flex items-start gap-3 p-3 bg-bg-primary border border-border-secondary rounded-xl cursor-pointer hover:border-border-tertiary transition-all"
                   :class="{
-                    'border-blue-500/30 bg-blue-500/5': form.permissions.includes(perm.value)
+                    'border-primary-30 bg-primary-5': form.permissions.includes(perm.value)
                   }"
                 >
                   <input
                     v-model="form.permissions"
                     type="checkbox"
                     :value="perm.value"
-                    class="mt-1 w-3.5 h-3.5 rounded border-zinc-800 bg-zinc-900 accent-blue-600"
+                    class="mt-1 w-3.5 h-3.5 rounded border-border-secondary bg-bg-secondary"
                   >
                   <div>
                     <p
                       class="text-xs font-bold"
                       :class="
-                        form.permissions.includes(perm.value) ? 'text-blue-400' : 'text-zinc-300'
+                        form.permissions.includes(perm.value) ? 'text-primary' : 'text-text-secondary'
                       "
                     >
                       {{ perm.label }}
                     </p>
-                    <p class="text-[9px] text-zinc-600 mt-0.5">{{ perm.description }}</p>
+                    <p class="text-[9px] text-text-disabled mt-0.5">{{ perm.description }}</p>
                   </div>
                 </label>
               </div>
             </div>
             <label
               v-if="showEditModal"
-              class="flex items-center gap-2 p-3 bg-blue-600/5 border border-blue-500/10 rounded-xl cursor-pointer group"
+              class="flex items-center gap-2 p-3 bg-primary-hover-5 border border-primary-10 rounded-xl cursor-pointer group"
             >
               <input
                 v-model="form.isActive"
                 type="checkbox"
-                class="w-3.5 h-3.5 rounded border-zinc-800 bg-zinc-900 accent-blue-600"
+                class="w-3.5 h-3.5 rounded border-border-secondary bg-bg-secondary"
               >
               <span
-                class="text-xs font-bold text-zinc-300 group-hover:text-blue-400 transition-colors"
-                >启用此API密钥</span
+                class="text-xs font-bold text-text-secondary group-hover:text-primary transition-colors"
+                >{{ locale.enabled }}</span
               >
             </label>
           </div>
 
-          <div class="p-6 border-t border-zinc-800 flex gap-2 justify-end">
+          <div class="p-6 border-t border-border-secondary flex gap-2 justify-end">
             <button
-              class="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-300"
+              class="px-4 py-2 text-xs font-bold text-text-tertiary hover:text-text-secondary"
               @click="closeModals"
             >
-              取消
+              {{ locale.cancel }}
             </button>
             <button
               :disabled="submitting"
-              class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-900/20 disabled:opacity-50 transition-all"
+              class="px-6 py-2 bg-primary-hover hover:bg-primary text-text-primary text-xs font-bold rounded-xl shadow-lg shadow-[var(--primary-glow)] disabled:opacity-50 transition-all"
               @click="showCreateModal ? createApiKey() : updateApiKey()"
             >
-              {{ submitting ? '保存中...' : showCreateModal ? '创建密钥' : '保存更改' }}
+              {{ submitting ? locale.saving : showCreateModal ? locale.createKey : locale.saveChanges }}
             </button>
           </div>
         </div>
@@ -328,14 +323,14 @@
         <!-- 成功模态框 -->
         <div
           v-if="showSuccessModal"
-          class="relative w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+          class="relative w-full max-w-lg bg-bg-secondary border border-border-secondary rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
         >
-          <div class="p-6 border-b border-zinc-800 flex items-center justify-between">
-            <h3 class="text-lg font-black text-zinc-100 uppercase tracking-widest">
-              API密钥创建成功
+          <div class="p-6 border-b border-border-secondary flex items-center justify-between">
+            <h3 class="text-lg font-black text-text-primary uppercase tracking-widest">
+              {{ locale.createSuccessTitle }}
             </h3>
             <button
-              class="text-zinc-500 hover:text-zinc-200 transition-colors"
+              class="text-text-tertiary hover:text-text-primary transition-colors"
               @click="closeModals"
             >
               <X :size="20" />
@@ -344,24 +339,24 @@
 
           <div class="p-6 space-y-6">
             <div
-              class="p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex flex-col items-center text-center"
+              class="p-6 bg-success-10 border border-success-20 rounded-2xl flex flex-col items-center text-center"
             >
               <div
-                class="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center mb-4 shadow-lg shadow-emerald-900/20"
+                class="w-12 h-12 rounded-full bg-success text-text-primary flex items-center justify-center mb-4 shadow-lg shadow-[var(--success-glow-20)]"
               >
                 <Check :size="24" :stroke-width="3" />
               </div>
-              <h4 class="text-lg font-black text-emerald-400">API密钥创建成功！</h4>
-              <p class="text-xs text-zinc-500 mt-2">请妥善保管以下API密钥，它只会显示这一次。</p>
+              <h4 class="text-lg font-black text-success">{{ locale.createSuccessHeading }}</h4>
+              <p class="text-xs text-text-tertiary mt-2">{{ locale.createSuccessDesc }}</p>
             </div>
 
             <div class="space-y-2">
-              <label class="text-[10px] font-black text-zinc-600 uppercase tracking-widest px-0.5"
-                >完整API密钥</label
+              <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-0.5"
+                >{{ locale.fullKey }}</label
               >
               <div class="flex items-center gap-2">
                 <div
-                  class="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 font-mono text-xs text-blue-400 break-all select-all"
+                  class="flex-1 bg-bg-primary border border-border-secondary rounded-xl px-4 py-3 font-mono text-xs text-primary break-all select-all"
                 >
                   {{ newApiKey?.apiKey }}
                 </div>
@@ -369,8 +364,8 @@
                   class="p-3 rounded-xl transition-all"
                   :class="
                     copied
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
+                      ? 'bg-success text-text-primary'
+                      : 'bg-bg-tertiary hover:bg-bg-quaternary text-text-secondary'
                   "
                   @click="copyToClipboard(newApiKey?.apiKey)"
                 >
@@ -379,22 +374,22 @@
                 </button>
               </div>
               <div
-                class="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500"
+                class="flex items-center gap-2 p-3 bg-warning-10 border border-warning-20 rounded-xl text-warning"
               >
                 <AlertTriangle :size="14" class="shrink-0" />
                 <p class="text-[10px] font-bold">
-                  请立即复制并保存此API密钥，关闭此窗口后将无法再次查看完整密钥
+                  {{ locale.copyWarning }}
                 </p>
               </div>
             </div>
           </div>
 
-          <div class="p-6 border-t border-zinc-800">
+          <div class="p-6 border-t border-border-secondary">
             <button
-              class="w-full py-2.5 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs font-black rounded-xl transition-all"
+              class="w-full py-2.5 bg-bg-primary border border-border-secondary hover:border-border-tertiary text-text-primary text-xs font-black rounded-xl transition-all"
               @click="closeModals"
             >
-              我已保存，关闭窗口
+              {{ locale.closeSaved }}
             </button>
           </div>
         </div>
@@ -402,12 +397,12 @@
         <!-- 详情模态框 -->
         <div
           v-if="showViewModal && selectedApiKey"
-          class="relative w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
+          class="relative w-full max-w-2xl bg-bg-secondary border border-border-secondary rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200"
         >
-          <div class="p-6 border-b border-zinc-800 flex items-center justify-between">
-            <h3 class="text-lg font-black text-zinc-100 uppercase tracking-widest">API密钥详情</h3>
+          <div class="p-6 border-b border-border-secondary flex items-center justify-between">
+            <h3 class="text-lg font-black text-text-primary uppercase tracking-widest">{{ locale.details }}</h3>
             <button
-              class="text-zinc-500 hover:text-zinc-200 transition-colors"
+              class="text-text-tertiary hover:text-text-primary transition-colors"
               @click="closeModals"
             >
               <X :size="20" />
@@ -417,58 +412,58 @@
           <div class="p-6 space-y-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
             <section class="space-y-4">
               <h5
-                class="text-[10px] font-black text-zinc-600 uppercase tracking-widest border-b border-zinc-800 pb-2"
+                class="text-[10px] font-black text-text-disabled uppercase tracking-widest border-b border-border-secondary pb-2"
               >
-                基本信息
+                {{ locale.basicInfo }}
               </h5>
               <div class="grid grid-cols-2 gap-6">
                 <div class="space-y-1">
-                  <span class="text-[10px] text-zinc-600 font-bold">名称:</span>
-                  <p class="text-xs font-bold text-zinc-200">{{ selectedApiKey.name }}</p>
+                  <span class="text-[10px] text-text-disabled font-bold">{{ locale.nameField }}</span>
+                  <p class="text-xs font-bold text-text-primary">{{ selectedApiKey.name }}</p>
                 </div>
                 <div class="space-y-1">
-                  <span class="text-[10px] text-zinc-600 font-bold">状态:</span>
+                  <span class="text-[10px] text-text-disabled font-bold">{{ locale.statusField }}</span>
                   <div>
                     <span
                       v-if="selectedApiKey.status === 'active'"
-                      class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-black rounded uppercase border border-emerald-500/20"
-                      >活跃</span
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-success-10 text-success text-[10px] font-black rounded uppercase border border-success-20"
+                      >{{ locale.active }}</span
                     >
                     <span
                       v-else-if="selectedApiKey.status === 'inactive'"
-                      class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-zinc-800 text-zinc-500 text-[10px] font-black rounded uppercase border border-zinc-700/50"
-                      >非活跃</span
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-bg-tertiary text-text-tertiary text-[10px] font-black rounded uppercase border border-border-tertiary-50"
+                      >{{ locale.inactive }}</span
                     >
                     <span
                       v-else-if="selectedApiKey.status === 'expired'"
-                      class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-red-500/10 text-red-500 text-[10px] font-black rounded uppercase border border-red-500/20"
-                      >已过期</span
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-error-10 text-error text-[10px] font-black rounded uppercase border border-error-20"
+                      >{{ locale.expired }}</span
                     >
                   </div>
                 </div>
                 <div class="col-span-2 space-y-1">
-                  <span class="text-[10px] text-zinc-600 font-bold">描述:</span>
-                  <p class="text-xs font-bold text-zinc-400 leading-relaxed">
-                    {{ selectedApiKey.description || '暂无描述' }}
+                  <span class="text-[10px] text-text-disabled font-bold">{{ locale.descField }}</span>
+                  <p class="text-xs font-bold text-text-tertiary leading-relaxed">
+                    {{ selectedApiKey.description || locale.noDescription }}
                   </p>
                 </div>
                 <div class="space-y-1">
-                  <span class="text-[10px] text-zinc-600 font-bold">创建者:</span>
-                  <p class="text-xs font-bold text-zinc-200">
-                    {{ selectedApiKey.creatorName || '未知' }}
+                  <span class="text-[10px] text-text-disabled font-bold">{{ locale.creatorField }}</span>
+                  <p class="text-xs font-bold text-text-primary">
+                    {{ selectedApiKey.creatorName || locale.unknown }}
                   </p>
                 </div>
                 <div class="space-y-1">
-                  <span class="text-[10px] text-zinc-600 font-bold">创建时间:</span>
-                  <p class="text-xs font-bold text-zinc-200">
+                  <span class="text-[10px] text-text-disabled font-bold">{{ locale.createdAtField }}</span>
+                  <p class="text-xs font-bold text-text-primary">
                     {{ formatDate(selectedApiKey.createdAt) }}
                   </p>
                 </div>
                 <div v-if="selectedApiKey.expiresAt" class="space-y-1">
-                  <span class="text-[10px] text-zinc-600 font-bold">过期时间:</span>
+                  <span class="text-[10px] text-text-disabled font-bold">{{ locale.expiresAtField }}</span>
                   <p
                     class="text-xs font-bold"
-                    :class="selectedApiKey.isExpired ? 'text-red-400' : 'text-zinc-200'"
+                    :class="selectedApiKey.isExpired ? 'text-error' : 'text-text-primary'"
                   >
                     {{ formatDate(selectedApiKey.expiresAt) }}
                   </p>
@@ -478,45 +473,45 @@
 
             <section class="space-y-4">
               <h5
-                class="text-[10px] font-black text-zinc-600 uppercase tracking-widest border-b border-zinc-800 pb-2"
+                class="text-[10px] font-black text-text-disabled uppercase tracking-widest border-b border-border-secondary pb-2"
               >
-                使用统计
+                {{ locale.usageStats }}
               </h5>
               <div class="grid grid-cols-2 gap-4">
                 <div
-                  class="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between group hover:border-blue-500/30 transition-all"
+                  class="p-4 bg-bg-primary border border-border-secondary rounded-2xl flex items-center justify-between group hover:border-primary-30 transition-all"
                 >
                   <div class="space-y-0.5">
-                    <span class="text-[9px] font-black text-zinc-600 uppercase tracking-widest"
-                      >总调用次数</span
+                    <span class="text-[9px] font-black text-text-disabled uppercase tracking-widest"
+                      >{{ locale.totalCalls }}</span
                     >
-                    <p class="text-xl font-black text-zinc-100">
+                    <p class="text-xl font-black text-text-primary">
                       {{ selectedApiKey.usageCount || 0 }}
                     </p>
                   </div>
                   <div
-                    class="p-2 bg-blue-500/10 rounded-xl text-blue-500 group-hover:scale-110 transition-transform"
+                    class="p-2 bg-primary-10 rounded-xl text-primary group-hover:scale-110 transition-transform flex items-center justify-center"
                   >
                     <BarChart :size="20" />
                   </div>
                 </div>
                 <div
-                  class="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between group hover:border-amber-500/30 transition-all"
+                  class="p-4 bg-bg-primary border border-border-secondary rounded-2xl flex items-center justify-between group hover:border-warning-30 transition-all"
                 >
                   <div class="space-y-0.5">
-                    <span class="text-[9px] font-black text-zinc-600 uppercase tracking-widest"
-                      >最后使用时间</span
+                    <span class="text-[9px] font-black text-text-disabled uppercase tracking-widest"
+                      >{{ locale.lastUsedAt }}</span
                     >
-                    <p class="text-xs font-bold text-zinc-100">
+                    <p class="text-xs font-bold text-text-primary">
                       {{
                         selectedApiKey.lastUsedAt
                           ? formatDate(selectedApiKey.lastUsedAt)
-                          : '从未核对'
+                          : locale.neverChecked
                       }}
                     </p>
                   </div>
                   <div
-                    class="p-2 bg-amber-500/10 rounded-xl text-amber-500 group-hover:scale-110 transition-transform"
+                    class="p-2 bg-warning-10 rounded-xl text-warning group-hover:scale-110 transition-transform flex items-center justify-center"
                   >
                     <Clock :size="20" />
                   </div>
@@ -525,9 +520,9 @@
             </section>
 
             <section class="space-y-4">
-              <div class="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <h5 class="text-[10px] font-black text-zinc-600 uppercase tracking-widest">
-                  最近调用日志
+              <div class="flex items-center justify-between border-b border-border-secondary pb-2">
+                <h5 class="text-[10px] font-black text-text-disabled uppercase tracking-widest">
+                  {{ locale.recentLogs }}
                 </h5>
                 <Pagination
                   v-model:current-page="logsPagination.page"
@@ -539,25 +534,25 @@
               <div class="space-y-2">
                 <div
                   v-if="loadingLogs"
-                  class="flex flex-col items-center justify-center py-10 text-zinc-600 gap-2"
+                  class="flex flex-col items-center justify-center py-10 text-text-disabled gap-2"
                 >
                   <RefreshCw :size="24" class="animate-spin" />
-                  <span class="text-[10px] font-bold">正在加载日志...</span>
+                  <span class="text-[10px] font-bold">{{ locale.loadingLogs }}</span>
                 </div>
                 <div
                   v-else-if="apiLogs.length === 0"
-                  class="flex flex-col items-center justify-center py-10 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl"
+                  class="flex flex-col items-center justify-center py-10 bg-bg-primary-50 border border-border-secondary-50 rounded-2xl"
                 >
-                  <History :size="24" class="text-zinc-800 mb-2" />
-                  <span class="text-[10px] font-bold text-zinc-700 uppercase tracking-widest"
-                    >暂无调用记录</span
+                  <History :size="24" class="text-text-primary mb-2" />
+                  <span class="text-[10px] font-bold text-text-secondary uppercase tracking-widest"
+                    >{{ locale.noLogs }}</span
                   >
                 </div>
                 <div
                   v-for="log in apiLogs"
                   v-else
                   :key="log.id"
-                  class="p-3 bg-zinc-950 border border-zinc-800/40 rounded-xl flex items-center justify-between group hover:border-zinc-700 transition-all"
+                  class="p-3 bg-bg-primary border border-border-secondary-40 rounded-xl flex items-center justify-between group hover:border-border-tertiary transition-all"
                 >
                   <div class="flex items-center gap-4">
                     <div
@@ -567,8 +562,8 @@
                       {{ log.method }}
                     </div>
                     <div class="space-y-0.5">
-                      <p class="text-xs font-mono text-zinc-400">{{ log.endpoint }}</p>
-                      <div class="flex items-center gap-2 text-[9px] font-bold text-zinc-600">
+                      <p class="text-xs font-mono text-text-tertiary">{{ log.endpoint }}</p>
+                      <div class="flex items-center gap-2 text-[9px] font-bold text-text-disabled">
                         <span>{{ formatDate(log.createdAt) }}</span>
                         <span>•</span>
                         <span>{{ log.ipAddress }}</span>
@@ -580,7 +575,7 @@
                       <p class="text-xs font-black" :class="getStatusColorClass(log.statusCode)">
                         {{ log.statusCode }}
                       </p>
-                      <p class="text-[9px] font-bold text-zinc-600">{{ log.responseTimeMs }}ms</p>
+                      <p class="text-[9px] font-bold text-text-disabled">{{ log.responseTimeMs }}ms</p>
                     </div>
                   </div>
                 </div>
@@ -624,11 +619,29 @@ import {
   ChevronLeft,
   ChevronRight,
   X
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { useToast } from '~/composables/useToast'
 import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import Pagination from '~/components/UI/Common/Pagination.vue'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
+import { useLocale } from '~/utils/locale'
+import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
+
+const { admin, currentLocale } = useLocale()
+const locale = computed(() => useSafeLocale(admin.value?.apiKeys || {}))
+const { msg: getLocaleText } = useLocaleText(locale)
+const expiresOptionFallbacks = {
+  never: '永不过期',
+  threeDays: '3天后过期',
+  sevenDays: '7天后过期',
+  thirtyDays: '30天后过期',
+  sixtyDays: '60天后过期',
+  ninetyDays: '90天后过期'
+}
+const getExpiresOptionText = (key) =>
+  formatLocaleValue(locale.value?.expiresOptions?.[key]) || expiresOptionFallbacks[key] || key
+const getPermissionOptionText = (key, field) => formatLocaleValue(locale.value?.permissionOptions?.[key]?.[field])
+const getDeleteTitle = (name) => getLocaleText('deleteMessage', name)
 
 // 响应式数据
 const loading = ref(false)
@@ -647,8 +660,21 @@ const loadingEditId = ref(null)
 const loadingViewId = ref(null)
 
 // 文本映射
-const statusFilterText = ref('全部状态')
-const expiresAtText = ref('永不过期')
+const expiresAtText = ref('')
+const expiresAtOptions = computed(() => [
+  getExpiresOptionText('never'),
+  getExpiresOptionText('threeDays'),
+  getExpiresOptionText('sevenDays'),
+  getExpiresOptionText('thirtyDays'),
+  getExpiresOptionText('sixtyDays'),
+  getExpiresOptionText('ninetyDays')
+])
+const statusFilterOptions = computed(() => [
+  { label: getLocaleText('allStatus'), value: '' },
+  { label: getLocaleText('active'), value: 'active' },
+  { label: getLocaleText('inactive'), value: 'inactive' },
+  { label: getLocaleText('expired'), value: 'expired' }
+])
 
 const logsPagination = ref({
   page: 1,
@@ -660,11 +686,11 @@ const logsPagination = ref({
 // 确认对话框相关
 const showConfirmDialog = ref(false)
 const confirmDialogConfig = ref({
-  title: '确认删除',
+  title: getLocaleText('confirmDeleteTitle'),
   message: '',
   type: 'danger',
-  confirmText: '删除',
-  cancelText: '取消'
+  confirmText: getLocaleText('delete'),
+  cancelText: getLocaleText('cancel')
 })
 const pendingDeleteApiKey = ref(null)
 
@@ -692,43 +718,88 @@ const form = reactive({
   isActive: true
 })
 
+const formatExpiresAtText = (dateText) => getLocaleText('expiresAtText', dateText)
+
+const getExpiresAtText = () => {
+  if (form.expiresAt === 'keep' && selectedApiKey.value?.expiresAt) {
+    const date = new Date(selectedApiKey.value.expiresAt)
+    return formatExpiresAtText(date.toLocaleDateString(currentLocale.value))
+  }
+
+  const expiresAtTextMap = {
+    '3d': getExpiresOptionText('threeDays'),
+    '7d': getExpiresOptionText('sevenDays'),
+    '30d': getExpiresOptionText('thirtyDays'),
+    '60d': getExpiresOptionText('sixtyDays'),
+    '90d': getExpiresOptionText('ninetyDays')
+  }
+  return expiresAtTextMap[form.expiresAt] || getExpiresOptionText('never')
+}
+
+watch(
+  [locale, () => form.expiresAt],
+  () => {
+    expiresAtText.value = getExpiresAtText()
+  },
+  { immediate: true }
+)
+
 // 可用权限列表
-const availablePermissions = [
+const availablePermissions = computed(() => [
   {
     value: 'schedules:read',
-    label: '排期查询',
-    description: '查看排期列表和详情'
+    label: getPermissionOptionText('scheduleRead', 'label'),
+    description: getPermissionOptionText('scheduleRead', 'description')
   },
   {
     value: 'songs:read',
-    label: '歌曲查询',
-    description: '查看歌曲列表和详情'
+    label: getPermissionOptionText('songsRead', 'label'),
+    description: getPermissionOptionText('songsRead', 'description')
+  },
+  {
+    value: 'songs:request',
+    label: getPermissionOptionText('songsRequest', 'label'),
+    description: getPermissionOptionText('songsRequest', 'description')
   },
   {
     value: 'songs:write',
-    label: '歌曲管理',
-    description: '更新歌曲状态'
+    label: getPermissionOptionText('songsWrite', 'label'),
+    description: getPermissionOptionText('songsWrite', 'description')
+  },
+  {
+    value: 'card-codes:read',
+    label: getPermissionOptionText('cardCodesRead', 'label'),
+    description: getPermissionOptionText('cardCodesRead', 'description')
+  },
+  {
+    value: 'card-codes:write',
+    label: getPermissionOptionText('cardCodesWrite', 'label'),
+    description: getPermissionOptionText('cardCodesWrite', 'description')
+  },
+  {
+    value: 'card-codes:delete',
+    label: getPermissionOptionText('cardCodesDelete', 'label'),
+    description: getPermissionOptionText('cardCodesDelete', 'description')
+  },
+  {
+    value: 'backup:execute',
+    label: getPermissionOptionText('backupExecute', 'label'),
+    description: getPermissionOptionText('backupExecute', 'description')
   }
-]
+])
 
 // Toast通知
 const toast = useToast()
 
 // 方法
-const handleStatusFilterChange = (val) => {
-  const statusMap = { 活跃: 'active', 非活跃: 'inactive', 已过期: 'expired' }
-  filters.status = statusMap[val] || ''
-  loadApiKeys()
-}
-
 const handleExpiresAtChange = (val) => {
   const map = {
-    永不过期: '',
-    '3天后过期': '3d',
-    '7天后过期': '7d',
-    '30天后过期': '30d',
-    '60天后过期': '60d',
-    '90天后过期': '90d'
+    [getExpiresOptionText('never')]: '',
+    [getExpiresOptionText('threeDays')]: '3d',
+    [getExpiresOptionText('sevenDays')]: '7d',
+    [getExpiresOptionText('thirtyDays')]: '30d',
+    [getExpiresOptionText('sixtyDays')]: '60d',
+    [getExpiresOptionText('ninetyDays')]: '90d'
   }
   form.expiresAt = map[val] || ''
 }
@@ -762,7 +833,7 @@ const loadApiKeys = async () => {
     }
   } catch (error) {
     console.error('加载API密钥失败:', error)
-    toast.error('加载API密钥失败')
+    toast.error(getLocaleText('loadFailed'))
   } finally {
     loading.value = false
   }
@@ -774,8 +845,8 @@ const openCreateModal = () => {
 }
 
 const createApiKey = async () => {
-  if (!form.name) return toast.error('请输入密钥名称')
-  if (form.permissions.length === 0) return toast.error('请至少选择一个权限')
+  if (!form.name) return toast.error(getLocaleText('nameRequired'))
+  if (form.permissions.length === 0) return toast.error(getLocaleText('permissionRequired'))
 
   submitting.value = true
   try {
@@ -793,7 +864,7 @@ const createApiKey = async () => {
     })
 
     if (response.success) {
-      toast.success('API密钥创建成功')
+      toast.success(getLocaleText('createSuccessTitle'))
       newApiKey.value = response.data
       showCreateModal.value = false
       showSuccessModal.value = true
@@ -802,7 +873,7 @@ const createApiKey = async () => {
     }
   } catch (error) {
     console.error('创建API密钥失败:', error)
-    toast.error(error.data?.message || '创建API密钥失败')
+    toast.error(getErrorMessage(error) || getLocaleText('createFailed'))
   } finally {
     submitting.value = false
   }
@@ -810,8 +881,8 @@ const createApiKey = async () => {
 
 const updateApiKey = async () => {
   if (!selectedApiKey.value) return
-  if (!form.name) return toast.error('请输入密钥名称')
-  if (form.permissions.length === 0) return toast.error('请至少选择一个权限')
+  if (!form.name) return toast.error(getLocaleText('nameRequired'))
+  if (form.permissions.length === 0) return toast.error(getLocaleText('permissionRequired'))
 
   submitting.value = true
   try {
@@ -830,13 +901,13 @@ const updateApiKey = async () => {
     })
 
     if (response.success) {
-      toast.success('API密钥更新成功')
+      toast.success(getLocaleText('updateSuccess'))
       closeModals()
       await loadApiKeys()
     }
   } catch (error) {
     console.error('更新API密钥失败:', error)
-    toast.error(error.data?.message || '更新API密钥失败')
+    toast.error(getErrorMessage(error) || getLocaleText('updateFailed'))
   } finally {
     submitting.value = false
   }
@@ -845,11 +916,11 @@ const updateApiKey = async () => {
 const deleteApiKey = (apiKey) => {
   pendingDeleteApiKey.value = apiKey
   confirmDialogConfig.value = {
-    title: '确认删除',
-    message: `确定要删除API密钥 "${apiKey.name}" 吗？此操作不可撤销。`,
+    title: getLocaleText('confirmDeleteTitle'),
+    message: getDeleteTitle(apiKey.name),
     type: 'danger',
-    confirmText: '删除',
-    cancelText: '取消'
+    confirmText: getLocaleText('delete'),
+    cancelText: getLocaleText('cancel')
   }
   showConfirmDialog.value = true
 }
@@ -863,12 +934,12 @@ const confirmDelete = async () => {
     })
 
     if (response.success) {
-      toast.success('API密钥删除成功')
+      toast.success(getLocaleText('deleteSuccess'))
       await loadApiKeys()
     }
   } catch (error) {
     console.error('删除API密钥失败:', error)
-    toast.error(error.data?.message || '删除API密钥失败')
+    toast.error(getErrorMessage(error) || getLocaleText('deleteFailed'))
   } finally {
     showConfirmDialog.value = false
     pendingDeleteApiKey.value = null
@@ -892,7 +963,7 @@ const viewApiKey = async (apiKey) => {
     }
   } catch (error) {
     console.error('获取API密钥详情失败:', error)
-    toast.error('获取API密钥详情失败')
+    toast.error(getLocaleText('detailFailed'))
   } finally {
     loadingViewId.value = null
   }
@@ -911,10 +982,10 @@ const editApiKey = async (apiKey) => {
 
       if (response.data.expiresAt) {
         const date = new Date(response.data.expiresAt)
-        expiresAtText.value = `到期: ${date.toLocaleDateString()}`
+        expiresAtText.value = formatExpiresAtText(date.toLocaleDateString(currentLocale.value))
         form.expiresAt = 'keep'
       } else {
-        expiresAtText.value = '永不过期'
+        expiresAtText.value = getExpiresOptionText('never')
         form.expiresAt = ''
       }
 
@@ -925,7 +996,7 @@ const editApiKey = async (apiKey) => {
     }
   } catch (error) {
     console.error('获取API密钥详情失败:', error)
-    toast.error('获取API密钥详情失败')
+    toast.error(getLocaleText('detailFailed'))
   } finally {
     loadingEditId.value = null
   }
@@ -958,7 +1029,7 @@ const loadApiLogs = async (page = 1) => {
     }
   } catch (error) {
     console.error('获取API使用日志失败:', error)
-    toast.error('获取API使用日志失败')
+    toast.error(getLocaleText('logsFailed'))
     apiLogs.value = []
   } finally {
     loadingLogs.value = false
@@ -999,14 +1070,16 @@ const resetForm = () => {
   form.name = ''
   form.description = ''
   form.expiresAt = ''
-  expiresAtText.value = '永不过期'
+  expiresAtText.value = getExpiresOptionText('never')
   form.permissions = []
   form.isActive = true
 }
 
 const formatDate = (dateString) => {
   if (!dateString) return ''
-  return new Date(dateString).toLocaleString('zh-CN', {
+  const date = new Date(dateString)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString(currentLocale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -1020,28 +1093,28 @@ const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text)
     copied.value = true
-    toast.success('已复制到剪贴板')
+    toast.success(getLocaleText('copied'))
     setTimeout(() => (copied.value = false), 2000)
   } catch (error) {
     console.error('复制失败:', error)
-    toast.error('复制失败')
+    toast.error(getLocaleText('copyFailed'))
   }
 }
 
 const getMethodClass = (method) => {
   const map = {
-    GET: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
-    POST: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    PUT: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
-    DELETE: 'bg-red-500/10 text-red-500 border-red-500/20'
+    GET: 'bg-success-10 text-success border-success-20',
+    POST: 'bg-primary-10 text-primary border-primary-20',
+    PUT: 'bg-warning-10 text-warning border-warning-20',
+    DELETE: 'bg-error-10 text-error border-error-20'
   }
-  return map[method] || 'bg-zinc-500/10 text-zinc-500 border-zinc-500/20'
+  return map[method] || 'bg-bg-quaternary-10 text-text-tertiary border-border-tertiary-20'
 }
 
 const getStatusColorClass = (code) => {
-  if (code >= 200 && code < 300) return 'text-emerald-500'
-  if (code >= 300 && code < 400) return 'text-amber-500'
-  return 'text-red-500'
+  if (code >= 200 && code < 300) return 'text-success'
+  if (code >= 300 && code < 400) return 'text-warning'
+  return 'text-error'
 }
 
 // 生命周期
@@ -1051,20 +1124,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-top-color: #3b82f6;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
@@ -1073,11 +1132,11 @@ onMounted(() => {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--panel-bg-alt);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--panel-bg-hover);
 }
 
 /* 模态框动画 */

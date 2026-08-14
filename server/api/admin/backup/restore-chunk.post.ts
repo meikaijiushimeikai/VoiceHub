@@ -412,7 +412,11 @@ export default defineEventHandler(async (event) => {
               })
               if (existing) {
                 restoredCardCode = (
-                  await tx.update(cardCodes).set(cardCodeData).where(eq(cardCodes.id, existing.id)).returning()
+                  await tx
+                    .update(cardCodes)
+                    .set(cardCodeData)
+                    .where(eq(cardCodes.id, existing.id))
+                    .returning()
                 )[0]
                 stats.updated++
               } else {
@@ -425,12 +429,19 @@ export default defineEventHandler(async (event) => {
               })
               if (existing) {
                 restoredCardCode = (
-                  await tx.update(cardCodes).set(cardCodeData).where(eq(cardCodes.id, record.id)).returning()
+                  await tx
+                    .update(cardCodes)
+                    .set(cardCodeData)
+                    .where(eq(cardCodes.id, record.id))
+                    .returning()
                 )[0]
                 stats.updated++
               } else {
                 restoredCardCode = (
-                  await tx.insert(cardCodes).values({ ...cardCodeData, id: record.id }).returning()
+                  await tx
+                    .insert(cardCodes)
+                    .values({ ...cardCodeData, id: record.id })
+                    .returning()
                 )[0]
                 stats.created++
               }
@@ -697,9 +708,11 @@ export default defineEventHandler(async (event) => {
               'enableSubmissionRemarks',
               'enableCardCodeRequests',
               'requireCardCodeForRequests',
+              'enableCardCodeLimitBypass',
               'enableRequestTimeLimitation',
               'requestTimeLimitation',
               'forceBlockAllRequests',
+              'forcePasswordChangeOnFirstLogin',
               'smtpEnabled',
               'smtpHost',
               'smtpPort',
@@ -723,6 +736,11 @@ export default defineEventHandler(async (event) => {
               'googleOAuthEnabled',
               'googleClientId',
               'googleClientSecret',
+              'aggregateOAuthEnabled',
+              'aggregateOAuthAppId',
+              'aggregateOAuthAppKey',
+              'aggregateOAuthLoginType',
+              'aggregateOAuthEndpoint',
               'customOAuthEnabled',
               'customOAuthDisplayName',
               'customOAuthAuthorizeUrl',
@@ -737,7 +755,14 @@ export default defineEventHandler(async (event) => {
               'customOAuthEmailField',
               'customOAuthAvatarField',
               'captchaEnabled',
-              'captchaMaxFailures'
+              'captchaMaxFailures',
+              'captchaProvider',
+              'turnstileSiteKey',
+              'turnstileSecretKey',
+              'autoBackupEnabled',
+              'autoBackupConfig',
+              'enabledPlatforms',
+              'platformOrder'
             ]
             fields.forEach((field) => {
               if (record.hasOwnProperty(field)) systemSettingsData[field] = record[field]
@@ -927,11 +952,43 @@ export default defineEventHandler(async (event) => {
             }
 
             const notificationData: any = { userId: validUserId }
-            const fields = ['title', 'message', 'type']
+            const fields = [
+              'batchId',
+              'source',
+              'senderName',
+              'senderUsername',
+              'title',
+              'message',
+              'type',
+              'userDeleted'
+            ]
             fields.forEach((field) => {
               if (record.hasOwnProperty(field)) notificationData[field] = record[field]
             })
+            // senderId 需要重新映射到目标库的用户 ID；映射未命中时回查同 ID 用户并比对用户名快照，
+            // 不一致则置空，避免跨库恢复时将发送人归属到错误用户，展示仍靠快照字段
+            if (Object.prototype.hasOwnProperty.call(record, 'senderId')) {
+              if (record.senderId) {
+                const mappedSenderId = userIdMapping.get(record.senderId)
+                if (mappedSenderId) {
+                  notificationData.senderId = mappedSenderId
+                } else {
+                  const senderExists = await tx.query.users.findFirst({
+                    where: eq(users.id, record.senderId)
+                  })
+                  notificationData.senderId =
+                    senderExists && senderExists.username === record.senderUsername
+                      ? record.senderId
+                      : null
+                }
+              } else {
+                notificationData.senderId = null
+              }
+            }
             notificationData.read = record.hasOwnProperty('read') ? record.read : false
+            notificationData.important = Object.prototype.hasOwnProperty.call(record, 'important')
+              ? record.important
+              : false
             notificationData.createdAt = record.createdAt ? new Date(record.createdAt) : new Date()
             notificationData.updatedAt = record.updatedAt ? new Date(record.updatedAt) : new Date()
 
@@ -1030,7 +1087,7 @@ export default defineEventHandler(async (event) => {
           }
 
           case 'cardCodeRedeemLogs': {
-            let validCardCodeId = record.cardCodeId
+            let validCardCodeId = record.cardCodeId || null
             if (record.cardCodeId) {
               const mappedCardCodeId = cardCodeIdMapping.get(record.cardCodeId)
               if (mappedCardCodeId) {
@@ -1039,9 +1096,9 @@ export default defineEventHandler(async (event) => {
                 const cardCodeExists = await tx.query.cardCodes.findFirst({
                   where: eq(cardCodes.id, record.cardCodeId)
                 })
-                if (!cardCodeExists) return
+                if (!cardCodeExists) validCardCodeId = null
               }
-            } else return
+            }
 
             let validRedeemedBy = record.redeemedBy
             if (record.redeemedBy) {
@@ -1089,7 +1146,10 @@ export default defineEventHandler(async (event) => {
                 where: eq(cardCodeRedeemLogs.id, record.id)
               })
               if (existing) {
-                await tx.update(cardCodeRedeemLogs).set(logData).where(eq(cardCodeRedeemLogs.id, record.id))
+                await tx
+                  .update(cardCodeRedeemLogs)
+                  .set(logData)
+                  .where(eq(cardCodeRedeemLogs.id, record.id))
                 stats.updated++
               } else {
                 await tx.insert(cardCodeRedeemLogs).values({ ...logData, id: record.id })

@@ -1,4 +1,4 @@
-import { pgTable, serial, timestamp, text, boolean, integer, uuid, varchar, unique, bigint, foreignKey, pgEnum } from "drizzle-orm/pg-core"
+import { pgTable, serial, timestamp, text, boolean, integer, uuid, varchar, unique, uniqueIndex, index, bigint, foreignKey, pgEnum } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 export const blacklistType = pgEnum("BlacklistType", ['SONG', 'KEYWORD'])
@@ -60,6 +60,7 @@ export const schedule = pgTable("Schedule", {
 	playTimeId: integer(),
 	isDraft: boolean().default(false).notNull(),
 	publishedAt: timestamp({ mode: 'string' }),
+	replayRequestId: integer(),
 });
 
 export const notificationSettings = pgTable("NotificationSettings", {
@@ -165,7 +166,8 @@ export const user = pgTable("User", {
 	lastLogin: timestamp({ mode: 'string' }),
 	lastLoginIp: text(),
 	passwordChangedAt: timestamp({ mode: 'string' }),
-	forcePasswordChange: boolean().default(true).notNull(),
+	forcePasswordChange: boolean().default(false).notNull(),
+	tokenVersion: integer().default(0).notNull(),
 	meowNickname: text(),
 	meowBoundAt: timestamp({ mode: 'string' }),
 	status: userStatus().default('active').notNull(),
@@ -174,6 +176,28 @@ export const user = pgTable("User", {
 	email: text(),
 	emailVerified: boolean().default(false),
 });
+
+export const passwordAuditLog = pgTable("PasswordAuditLog", {
+	id: serial().primaryKey().notNull(),
+	userId: integer().notNull(),
+	actorId: integer(),
+	action: text().notNull(),
+	success: boolean().notNull(),
+	ipAddress: text(),
+	userAgent: text(),
+	failureReason: text(),
+	createdAt: timestamp({ withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	index("PasswordAuditLog_user_created_idx").on(table.userId, table.createdAt),
+]);
+
+export const passwordRateLimit = pgTable("PasswordRateLimit", {
+	key: text().primaryKey().notNull(),
+	count: integer().notNull(),
+	resetAt: timestamp({ withTimezone: true, mode: 'string' }).notNull(),
+}, (table) => [
+	index("PasswordRateLimit_reset_idx").on(table.resetAt),
+]);
 
 export const emailTemplate = pgTable("EmailTemplate", {
 	id: serial().primaryKey().notNull(),
@@ -227,8 +251,13 @@ export const songReplayRequests = pgTable("song_replay_requests", {
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	status: replayRequestStatus().default('PENDING').notNull(),
+	preferredPlayTimeId: integer("preferred_play_time_id"),
+	submissionNote: text("submission_note"),
+	submissionNotePublic: boolean("submission_note_public").default(false).notNull(),
 }, (table) => [
-	unique("song_replay_requests_song_id_user_id_unique").on(table.songId, table.userId),
+	uniqueIndex("song_replay_requests_pending_song_user_unique")
+		.on(table.songId, table.userId)
+		.where(sql`${table.status} = 'PENDING'`),
 ]);
 
 export const userIdentity = pgTable("UserIdentity", {
@@ -275,7 +304,7 @@ export const cardCode = pgTable("CardCode", {
 export const cardCodeRedeemLog = pgTable("CardCodeRedeemLog", {
 	id: serial().primaryKey().notNull(),
 	createdAt: timestamp({ mode: 'string' }).defaultNow().notNull(),
-	cardCodeId: integer().notNull(),
+	cardCodeId: integer(),
 	codeSnapshot: text().notNull(),
 	redeemedBy: integer().notNull(),
 	redeemedAt: timestamp({ mode: 'string' }).defaultNow().notNull(),
@@ -286,7 +315,7 @@ export const cardCodeRedeemLog = pgTable("CardCodeRedeemLog", {
 			columns: [table.cardCodeId],
 			foreignColumns: [cardCode.id],
 			name: "CardCodeRedeemLog_cardCodeId_CardCode_id_fk"
-		}).onDelete("restrict"),
+		}).onDelete("set null"),
 	foreignKey({
 			columns: [table.redeemedBy],
 			foreignColumns: [user.id],
@@ -326,6 +355,7 @@ export const systemSettings = pgTable("SystemSettings", {
 	smtpFromName: text().default('校园广播站'),
 	enableRequestTimeLimitation: boolean().default(false).notNull(),
 	forceBlockAllRequests: boolean().default(false).notNull(),
+	forcePasswordChangeOnFirstLogin: boolean().default(false).notNull(),
 	enableReplayRequests: boolean().default(false).notNull(),
 	monthlySubmissionLimit: integer(),
 	gonganNumber: text(),
@@ -358,6 +388,11 @@ export const systemSettings = pgTable("SystemSettings", {
 	googleOauthEnabled: boolean().default(false).notNull(),
 	googleClientId: text(),
 	googleClientSecret: text(),
+	aggregateOauthEnabled: boolean("aggregateOAuthEnabled").default(false).notNull(),
+	aggregateOauthAppId: text("aggregateOAuthAppId"),
+	aggregateOauthAppKey: text("aggregateOAuthAppKey"),
+	aggregateOauthLoginType: text("aggregateOAuthLoginType").default('qq'),
+	aggregateOauthEndpoint: text("aggregateOAuthEndpoint").default('https://a.idcfx.net/connect.php'),
 	showBeianIcon: boolean().default(false).notNull(),
 	allowOauthRegistration: boolean().default(false).notNull(),
 	captchaEnabled: boolean().default(false).notNull(),

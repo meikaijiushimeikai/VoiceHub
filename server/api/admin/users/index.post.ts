@@ -3,6 +3,12 @@ import { db } from '~/drizzle/db'
 import { users } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
 
+const normalizeRequiredText = (value: unknown) => String(value || '').trim()
+const normalizeOptionalText = (value: unknown) => {
+  const normalized = String(value || '').trim()
+  return normalized || null
+}
+
 export default defineEventHandler(async (event) => {
   // 检查认证和权限
   const user = event.context.user
@@ -14,9 +20,12 @@ export default defineEventHandler(async (event) => {
   }
 
   const body = await readBody(event)
+  const normalizedName = normalizeRequiredText(body.name)
+  const normalizedUsername = normalizeRequiredText(body.username)
+  const initialPassword = typeof body.password === 'string' ? body.password : ''
 
   // 验证必填字段
-  if (!body.name || !body.username || !body.password) {
+  if (!normalizedName || !normalizedUsername || !initialPassword) {
     throw createError({
       statusCode: 400,
       message: '姓名、用户名和密码不能为空'
@@ -28,7 +37,7 @@ export default defineEventHandler(async (event) => {
     const existingUserResult = await db
       .select()
       .from(users)
-      .where(eq(users.username, body.username))
+      .where(eq(users.username, normalizedUsername))
       .limit(1)
     const existingUser = existingUserResult[0]
 
@@ -40,7 +49,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // 加密密码
-    const hashedPassword = await bcrypt.hash(body.password, 10)
+    const hashedPassword = await bcrypt.hash(initialPassword, 10)
 
     // 角色权限控制
     let validRole = 'USER'
@@ -79,13 +88,13 @@ export default defineEventHandler(async (event) => {
     const newUserResult = await db
       .insert(users)
       .values({
-        name: body.name,
-        username: body.username,
+        name: normalizedName,
+        username: normalizedUsername,
         password: hashedPassword,
         role: validRole,
         status: validStatus as 'active' | 'withdrawn' | 'graduate',
-        grade: body.grade,
-        class: body.class
+        grade: normalizeOptionalText(body.grade),
+        class: normalizeOptionalText(body.class)
       })
       .returning({
         id: users.id,
@@ -99,16 +108,6 @@ export default defineEventHandler(async (event) => {
         updatedAt: users.updatedAt
       })
     const newUser = newUserResult[0]
-
-    // 清除相关缓存
-    try {
-      const { cache } = await import('~~/server/utils/cache-helpers')
-      await cache.deletePattern('songs:*')
-      await cache.deletePattern('stats:*')
-      console.log('[Cache] 歌曲和统计缓存已清除（用户创建）')
-    } catch (cacheError) {
-      console.warn('[Cache] 清除缓存失败:', cacheError)
-    }
 
     return {
       success: true,

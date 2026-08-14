@@ -1,6 +1,6 @@
-import { db, eq, ne, schedules, songs, songReplayRequests, and } from '~/drizzle/db'
-import { cacheService } from '~~/server/services/cacheService'
+import { db, eq, ne, schedules, songs, and } from '~/drizzle/db'
 import { restoreCardCodeAfterScheduleRemoval } from '~~/server/services/cardCodeLifecycleService'
+import { restoreReplayRequestsToPending } from '~~/server/utils/scheduleReplayBinding'
 import { getServerDate } from '~~/server/utils/serverTime'
 
 export default defineEventHandler(async (event) => {
@@ -88,29 +88,23 @@ export default defineEventHandler(async (event) => {
             })
             if (
               !restoreResult.changed &&
-              ['CONCURRENT_CHANGE', 'MISSING_CARD_CODE'].includes(String(restoreResult.reason || ''))
+              ['CONCURRENT_CHANGE', 'MISSING_CARD_CODE'].includes(
+                String(restoreResult.reason || '')
+              )
             ) {
               throw createError({ statusCode: 409, message: '点歌券返还失败，移除排期已终止' })
             }
           }
 
-          const updatedRequests = await tx
-            .update(songReplayRequests)
-            .set({
-              status: 'PENDING',
-              updatedAt: getServerDate()
-            })
-            .where(
-              and(
-                eq(songReplayRequests.songId, existingSchedule.songId),
-                // 不恢复已拒绝的申请
-                eq(songReplayRequests.status, 'FULFILLED')
-              )
-            )
-            .returning({ id: songReplayRequests.id })
+          // 恢复重播申请（每人仅恢复最新一条，避免违反部分唯一索引）
+          const restoredCount = await restoreReplayRequestsToPending({
+            tx,
+            songIds: [existingSchedule.songId],
+            at: getServerDate()
+          })
 
-          if (updatedRequests.length > 0) {
-            console.log(`恢复了 ${updatedRequests.length} 个重播申请状态为 PENDING`)
+          if (restoredCount > 0) {
+            console.log(`恢复了 ${restoredCount} 个重播申请状态为 PENDING`)
           }
         } else {
           console.log(`该歌曲仍有其他正式排期，不恢复重播申请状态`)
@@ -119,15 +113,6 @@ export default defineEventHandler(async (event) => {
 
       return deletedSchedule
     })
-
-    // 清除相关缓存
-    try {
-      await cacheService.clearSchedulesCache()
-      await cacheService.clearSongsCache() // 清除歌曲列表缓存，确保scheduled状态更新
-      console.log('[Cache] 排期缓存和歌曲列表缓存已清除（移除排期）')
-    } catch (cacheError) {
-      console.error('[Cache] 清除缓存失败:', cacheError)
-    }
 
     return {
       success: true,

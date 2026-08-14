@@ -4,11 +4,14 @@ export interface User {
   name: string | null
   grade?: string | null
   class?: string | null
-  role: 'USER' | 'ADMIN'
+  role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'SONG_ADMIN'
   lastLoginAt?: Date | null
   lastLoginIp?: string | null
   forcePasswordChange?: boolean
-  passwordChangedAt?: Date | null
+  passwordChangedAt?: Date | string | null
+  requirePasswordChange?: boolean
+  hasSetPassword?: boolean
+  needsInitialPasswordSetup?: boolean
   avatar?: string | null
   has2FA?: boolean
   email?: string | null
@@ -43,9 +46,11 @@ export interface Song {
   submissionNotePublic?: boolean
   createdAt: string
   voted?: boolean
-  scheduled?: boolean // 是否已排期
-  scheduleDate?: string // 排期日期
-  schedulePlayed?: boolean // 排期中的播放状态
+  scheduled?: boolean
+  scheduleDate?: string
+  schedulePlayed?: boolean
+  cardCodeId?: number | null
+  usedCardCode?: boolean
 }
 
 export interface Schedule {
@@ -69,10 +74,18 @@ export interface Schedule {
     hasSubmissionNote?: boolean
     submissionNote?: string | null
     submissionNotePublic?: boolean
+    cardCodeId?: number | null
+    usedCardCode?: boolean
   }
 }
 
 export type NotificationType = 'SONG_SELECTED' | 'SONG_PLAYED' | 'SONG_VOTED' | 'SYSTEM_NOTICE'
+
+export interface NotificationSender {
+  id: number
+  name: string | null
+  username: string | null
+}
 
 export interface Notification {
   id: number
@@ -80,9 +93,15 @@ export interface Notification {
   updatedAt: string
   userId: number
   type: string
+  batchId?: string | null
+  source: 'SYSTEM' | 'ADMIN_MANUAL'
+  title?: string | null
   message: string
   songId?: number | null
+  important: boolean
   read: boolean
+  userDeleted: boolean
+  sender: NotificationSender | null
 }
 
 // 前端使用的通知设置接口
@@ -138,6 +157,9 @@ export interface SystemSettings {
   enableReplayRequests?: boolean
   enableCollaborativeSubmission?: boolean
   enableSubmissionRemarks?: boolean
+  enableCardCodeRequests?: boolean
+  requireCardCodeForRequests?: boolean
+  enableCardCodeLimitBypass?: boolean
 }
 
 export interface RequestTime {

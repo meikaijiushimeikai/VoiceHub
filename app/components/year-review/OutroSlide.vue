@@ -4,14 +4,14 @@
 
     <Transition name="entry" appear>
       <div v-show="active" class="content">
-        <div class="label">未来可期</div>
+        <div class="label">{{ yearReview.future }}</div>
 
         <div class="year-container">
           <h2 class="year-next">{{ data.year + 1 }}</h2>
           <div class="year-underline" />
         </div>
 
-        <p class="text-intro">愿音乐继续陪伴你的每一天</p>
+        <p class="text-intro">{{ yearReview.futureDesc }}</p>
 
         <div class="action-buttons">
           <NuxtLink to="/" class="btn-primary group">
@@ -30,7 +30,7 @@
                 <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                 <polyline points="9 22 9 12 15 12 15 22" />
               </svg>
-              返回首页
+              {{ yearReview.backHome }}
             </span>
           </NuxtLink>
         </div>
@@ -40,11 +40,14 @@
 </template>
 
 <script setup>
+import { useLocale } from '~/utils/locale'
+
 defineProps({
   data: Object,
   active: Boolean
 })
 defineEmits(['share'])
+const { yearReview } = useLocale()
 </script>
 
 <style scoped>
@@ -56,13 +59,13 @@ defineEmits(['share'])
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-color: #000;
+  background-color: var(--bg-primary);
 }
 
 .bg-gradient {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at center, #1f2937, #000, #000);
+  background: radial-gradient(circle at center, var(--panel-border-subtle), var(--bg-primary), var(--bg-primary));
   opacity: 0.5;
 }
 
@@ -75,7 +78,7 @@ defineEmits(['share'])
 }
 
 .label {
-  color: #6b7280;
+  color: var(--year-review-text-tertiary);
   font-size: 0.875rem;
   letter-spacing: 0.5em;
   text-transform: uppercase;
@@ -92,7 +95,7 @@ defineEmits(['share'])
   font-size: 6rem;
   font-weight: 900;
   line-height: 1;
-  background-image: linear-gradient(to bottom, #fff, #1f2937);
+  background-image: linear-gradient(to bottom, var(--text-primary), var(--panel-border-subtle));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -104,12 +107,12 @@ defineEmits(['share'])
   left: 0;
   width: 100%;
   height: 4px;
-  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background: linear-gradient(to right, transparent, var(--overlay-20), transparent);
 }
 
 .text-intro {
   font-size: 1.125rem;
-  color: #9ca3af;
+  color: var(--text-muted);
   margin-bottom: 3rem;
 }
 
@@ -132,8 +135,8 @@ defineEmits(['share'])
   width: 100%;
   padding: 1rem 2rem;
   border-radius: 9999px;
-  background: #fff;
-  color: #000;
+  background: var(--text-primary);
+  color: var(--bg-primary);
   font-weight: 700;
   font-size: 1.125rem;
   overflow: hidden;
@@ -150,7 +153,7 @@ defineEmits(['share'])
 .btn-bg {
   position: absolute;
   inset: 0;
-  background: #e5e7eb;
+  background: var(--panel-border-light);
   transform: translateY(100%);
   transition: transform 0.3s;
 }
@@ -171,9 +174,9 @@ defineEmits(['share'])
   width: 100%;
   padding: 1rem 2rem;
   border-radius: 9999px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: #fff;
+  background: var(--overlay-10);
+  border: 1px solid var(--overlay-20);
+  color: var(--text-primary);
   font-weight: 700;
   font-size: 1.125rem;
   backdrop-filter: blur(12px);
@@ -185,7 +188,7 @@ defineEmits(['share'])
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--overlay-20);
 }
 
 .btn-secondary:active {

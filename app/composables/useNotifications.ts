@@ -1,18 +1,14 @@
 import { computed, ref } from 'vue'
 import { useAuth } from './useAuth'
+import { useLocale } from '~/utils/locale'
 import type { Notification, NotificationSettings } from '~/types'
-
-interface PaginationInfo {
-  currentPage: number
-  totalPages: number
-  totalCount: number
-  limit: number
-  hasNextPage: boolean
-  hasPrevPage: boolean
-}
 
 export const useNotifications = () => {
   const { getAuthConfig, isAuthenticated } = useAuth()
+  const { composableErrors } = useLocale()
+  const action = (key: keyof typeof composableErrors.value.actions) => composableErrors.value.actions[key]
+  const loginRequired = (key: keyof typeof composableErrors.value.actions) => composableErrors.value.loginRequired(action(key))
+  const failed = (key: keyof typeof composableErrors.value.actions) => composableErrors.value.failed(action(key))
 
   const notifications = ref<Notification[]>([])
   const unreadCount = ref(0)
@@ -25,11 +21,20 @@ export const useNotifications = () => {
   const pageSize = ref(10)
   const totalPages = ref(0)
   const totalCount = ref(0)
+  const currentFilter = ref<'all' | 'unread'>('all')
+  const currentSearch = ref('')
   const hasNextPage = computed(() => currentPage.value < totalPages.value)
   const hasPrevPage = computed(() => currentPage.value > 1)
   const isPaginationLoading = ref(false)
+  let fetchSequence = 0
 
-  const fetchNotifications = async (page?: number, limit?: number) => {
+  const fetchNotifications = async (
+    page?: number,
+    limit?: number,
+    filter: 'all' | 'unread' = currentFilter.value,
+    search: string = currentSearch.value
+  ) => {
+    const requestId = ++fetchSequence
     if (!isAuthenticated.value) {
       notifications.value = []
       unreadCount.value = 0
@@ -48,6 +53,10 @@ export const useNotifications = () => {
     // 使用传入的参数或当前状态
     const requestPage = page || currentPage.value
     const requestLimit = limit || pageSize.value
+    const requestFilter = filter === 'unread' ? 'unread' : 'all'
+    const requestSearch = search.trim().slice(0, 100)
+    currentFilter.value = requestFilter
+    currentSearch.value = requestSearch
 
     try {
       const authConfig = getAuthConfig()
@@ -55,12 +64,14 @@ export const useNotifications = () => {
       const data = await $fetch('/api/notifications', {
         query: {
           page: requestPage,
-          limit: requestLimit
+          limit: requestLimit,
+          filter: requestFilter,
+          search: requestSearch || undefined
         },
         ...authConfig
       })
 
-      if (data) {
+      if (data && requestId === fetchSequence) {
         notifications.value = data.notifications || []
         unreadCount.value = data.unreadCount || 0
 
@@ -73,6 +84,7 @@ export const useNotifications = () => {
         }
       }
     } catch (err: any) {
+      if (requestId !== fetchSequence) return
       const errorHandler = useErrorHandler()
       if (await errorHandler.checkAndHandleFetchError(err)) {
         return
@@ -82,8 +94,10 @@ export const useNotifications = () => {
       unreadCount.value = 0
       resetPagination()
     } finally {
-      loading.value = false
-      isPaginationLoading.value = false
+      if (requestId === fetchSequence) {
+        loading.value = false
+        isPaginationLoading.value = false
+      }
     }
   }
 
@@ -123,6 +137,19 @@ export const useNotifications = () => {
     }
   }
 
+  const changeFilter = async (filter: 'all' | 'unread') => {
+    if (filter === currentFilter.value) return
+    currentPage.value = 1
+    await fetchNotifications(1, pageSize.value, filter)
+  }
+
+  const changeSearch = async (search: string) => {
+    const normalizedSearch = search.trim().slice(0, 100)
+    if (normalizedSearch === currentSearch.value) return
+    currentPage.value = 1
+    await fetchNotifications(1, pageSize.value, currentFilter.value, normalizedSearch)
+  }
+
   const fetchNotificationSettings = async () => {
     if (!isAuthenticated.value) {
       settings.value = null
@@ -156,7 +183,7 @@ export const useNotifications = () => {
 
   const updateNotificationSettings = async (newSettings: Partial<NotificationSettings>) => {
     if (!isAuthenticated.value) {
-      error.value = '需要登录才能更新通知设置'
+      error.value = loginRequired('updateNotificationSettings')
       return null
     }
 
@@ -182,7 +209,7 @@ export const useNotifications = () => {
       if (await errorHandler.checkAndHandleFetchError(err)) {
         return null
       }
-      error.value = err.message || '更新通知设置失败'
+      error.value = err.message || failed('updateNotificationSettings')
       console.error('更新通知设置错误:', err)
       return null
     } finally {
@@ -193,7 +220,7 @@ export const useNotifications = () => {
   // 标记通知为已读
   const markAsRead = async (notificationId: number) => {
     if (!isAuthenticated.value) {
-      error.value = '需要登录才能标记通知'
+      error.value = loginRequired('markNotification')
       return null
     }
 
@@ -214,13 +241,20 @@ export const useNotifications = () => {
         unreadCount.value = Math.max(0, unreadCount.value - 1)
       }
 
+      if (currentFilter.value === 'unread') {
+        const targetPage = notifications.value.length <= 1 && currentPage.value > 1
+          ? currentPage.value - 1
+          : currentPage.value
+        await fetchNotifications(targetPage, pageSize.value)
+      }
+
       return data
     } catch (err: any) {
       const errorHandler = useErrorHandler()
       if (await errorHandler.checkAndHandleFetchError(err)) {
         return null
       }
-      error.value = err.message || '标记通知失败'
+      error.value = err.message || failed('markNotification')
       console.error('标记通知错误:', err)
       return null
     } finally {
@@ -231,7 +265,7 @@ export const useNotifications = () => {
   // 标记所有通知为已读
   const markAllAsRead = async () => {
     if (!isAuthenticated.value) {
-      error.value = '需要登录才能标记通知'
+      error.value = loginRequired('markAllNotifications')
       return null
     }
 
@@ -249,6 +283,10 @@ export const useNotifications = () => {
       if (data) {
         notifications.value.forEach((n) => (n.read = true))
         unreadCount.value = 0
+        if (currentFilter.value === 'unread') {
+          notifications.value = []
+          resetPagination()
+        }
         return data
       }
       return null
@@ -257,7 +295,7 @@ export const useNotifications = () => {
       if (await errorHandler.checkAndHandleFetchError(err)) {
         return null
       }
-      error.value = err.message || '标记所有通知失败'
+      error.value = err.message || failed('markAllNotifications')
       console.error('标记所有通知错误:', err)
       return null
     } finally {
@@ -268,7 +306,7 @@ export const useNotifications = () => {
   // 删除通知
   const deleteNotification = async (notificationId: number) => {
     if (!isAuthenticated.value) {
-      error.value = '需要登录才能删除通知'
+      error.value = loginRequired('deleteNotification')
       return null
     }
 
@@ -309,7 +347,7 @@ export const useNotifications = () => {
         return null
       }
 
-      error.value = err.message || '删除通知失败'
+      error.value = err.message || failed('deleteNotification')
       console.error('删除通知错误:', err)
       return null
     } finally {
@@ -320,7 +358,7 @@ export const useNotifications = () => {
   // 清空所有通知
   const clearAllNotifications = async () => {
     if (!isAuthenticated.value) {
-      error.value = '需要登录才能清空通知'
+      error.value = loginRequired('clearNotifications')
       return null
     }
 
@@ -348,7 +386,7 @@ export const useNotifications = () => {
         return null
       }
 
-      error.value = err.message || '清空通知失败'
+      error.value = err.message || failed('clearNotifications')
       console.error('清空通知错误:', err)
       return null
     } finally {
@@ -370,6 +408,8 @@ export const useNotifications = () => {
     pageSize,
     totalPages,
     totalCount,
+    currentFilter,
+    currentSearch,
     hasNextPage,
     hasPrevPage,
     isPaginationLoading,
@@ -386,6 +426,8 @@ export const useNotifications = () => {
     nextPage,
     prevPage,
     changePageSize,
+    changeFilter,
+    changeSearch,
     resetPagination
   }
 }

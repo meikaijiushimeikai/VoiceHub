@@ -1,5 +1,5 @@
-import {bigint, boolean, integer, pgEnum, pgTable, serial, text, timestamp, uuid, varchar, unique} from 'drizzle-orm/pg-core';
-import {relations} from 'drizzle-orm';
+import {bigint, boolean, index, integer, pgEnum, pgTable, serial, text, timestamp, uniqueIndex, uuid, varchar, unique} from 'drizzle-orm/pg-core';
+import {relations, sql} from 'drizzle-orm';
 
 // 枚举定义
 export const blacklistTypeEnum = pgEnum('BlacklistType', ['SONG', 'KEYWORD']);
@@ -29,7 +29,8 @@ export const users = pgTable('User', {
   lastLogin: timestamp('lastLogin'),
   lastLoginIp: text('lastLoginIp'),
   passwordChangedAt: timestamp('passwordChangedAt'),
-  forcePasswordChange: boolean('forcePasswordChange').default(true).notNull(),
+  forcePasswordChange: boolean('forcePasswordChange').default(false).notNull(),
+  tokenVersion: integer('tokenVersion').default(0).notNull(),
   meowNickname: text('meowNickname'),
   meowBoundAt: timestamp('meowBoundAt'),
   status: userStatusEnum('status').default('active').notNull(),
@@ -69,7 +70,11 @@ export const songs = pgTable('Song', {
   submissionNotePublic: boolean('submissionNotePublic').default(false).notNull(),
   hitRequestId: integer(),
   cardCodeId: integer('cardCodeId').references(() => cardCodes.id, { onDelete: 'set null' }),
-});
+}, (table) => [
+  index('song_card_code_id_idx').on(table.cardCodeId),
+  index('song_semester_created_at_idx').on(table.semester, table.createdAt),
+  index('song_requester_id_idx').on(table.requesterId)
+]);
 
 // 投票表
 export const votes = pgTable('Vote', {
@@ -77,7 +82,10 @@ export const votes = pgTable('Vote', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   songId: integer('songId').notNull(),
   userId: integer('userId').notNull(),
-});
+}, (table) => [
+  unique('vote_song_user_unique').on(table.songId, table.userId),
+  index('vote_user_song_idx').on(table.userId, table.songId)
+]);
 
 // 排期表
 export const schedules = pgTable('Schedule', {
@@ -92,7 +100,11 @@ export const schedules = pgTable('Schedule', {
   // 草稿支持字段
   isDraft: boolean('isDraft').default(false).notNull(),
   publishedAt: timestamp('publishedAt'),
-});
+  replayRequestId: integer('replay_request_id'),
+}, (table) => [
+  index('schedule_published_song_idx').on(table.isDraft, table.songId, table.playDate),
+  index('schedule_published_date_idx').on(table.isDraft, table.playDate)
+]);
 
 // 通知表
 export const notifications = pgTable('Notification', {
@@ -100,11 +112,28 @@ export const notifications = pgTable('Notification', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
   updatedAt: timestamp('updatedAt').defaultNow().notNull(),
   type: text('type').notNull(),
+  batchId: text('batchId'),
+  source: text('source').default('SYSTEM').notNull(),
+  senderId: integer('senderId'),
+  senderName: text('senderName'),
+  senderUsername: text('senderUsername'),
+  title: text('title'),
   message: text('message').notNull(),
+  important: boolean('important').default(false).notNull(),
   read: boolean('read').default(false).notNull(),
+  userDeleted: boolean('userDeleted').default(false).notNull(),
   userId: integer('userId').notNull(),
   songId: integer('songId'),
-});
+}, (table) => [
+  index('notification_user_important_read_created_idx').on(
+    table.userId,
+    table.userDeleted,
+    table.important,
+    table.read,
+    table.createdAt
+  ),
+  index('notification_batch_id_idx').on(table.batchId)
+]);
 
 // 通知设置表
 export const notificationSettings = pgTable('NotificationSettings', {
@@ -163,12 +192,14 @@ export const systemSettings = pgTable('SystemSettings', {
   smtpFromName: text('smtpFromName').default('校园广播站'),
   enableRequestTimeLimitation: boolean('enableRequestTimeLimitation').default(false).notNull(),
   forceBlockAllRequests: boolean().default(false).notNull(),
+  forcePasswordChangeOnFirstLogin: boolean('forcePasswordChangeOnFirstLogin').default(false).notNull(),
   enableReplayRequests: boolean('enableReplayRequests').default(false).notNull(),
   enableCollaborativeSubmission: boolean('enableCollaborativeSubmission').default(true).notNull(),
   enableSubmissionRemarks: boolean('enableSubmissionRemarks').default(false).notNull(),
   // 卡密点歌相关开关（用于允许用户使用卡密或强制使用卡密投稿）
   enableCardCodeRequests: boolean('enableCardCodeRequests').default(false).notNull(),
   requireCardCodeForRequests: boolean('requireCardCodeForRequests').default(false).notNull(),
+  enableCardCodeLimitBypass: boolean('enableCardCodeLimitBypass').default(false).notNull(),
   
   // 验证码配置
   captchaProvider: text('captchaProvider').default('graphic').notNull(),
@@ -194,6 +225,12 @@ export const systemSettings = pgTable('SystemSettings', {
   googleOAuthEnabled: boolean('googleOAuthEnabled').default(false).notNull(),
   googleClientId: text('googleClientId'),
   googleClientSecret: text('googleClientSecret'),
+  // 聚合登陆
+  aggregateOAuthEnabled: boolean('aggregateOAuthEnabled').default(false).notNull(),
+  aggregateOAuthAppId: text('aggregateOAuthAppId'),
+  aggregateOAuthAppKey: text('aggregateOAuthAppKey'),
+  aggregateOAuthLoginType: text('aggregateOAuthLoginType').default('qq'),
+  aggregateOAuthEndpoint: text('aggregateOAuthEndpoint').default('https://a.idcfx.net/connect.php'),
   // Custom OAuth2
   customOAuthEnabled: boolean('customOAuthEnabled').default(false).notNull(),
   customOAuthDisplayName: text('customOAuthDisplayName'),
@@ -211,6 +248,14 @@ export const systemSettings = pgTable('SystemSettings', {
   // 图形验证码
   captchaEnabled: boolean('captchaEnabled').default(false).notNull(),
   captchaMaxFailures: integer('captchaMaxFailures').default(3).notNull(),
+
+  // 自动备份配置
+  autoBackupEnabled: boolean('autoBackupEnabled').default(false).notNull(),
+  autoBackupConfig: text('autoBackupConfig'),
+
+  // 平台管理配置
+  enabledPlatforms: text('enabledPlatforms').default('["netease","tencent","bilibili","migu"]'),
+  platformOrder: text('platformOrder').default('["netease","tencent","bilibili","migu"]'),
 });
 
 // 歌曲黑名单表
@@ -301,7 +346,10 @@ export const songCollaborators = pgTable('song_collaborators', {
     status: collaboratorStatusEnum('status').default('PENDING').notNull(),
     createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow().notNull(),
-});
+}, (table) => [
+    index('song_collaborators_song_status_idx').on(table.songId, table.status),
+    index('song_collaborators_user_status_idx').on(table.userId, table.status)
+]);
 
 // 联合投稿审计日志表
 export const collaborationLogs = pgTable('collaboration_logs', {
@@ -321,9 +369,16 @@ export const songReplayRequests = pgTable('song_replay_requests', {
   createdAt: timestamp('created_at', {withTimezone: true}).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', {withTimezone: true}).defaultNow().notNull(),
   status: replayRequestStatusEnum('status').default('PENDING').notNull(),
-}, (t) => ({
-  unq: unique().on(t.songId, t.userId),
-}));
+  preferredPlayTimeId: integer('preferred_play_time_id'),
+  submissionNote: text('submission_note'),
+  submissionNotePublic: boolean('submission_note_public').default(false).notNull(),
+}, (table) => [
+  // 同一用户对同一首歌同时最多一条待处理申请；历史申请（FULFILLED/REJECTED）允许多条
+  uniqueIndex('song_replay_requests_pending_song_user_unique')
+    .on(table.songId, table.userId)
+    .where(sql`${table.status} = 'PENDING'`),
+  index('song_replay_requests_user_status_song_idx').on(table.userId, table.status, table.songId)
+]);
 
 // 第三方身份关联表
 export const userIdentities = pgTable('UserIdentity', {
@@ -335,6 +390,28 @@ export const userIdentities = pgTable('UserIdentity', {
   createdAt: timestamp('createdAt').defaultNow().notNull(),
 }, (t) => ({
   unq: unique().on(t.provider, t.providerUserId),
+}));
+
+export const passwordAuditLogs = pgTable('PasswordAuditLog', {
+  id: serial('id').primaryKey(),
+  userId: integer('userId').notNull(),
+  actorId: integer('actorId'),
+  action: text('action').notNull(),
+  success: boolean('success').notNull(),
+  ipAddress: text('ipAddress'),
+  userAgent: text('userAgent'),
+  failureReason: text('failureReason'),
+  createdAt: timestamp('createdAt', { withTimezone: true }).defaultNow().notNull()
+}, (table) => ({
+  userCreatedIdx: index('PasswordAuditLog_user_created_idx').on(table.userId, table.createdAt)
+}));
+
+export const passwordRateLimits = pgTable('PasswordRateLimit', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull(),
+  resetAt: timestamp('resetAt', { withTimezone: true }).notNull()
+}, (table) => ({
+  resetIdx: index('PasswordRateLimit_reset_idx').on(table.resetAt)
 }));
 
 // 关系定义
@@ -564,13 +641,32 @@ export const cardCodes = pgTable('CardCode', {
 export const cardCodeRedeemLogs = pgTable('CardCodeRedeemLog', {
   id: serial('id').primaryKey(),
   createdAt: timestamp('createdAt').defaultNow().notNull(),
-  cardCodeId: integer('cardCodeId').notNull().references(() => cardCodes.id, { onDelete: 'restrict' }),
+  cardCodeId: integer('cardCodeId').references(() => cardCodes.id, { onDelete: 'set null' }),
   codeSnapshot: text('codeSnapshot').notNull(),
   redeemedBy: integer('redeemedBy').notNull().references(() => users.id, { onDelete: 'restrict' }),
   redeemedAt: timestamp('redeemedAt').defaultNow().notNull(),
   source: text('source').default('UNKNOWN').notNull(),
   songId: integer('songId').references(() => songs.id, { onDelete: 'set null' })
-});
+}, (table) => [
+  index('card_code_redeem_log_card_code_id_idx').on(table.cardCodeId)
+]);
 
 export type CardCode = typeof cardCodes.$inferSelect;
 export type NewCardCode = typeof cardCodes.$inferInsert;
+
+// 自动备份历史记录表
+export const backupHistory = pgTable('BackupHistory', {
+  id: serial('id').primaryKey(),
+  createdAt: timestamp('createdAt').defaultNow().notNull(),
+  filename: text('filename').notNull(),
+  totalRecords: integer('totalRecords').default(0).notNull(),
+  backupSize: integer('backupSize').default(0).notNull(),
+  methods: text('methods').notNull(), // JSON: { method: string; success: boolean; error?: string }[]
+  success: boolean('success').default(false).notNull(),
+  triggeredBy: text('triggeredBy'), // 'api' | 'manual'
+}, (table) => [
+  index('backup_history_created_at_idx').on(table.createdAt)
+]);
+
+export type BackupHistory = typeof backupHistory.$inferSelect;
+export type NewBackupHistory = typeof backupHistory.$inferInsert;

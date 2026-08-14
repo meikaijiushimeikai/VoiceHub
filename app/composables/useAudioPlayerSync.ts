@@ -4,8 +4,10 @@ import { useAudioPlayerControl } from '~/composables/useAudioPlayerControl'
 import { useMusicWebSocket } from '~/composables/useMusicWebSocket'
 import { useAuth } from '~/composables/useAuth'
 import { useLyrics } from '~/composables/useLyrics'
+import { useLocale } from '~/utils/locale'
 
 export const useAudioPlayerSync = () => {
+  const { audioPlayer: audioPlayerLocale } = useLocale()
   const globalAudioPlayer = useAudioPlayer()
   const control = useAudioPlayerControl()
   const musicWebSocket = useMusicWebSocket()
@@ -236,7 +238,7 @@ export const useAudioPlayerSync = () => {
       // 检查是否有上一首歌曲
       if (!globalAudioPlayer.hasPrevious.value) {
         if (window.$showNotification) {
-          window.$showNotification('没有上一首歌曲', 'warning')
+          window.$showNotification(audioPlayerLocale.value.noPrevious, 'warning')
         }
         return { success: false, newSong: null }
       }
@@ -271,7 +273,11 @@ export const useAudioPlayerSync = () => {
 
             // 获取新歌曲的歌词（但不立即设置元数据，让AudioPlayer的handleLoaded处理）
             if (newSong.musicPlatform && newSong.musicId) {
-              await lyrics.fetchLyrics(newSong.musicPlatform, newSong.musicId)
+              await lyrics.fetchLyrics(newSong.musicPlatform, newSong.musicId, {
+                title: newSong.title,
+                artist: newSong.artist,
+                album: newSong.album
+              })
             }
 
             // 如果之前是播放状态，切换歌曲后自动开始播放
@@ -299,13 +305,13 @@ export const useAudioPlayerSync = () => {
         }
       } else {
         if (window.$showNotification) {
-          window.$showNotification('播放上一首歌曲失败', 'error')
+          window.$showNotification(audioPlayerLocale.value.previousFailed, 'error')
         }
       }
     } catch (error) {
       console.error('播放上一首歌曲失败:', error)
       if (window.$showNotification) {
-        window.$showNotification('播放上一首歌曲失败', 'error')
+        window.$showNotification(audioPlayerLocale.value.previousFailed, 'error')
       }
     }
 
@@ -359,7 +365,7 @@ export const useAudioPlayerSync = () => {
       // 检查是否有下一首歌曲
       if (!globalAudioPlayer.hasNext.value) {
         if (window.$showNotification) {
-          window.$showNotification('没有下一首歌曲', 'warning')
+          window.$showNotification(audioPlayerLocale.value.noNext, 'warning')
         }
         return { success: false, newSong: null }
       }
@@ -394,7 +400,11 @@ export const useAudioPlayerSync = () => {
 
             // 获取新歌曲的歌词（但不立即设置元数据，让AudioPlayer的handleLoaded处理）
             if (newSong.musicPlatform && newSong.musicId) {
-              await lyrics.fetchLyrics(newSong.musicPlatform, newSong.musicId)
+              await lyrics.fetchLyrics(newSong.musicPlatform, newSong.musicId, {
+                title: newSong.title,
+                artist: newSong.artist,
+                album: newSong.album
+              })
             }
 
             // 如果之前是播放状态，切换歌曲后自动开始播放
@@ -422,13 +432,13 @@ export const useAudioPlayerSync = () => {
         }
       } else {
         if (window.$showNotification) {
-          window.$showNotification('播放下一首歌曲失败', 'error')
+          window.$showNotification(audioPlayerLocale.value.nextFailed, 'error')
         }
       }
     } catch (error) {
       console.error('播放下一首歌曲失败:', error)
       if (window.$showNotification) {
-        window.$showNotification('播放下一首歌曲失败', 'error')
+        window.$showNotification(audioPlayerLocale.value.nextFailed, 'error')
       }
     }
 

@@ -33,8 +33,8 @@
     </div>
 
     <div v-else-if="isLoading" class="placeholder">
-      <div class="loading-spinner" />
-      <p>歌词加载中...</p>
+      <AppSpinner :size="24" class="mb-3" />
+      <p>{{ locale.loading }}</p>
     </div>
 
     <div v-else-if="error" class="placeholder error">
@@ -42,13 +42,18 @@
     </div>
 
     <div v-else class="placeholder">
-      <p>暂无歌词</p>
+      <p>{{ locale.empty }}</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
+import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
+import { useLocale } from '~/utils/locale'
+
+const { ui } = useLocale()
+const locale = computed(() => ui.value?.lyrics || {})
 
 const props = defineProps({
   // 歌词数据
@@ -66,8 +71,8 @@ const props = defineProps({
   height: { type: String, default: '400px' },
   fontSize: { type: Number, default: 18 },
   lineHeight: { type: Number, default: 1.6 },
-  activeLineColor: { type: String, default: '#ffffff' },
-  inactiveLineColor: { type: String, default: 'rgba(255, 255, 255, 0.6)' },
+  activeLineColor: { type: String, default: 'var(--text-primary)' },
+  inactiveLineColor: { type: String, default: 'var(--overlay-60)' },
   backgroundColor: { type: String, default: 'transparent' },
 
   // 交互配置
@@ -173,13 +178,13 @@ watch(
 }
 
 .lyric-line:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--overlay-5);
 }
 
 .lyric-line.active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-8);
   backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px var(--mask-10);
 }
 
 .main-lyric {
@@ -194,12 +199,12 @@ watch(
   font-size: 0.85em;
   opacity: 0.8;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--overlay-70);
   margin-top: 4px;
 }
 
 .lyric-line.active .translation-lyric {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--overlay-90);
 }
 
 .placeholder {
@@ -208,31 +213,12 @@ watch(
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--overlay-60);
   font-size: 16px;
 }
 
 .placeholder.error {
-  color: #ff6b6b;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top: 2px solid rgba(255, 255, 255, 0.6);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 12px;
-}
-
-@keyframes spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
+  color: var(--color-error-light);
 }
 
 /* Apple Music风格的渐变效果 */
@@ -249,18 +235,18 @@ watch(
 
 .custom-lyric-player::before {
   top: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent);
+  background: linear-gradient(to bottom, var(--mask-80), transparent);
 }
 
 .custom-lyric-player::after {
   bottom: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  background: linear-gradient(to top, var(--mask-80), transparent);
 }
 
 /* 深色主题适配 */
 @media (prefers-color-scheme: dark) {
   .placeholder {
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--overlay-70);
   }
 }
 

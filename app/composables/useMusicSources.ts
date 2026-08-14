@@ -17,10 +17,332 @@ import {
   type SourceStatus
 } from '~/utils/musicSources'
 import { getBilibiliTrackUrl, searchBilibili, parseBilibiliId } from '~/utils/bilibiliSource'
+import { evaluateLyricDataMatch } from '~/utils/lyric/lyricMatchQuality'
+import { useLyricSettings } from './useLyricSettings'
+import { usePlatformConfig } from './usePlatformConfig'
+import { useServerErrors } from './useLocaleText'
+import { getPlatformDisplayName } from '~/utils/platforms'
 
 // 歌词请求缓存，避免同一首歌重复请求
 const lyricCache = new Map<string, Promise<any>>()
+const lyricProgressSubscribers = new Map<string, Set<LyricProgressCallback>>()
 const LYRIC_CACHE_TTL = 60 * 1000
+
+// 服务器位置检测（模块级单例，避免多次实例化导致重复请求）
+const globalIsServerInChina = ref<boolean | null>(null)
+let locationCheckPromise: Promise<void> | null = null
+// 检测失败后的冷却时间（5 分钟），避免瞬时失败导致长期锁死
+const LOCATION_CHECK_RETRY_TTL = 5 * 60 * 1000
+let locationCheckFailAt = 0
+
+const checkServerLocationGlobal = async () => {
+  if (globalIsServerInChina.value !== null) return
+  // 检测失败后冷却期内不再重试
+  if (locationCheckFailAt && Date.now() < locationCheckFailAt) return
+  // 并发调用时合并为一次请求
+  if (locationCheckPromise) return locationCheckPromise
+
+  locationCheckPromise = (async () => {
+    try {
+      const data = await $fetch('/api/system/location')
+      if (data && data.success) {
+        globalIsServerInChina.value = data.data.isInChina
+        locationCheckFailAt = 0
+        console.log(
+          `[useMusicSources] 服务器位置检测: ${globalIsServerInChina.value ? '中国' : '海外'}`
+        )
+      }
+    } catch (e) {
+      // 失败时保持未知状态（null），进入冷却期，避免把一次瞬时失败永久判定为海外
+      locationCheckFailAt = Date.now() + LOCATION_CHECK_RETRY_TTL
+      console.warn('[useMusicSources] 服务器位置检测失败，稍后重试:', e)
+    } finally {
+      locationCheckPromise = null
+    }
+  })()
+  return locationCheckPromise
+}
+
+type LyricProgressStage = 'official' | 'qm' | 'amll' | 'upgrade' | 'meting'
+
+type LyricProgressPayload = {
+  stage: LyricProgressStage
+  data: LyricResultData
+}
+
+type LyricProgressCallback = (payload: LyricProgressPayload) => void
+
+type LyricUpgradeMeta = {
+  title?: string
+  artist?: string
+  album?: string
+  /** 毫秒，用于跨平台匹配时过滤时长差异过大的候选 */
+  duration?: number
+  /** false = 明确禁止跨平台升级（防止递归），undefined/true = 允许 */
+  allowCrossPlatformUpgrade?: boolean
+  /** 用于歌词页先显示基础歌词，再切换到更高阶歌词 */
+  onProgress?: LyricProgressCallback
+}
+
+type LyricResultData = { lrc: string; trans?: string; yrc?: string; ttml?: string }
+
+/**
+ * 格式优先级：数字越小越高阶。
+ * 用于判断对侧平台的歌词是否值得覆盖当前结果。
+ */
+const LYRIC_FORMAT_RANK: Record<string, number> = {
+  ttml: 0,
+  qrc: 1,
+  yrc: 1, // yrc 与 qrc 同阶，都是逐字
+  lrc: 2,
+  none: 3
+}
+
+/** 当前 LyricResultData 的最高阶格式 rank（数字越小越高阶） */
+const getCurrentRank = (data: LyricResultData): number => {
+  if (data.ttml) return LYRIC_FORMAT_RANK.ttml
+  if (data.yrc) return LYRIC_FORMAT_RANK.yrc
+  if (data.lrc) return LYRIC_FORMAT_RANK.lrc
+  return LYRIC_FORMAT_RANK.none
+}
+
+/** 歌词候选匹配文本归一化：小写，去标点/空白/常见联唱标记 */
+const normalizeLyricMatchText = (value: string): string => {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\b(?:feat|ft)\.?\s*/gi, '')
+    .replace(/[&＆]/g, 'and')
+    .replace(/[、;，,/|()（）·・\s\-_'"`~!?？！.。《》【】\[\]{}^*@#$%+=\\]+/g, '')
+}
+
+/** 双向 includes */
+const bothContains = (a: string, b: string): boolean =>
+  a.length > 0 && b.length > 0 && (a.includes(b) || b.includes(a))
+
+/** 拆分多歌手文本，避免同名歌曲只比较整串导致误判 */
+const splitLyricMatchArtists = (value?: string): string[] =>
+  String(value || '')
+    .split(/[、&＆;，,/|·・]+/g)
+    .map((artist) => normalizeLyricMatchText(artist))
+    .filter(Boolean)
+
+const matchLyricArtists = (
+  candidateArtist: string | undefined,
+  trackArtists: readonly string[]
+): { exact: boolean; contains: boolean } => {
+  if (!trackArtists.length) return { exact: false, contains: false }
+
+  const candFull = normalizeLyricMatchText(candidateArtist || '')
+  const candParts = splitLyricMatchArtists(candidateArtist)
+  if (!candFull) return { exact: false, contains: false }
+
+  const exact = trackArtists.some(
+    (artist) => candFull === artist || candParts.some((part) => part === artist)
+  )
+  if (exact) return { exact: true, contains: false }
+
+  const contains = trackArtists.some(
+    (artist) =>
+      artist.length >= 2 &&
+      (bothContains(candFull, artist) || candParts.some((part) => bothContains(part, artist)))
+  )
+
+  return { exact: false, contains }
+}
+
+const isDurationClose = (left?: number, right?: number, tolerance = 5000): boolean =>
+  typeof left === 'number' && typeof right === 'number' && Math.abs(left - right) <= tolerance
+
+const VERSION_MARKERS: Array<{ key: string; pattern: RegExp }> = [
+  { key: 'live', pattern: /\blive\b|现场/i },
+  { key: 'remix', pattern: /\bremix\b|混音/i },
+  { key: 'instrumental', pattern: /\binstrumental\b|伴奏/i },
+  { key: 'acoustic', pattern: /\bacoustic\b|不插电/i },
+  { key: 'cover', pattern: /\bcover\b|翻唱/i },
+  { key: 'demo', pattern: /\bdemo\b/i },
+  { key: 'remaster', pattern: /\bremaster(?:ed)?\b|重制/i },
+  { key: 'edit', pattern: /\bedit\b/i },
+  { key: 'new', pattern: /新版/i },
+  { key: 'old', pattern: /旧版/i }
+]
+
+const getVersionMarkers = (value: string): string[] =>
+  VERSION_MARKERS.filter(({ pattern }) => pattern.test(value))
+    .map(({ key }) => key)
+    .sort()
+
+const stripVersionMarkers = (value: string): string => {
+  const stripped = VERSION_MARKERS.reduce(
+    (result, { pattern }) => result.replace(pattern, ''),
+    value
+  ).trim()
+  return stripped || value
+}
+
+const isSameVersion = (left: string, right: string): boolean => {
+  const leftMarkers = getVersionMarkers(left)
+  const rightMarkers = getVersionMarkers(right)
+  if (leftMarkers.length === 0 && rightMarkers.length === 0) return true
+  return leftMarkers.join('|') === rightMarkers.join('|')
+}
+
+/** 子串占长串的最低比例，过低视为巧合 */
+const NAME_CONTAIN_MIN_RATIO = 0.34
+
+/**
+ * 从候选列表中挑出最匹配的结果，返回候选对象或 null。
+ *
+ * 硬性条件（不满足直接跳过）：
+ *  - title 全等，或双向 includes 且短串占长串比例 ≥ NAME_CONTAIN_MIN_RATIO
+ *  - 原歌曲有 artist 时，候选必须命中至少一个 artist（防止同名异歌手误匹配）
+ *  - title 仅子串命中时，必须有 artist 或接近时长佐证（防止巧合子串误匹配）
+ *  - 双方都有 duration 时，差距不能超过 max(8s, 曲长 × 4%)
+ *  - 标题中的现场、混音、伴奏等版本标记必须一致
+ *
+ * 打分规则（分越高越优先，须 ≥ MIN_SCORE）：
+ *  - title 全等 +10，子串命中 +4
+ *  - artist 全等 +5，双向 includes +2
+ *  - album 全等 +2
+ *  - duration 接近（±5s）+3
+ */
+const MIN_SCORE = 4
+
+const pickBestLyricCandidate = <
+  T extends { title?: string; artist?: string; album?: string; duration?: number }
+>(
+  candidates: T[],
+  track: { title?: string; artist?: string; album?: string; duration?: number }
+): T | null => {
+  const trackTitle = normalizeLyricMatchText(stripVersionMarkers(track.title || ''))
+  const trackArtists = splitLyricMatchArtists(track.artist)
+  const trackAlbum = normalizeLyricMatchText(track.album || '')
+  const trackDuration = track.duration
+
+  let best: T | null = null
+  let bestScore = MIN_SCORE - 1
+
+  for (const candidate of candidates) {
+    const candTitle = normalizeLyricMatchText(stripVersionMarkers(candidate.title || ''))
+    const candAlbum = normalizeLyricMatchText(candidate.album || '')
+
+    if (!isSameVersion(candidate.title || '', track.title || '')) continue
+
+    // 硬性：title 必须匹配
+    const titleExact = candTitle.length > 0 && candTitle === trackTitle
+    if (!titleExact) {
+      if (!bothContains(candTitle, trackTitle)) continue
+      const longer = Math.max(candTitle.length, trackTitle.length)
+      const shorter = Math.min(candTitle.length, trackTitle.length)
+      if (shorter / longer < NAME_CONTAIN_MIN_RATIO) continue
+    }
+
+    // 硬性：时长差距超过动态容差直接跳过
+    if (
+      typeof trackDuration === 'number' &&
+      typeof candidate.duration === 'number' &&
+      Math.abs(trackDuration - candidate.duration) > Math.max(8000, trackDuration * 0.04)
+    )
+      continue
+
+    const artist = matchLyricArtists(candidate.artist, trackArtists)
+
+    // 硬性：原歌曲有歌手时，候选也必须命中歌手，避免同名异歌手歌词串台
+    if (trackArtists.length > 0 && !artist.exact && !artist.contains) continue
+
+    // 硬性：title 仅子串命中时，必须有歌手或时长佐证
+    if (
+      !titleExact &&
+      !artist.exact &&
+      !artist.contains &&
+      !isDurationClose(candidate.duration, trackDuration)
+    ) {
+      continue
+    }
+
+    let score = titleExact ? 10 : 4
+    if (artist.exact) score += 5
+    else if (artist.contains) score += 2
+    if (trackAlbum && candAlbum === trackAlbum) score += 2
+    if (isDurationClose(candidate.duration, trackDuration)) score += 3
+
+    if (score > bestScore) {
+      bestScore = score
+      best = candidate
+    }
+  }
+
+  return best
+}
+
+const buildLyricUpgradeQueries = (meta: LyricUpgradeMeta) => {
+  const title = meta.title?.trim() || ''
+  const artist = meta.artist?.trim() || ''
+  const album = meta.album?.trim() || ''
+
+  const queries = new Set<string>()
+  if (title && artist) {
+    queries.add(`${title} ${artist}`)
+    queries.add(`${artist} ${title}`)
+  }
+  if (title) queries.add(title)
+  if (title && album) queries.add(`${title} ${album}`)
+  return [...queries].filter(Boolean)
+}
+
+const getLyricCacheKey = (platform: string, id: number | string, meta?: LyricUpgradeMeta) => {
+  const title = normalizeLyricMatchText(meta?.title || '')
+  const artist = normalizeLyricMatchText(meta?.artist || '')
+  const album = normalizeLyricMatchText(meta?.album || '')
+  // allowCrossPlatformUpgrade=false 与 undefined/true 的结果不同，需区分
+  const upgradeFlag = meta?.allowCrossPlatformUpgrade === false ? '0' : '1'
+  const durationBucket = meta?.duration ? Math.round(meta.duration / 5000) : 0
+  return `lyric-v2:${platform}:${id}:${title}:${artist}:${album}:${durationBucket}:${upgradeFlag}`
+}
+
+const cloneLyricData = (data: LyricResultData): LyricResultData => ({
+  lrc: data.lrc || '',
+  trans: data.trans || '',
+  yrc: data.yrc || '',
+  ttml: data.ttml || ''
+})
+
+const subscribeLyricProgress = (
+  cacheKey: string,
+  callback?: LyricProgressCallback
+): (() => void) => {
+  if (!callback) return () => {}
+
+  let subscribers = lyricProgressSubscribers.get(cacheKey)
+  if (!subscribers) {
+    subscribers = new Set()
+    lyricProgressSubscribers.set(cacheKey, subscribers)
+  }
+  subscribers.add(callback)
+
+  return () => {
+    const currentSubscribers = lyricProgressSubscribers.get(cacheKey)
+    if (!currentSubscribers) return
+    currentSubscribers.delete(callback)
+    if (currentSubscribers.size === 0) {
+      lyricProgressSubscribers.delete(cacheKey)
+    }
+  }
+}
+
+const emitLyricProgress = (cacheKey: string, stage: LyricProgressStage, data: LyricResultData) => {
+  const subscribers = lyricProgressSubscribers.get(cacheKey)
+  if (!subscribers?.size) return
+
+  const payload = { stage, data: cloneLyricData(data) }
+  for (const callback of subscribers) {
+    try {
+      callback(payload)
+    } catch (error) {
+      console.warn('[getLyrics] 歌词进度回调失败:', error)
+    }
+  }
+}
+
 /**
  * 音源管理器 Composable
  */
@@ -33,6 +355,9 @@ export const useMusicSources = () => {
 
   // 音源状态
   const sourceStatus = ref<Record<string, SourceStatus>>({})
+
+  // 平台启用配置（usePlatformConfig 内部为模块级缓存，各实例共享同一份引用）
+  const { enabledPlatforms: globalEnabledPlatforms } = usePlatformConfig()
 
   /**
    * 使用 Meting API 获取歌曲信息
@@ -75,6 +400,538 @@ export const useMusicSources = () => {
     } catch (error: any) {
       return { success: false, error: error?.message || '未知错误' }
     }
+  }
+
+  /**
+   * 尝试从对侧平台获取更高阶格式的歌词（TTML > QRC/YRC > LRC）。
+   *
+   * 触发条件（全部满足）：
+   *  1. 调用方未显式禁止跨平台升级（allowCrossPlatformUpgrade !== false）
+   *  2. 当前数据不是最高阶（即无 TTML）
+   *  3. meta 提供了 title + artist 以便搜索
+   *
+   * 升级策略：
+   *  - 目标平台为对侧（netease ↔ tencent，migu → netease）
+   *  - 对侧结果必须比当前格式更高阶才接受
+   *  - TTML 需要 enableOnlineTTMLLyric 开启才接受
+   */
+  const tryUpgradeLyric = async (
+    platform: 'netease' | 'tencent' | 'migu',
+    currentData: LyricResultData,
+    meta?: LyricUpgradeMeta
+  ): Promise<boolean> => {
+    if (meta?.allowCrossPlatformUpgrade === false) return false
+    if (!meta?.title || !meta?.artist) return false
+    if (currentData.ttml) return false
+
+    const currentRank = getCurrentRank(currentData)
+    const targetPlatform = platform === 'netease' ? 'tencent' : 'netease'
+    // 目标平台被管理员禁用时跳过跨平台歌词升级
+    if (import.meta.client && !globalEnabledPlatforms.value.includes(targetPlatform)) {
+      console.warn(`[getLyrics] 跨平台歌词升级跳过：目标平台 ${targetPlatform} 已被禁用`)
+      return false
+    }
+    const queries = buildLyricUpgradeQueries(meta)
+    if (queries.length === 0) return false
+
+    let matchedCandidates: Array<{
+      title: string
+      artist: string
+      album: string
+      duration?: number
+      _song: any
+    }> = []
+
+    for (const keywords of queries) {
+      try {
+        const searchResult = await searchSongs({
+          keywords,
+          platform: targetPlatform,
+          type: 1,
+          limit: 10
+        })
+
+        if (
+          !searchResult.success ||
+          !Array.isArray(searchResult.data) ||
+          !searchResult.data.length
+        ) {
+          continue
+        }
+
+        const candidates = searchResult.data.map((song: any) => ({
+          title: song.title || song.name || '',
+          artist: song.artist || song.singer || '',
+          album: song.album || song.albumName || '',
+          duration: song.duration,
+          _song: song
+        }))
+
+        const best = pickBestLyricCandidate(candidates, meta)
+        if (best) {
+          matchedCandidates = candidates
+          break
+        }
+      } catch (error: any) {
+        console.warn('[getLyrics] 跨平台升级搜索失败:', error?.message || error)
+      }
+    }
+
+    const rejectedIds = new Set<string>()
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const best = pickBestLyricCandidate(
+        matchedCandidates.filter((candidate) => {
+          const id = candidate._song?.musicId
+          return id && !rejectedIds.has(String(id))
+        }),
+        meta
+      )
+      if (!best?._song?.musicId) return false
+      const matchedTrack = best._song
+      rejectedIds.add(String(matchedTrack.musicId))
+
+      try {
+        const upgraded = await fetchLyricsWithoutUpgrade(
+          matchedTrack.musicPlatform || targetPlatform,
+          matchedTrack.musicId,
+          {
+            title: matchedTrack.title,
+            artist: matchedTrack.artist,
+            album: matchedTrack.album,
+            duration: best.duration,
+            allowCrossPlatformUpgrade: false
+          }
+        )
+        if (!upgraded.success || !upgraded.data) continue
+
+        const tryAccept = (
+          candidateData: { lrc?: string; yrc?: string; ttml?: string },
+          format: 'ttml' | 'yrc'
+        ) => {
+          // 无基准歌词时（如咪咕官方歌词获取失败）无法做内容匹配，仅校验时长差异
+          if (!currentData.lrc && !currentData.yrc) {
+            if (meta.duration && best.duration) {
+              const durationDiffMs = Math.abs(meta.duration - best.duration)
+              if (durationDiffMs > Math.max(8000, meta.duration * 0.04)) {
+                console.info(
+                  `[getLyrics] ${targetPlatform}:${matchedTrack.musicId} ${format} rejected/duration_mismatch`
+                )
+                return false
+              }
+            }
+            return true
+          }
+          const decision = evaluateLyricDataMatch(
+            { lrc: currentData.lrc, yrc: currentData.yrc },
+            candidateData,
+            meta.duration,
+            best.duration
+          )
+          console.info(
+            `[getLyrics] ${targetPlatform}:${matchedTrack.musicId} ${format} ${decision.status}/${decision.reason}`,
+            decision.metrics
+          )
+          return decision.status === 'accepted'
+        }
+
+        if (
+          upgraded.data.ttml &&
+          useLyricSettings().enableOnlineTTMLLyric.value &&
+          LYRIC_FORMAT_RANK.ttml < currentRank &&
+          tryAccept({ ttml: upgraded.data.ttml }, 'ttml')
+        ) {
+          currentData.ttml = upgraded.data.ttml
+          if (upgraded.data.trans && !currentData.trans) currentData.trans = upgraded.data.trans
+          return true
+        }
+
+        if (
+          upgraded.data.yrc &&
+          LYRIC_FORMAT_RANK.yrc < currentRank &&
+          tryAccept({ yrc: upgraded.data.yrc }, 'yrc')
+        ) {
+          currentData.yrc = upgraded.data.yrc
+          if (upgraded.data.trans && !currentData.trans) currentData.trans = upgraded.data.trans
+          return true
+        }
+      } catch (error: any) {
+        console.warn('[getLyrics] 跨平台升级获取失败:', error?.message || error)
+      }
+    }
+
+    return false
+  }
+
+  const fetchLyricsWithoutUpgrade = async (
+    platform: 'netease' | 'tencent' | 'migu',
+    id: number | string,
+    meta?: LyricUpgradeMeta
+  ): Promise<{
+    success: boolean
+    data?: LyricResultData
+    error?: string
+  }> => {
+    const cacheKey = getLyricCacheKey(platform, id, meta)
+    const unsubscribeProgress = subscribeLyricProgress(cacheKey, meta?.onProgress)
+    const progressive = typeof meta?.onProgress === 'function'
+
+    const cached = lyricCache.get(cacheKey)
+    if (cached) {
+      return cached.finally(unsubscribeProgress)
+    }
+
+    const promise = (async () => {
+      try {
+        const settings = useLyricSettings()
+        const enabledSources = getEnabledSources()
+        const neteaseSource = enabledSources.find((source) => source.id.includes('netease-backup'))
+        const vkeysSource = enabledSources.find((source) => source.id === 'vkeys')
+
+        const resultData: LyricResultData = { lrc: '', trans: '', yrc: '', ttml: '' }
+        let hasResult = false
+        let lastProgressSignature = ''
+        let ttmlValidated = false
+
+        const emitProgress = (stage: LyricProgressStage) => {
+          const signature = [
+            stage,
+            resultData.lrc?.length || 0,
+            resultData.trans?.length || 0,
+            resultData.yrc?.length || 0,
+            resultData.ttml?.length || 0
+          ].join(':')
+          if (signature === lastProgressSignature) return
+          lastProgressSignature = signature
+          emitLyricProgress(cacheKey, stage, resultData)
+        }
+
+        const validateTtml = (ttml: string): boolean => {
+          if (!resultData.lrc && !resultData.yrc) return true
+          const decision = evaluateLyricDataMatch(
+            { lrc: resultData.lrc, yrc: resultData.yrc },
+            { ttml },
+            meta?.duration,
+            meta?.duration
+          )
+          console.info(
+            `[getLyrics] ${platform}:${id} ttml ${decision.status}/${decision.reason}`,
+            decision.metrics
+          )
+          ttmlValidated = decision.status === 'accepted'
+          return ttmlValidated
+        }
+
+        const fetchOfficial = async () => {
+          if (platform !== 'netease' || !neteaseSource) return
+          try {
+            const [lrcResp, yrcResp] = await Promise.allSettled([
+              $fetch(`${neteaseSource.baseUrl}/lyric`, {
+                params: { id: id.toString() },
+                timeout: neteaseSource.timeout || 8000
+              }),
+              $fetch(`${neteaseSource.baseUrl}/lyric/new`, {
+                params: { id: id.toString() },
+                timeout: neteaseSource.timeout || 8000
+              })
+            ])
+
+            if (lrcResp.status === 'fulfilled' && lrcResp.value?.code === 200) {
+              const lr = lrcResp.value
+              if (lr?.lrc?.lyric) resultData.lrc = lr.lrc.lyric
+              if (lr?.tlyric?.lyric) resultData.trans = lr.tlyric.lyric
+            }
+            if (yrcResp.status === 'fulfilled' && yrcResp.value?.code === 200) {
+              const yr = yrcResp.value
+              if (yr?.yrc?.lyric) resultData.yrc = yr.yrc.lyric
+            }
+
+            if (resultData.lrc || resultData.yrc) {
+              hasResult = true
+              emitProgress('official')
+            }
+          } catch (e: any) {
+            console.warn('[getLyrics] NeteaseCloudMusicApi 获取失败:', e?.message || e)
+          }
+        }
+
+        const fetchAMLL = async () => {
+          if (!settings.enableOnlineTTMLLyric.value) return
+
+          try {
+            let url: string
+            if (platform === 'tencent') {
+              url = `https://amlldb.bikonoo.com/lyrics/qq-lyrics/${id}`
+            } else if (platform === 'netease') {
+              const serverUrl = settings.amllDbServer.value
+              if (!serverUrl) return
+              url = serverUrl.replace('%s', id.toString())
+            } else {
+              return
+            }
+
+            const ttml = await $fetch(url, { responseType: 'text' })
+            if (ttml && typeof ttml === 'string' && ttml.includes('<tt')) {
+              if ((resultData.lrc || resultData.yrc) && !validateTtml(ttml)) return
+              resultData.ttml = ttml
+              hasResult = true
+              if (!progressive || ttmlValidated) emitProgress('amll')
+            }
+          } catch {}
+        }
+
+        const fetchQM = async () => {
+          if (!settings.enableQQMusicLyric.value && settings.lyricPriority.value !== 'qm') return
+
+          if (platform === 'tencent') {
+            try {
+              let qqMusicCookie = ''
+              if (import.meta.client) {
+                qqMusicCookie = localStorage.getItem('qq_music_cookie') || ''
+              }
+
+              // 传入元信息以提高原生 QRC 接口匹配精度
+              const nativeResp = await $fetch('/api/native-api/lyric/tx', {
+                params: {
+                  songmid: String(id),
+                  ...(meta?.title ? { name: meta.title } : {}),
+                  ...(meta?.artist ? { artist: meta.artist } : {}),
+                  ...(meta?.album ? { album: meta.album } : {}),
+                  ...(qqMusicCookie ? { cookie: qqMusicCookie } : {})
+                },
+                timeout: 8000
+              })
+              if (nativeResp?.success && nativeResp?.data) {
+                const d = nativeResp.data
+                // qrc 优先于 lrc，两者都写入，解析层按优先级选择
+                if (d.qrc) resultData.yrc = d.qrc // 用 yrc 字段承载 QRC，解析器会识别 XML 格式
+                if (d.lrc) resultData.lrc = d.lrc
+                if (d.trans) resultData.trans = d.trans
+                if (d.qrc || d.lrc) {
+                  hasResult = true
+                  emitProgress('qm')
+                  return
+                }
+              }
+            } catch (e) {
+              console.warn('[getLyrics] 原生歌词接口失败:', e)
+            }
+          }
+
+          if (!vkeysSource) return
+
+          try {
+            let url: string
+            const lyricIdParam = getVkeysIdParam(platform as 'netease' | 'tencent', id)
+            if (platform === 'netease') {
+              url = `${vkeysSource.baseUrl}/netease/lyric?${lyricIdParam.key}=${encodeURIComponent(lyricIdParam.value)}`
+            } else if (platform === 'tencent') {
+              url = `${vkeysSource.baseUrl}/tencent/lyric?${lyricIdParam.key}=${encodeURIComponent(lyricIdParam.value)}`
+            } else {
+              return
+            }
+
+            const resp = await $fetch(url, {
+              timeout: vkeysSource.timeout || 8000,
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+              }
+            })
+            if (resp?.code === 200 && resp?.data) {
+              const d = resp.data
+              if (d.lrc) resultData.lrc = d.lrc
+              if (d.trans) resultData.trans = d.trans
+              if (d.yrc) resultData.yrc = d.yrc
+              if (d.lrc || d.yrc) {
+                hasResult = true
+                emitProgress('qm')
+              }
+            }
+          } catch (e) {
+            console.warn('[getLyrics] vkeys 获取失败:', e)
+          }
+        }
+
+        /**
+         * 获取咪咕歌词
+         */
+        const fetchMigu = async () => {
+          if (platform !== 'migu') return
+
+          try {
+            const miguResp = await $fetch('/api/native-api/lyric/mg', {
+              params: {
+                contentId: String(id)
+              },
+              timeout: 10000
+            })
+
+            if (miguResp?.success && miguResp?.data) {
+              const d = miguResp.data
+              if (d.lrc) {
+                resultData.lrc = d.lrc
+                hasResult = true
+                emitProgress('official')
+              }
+            }
+          } catch (e) {
+            console.warn('[getLyrics] 咪咕歌词获取失败:', e)
+          }
+        }
+
+        const priority = settings.lyricPriority.value
+        if (progressive) {
+          if (platform === 'netease') {
+            let triedQM = false
+            const fetchQMOnce = async () => {
+              if (triedQM) return
+              triedQM = true
+              await fetchQM()
+            }
+
+            await fetchOfficial()
+            if (priority === 'qm' || (priority === 'auto' && settings.enableQQMusicLyric.value)) {
+              await fetchQMOnce()
+            }
+            if (priority !== 'official') {
+              await fetchAMLL()
+            }
+            if (!hasResult) {
+              await fetchQMOnce()
+            }
+          } else if (platform === 'migu') {
+            // 咪咕平台：直接获取咪咕歌词
+            await fetchMigu()
+          } else {
+            await fetchQM()
+            if (priority !== 'official') {
+              await fetchAMLL()
+            }
+            if (!hasResult) {
+              await fetchOfficial()
+            }
+          }
+        } else if (priority === 'qm') {
+          if (platform === 'migu') {
+            await fetchMigu()
+          } else {
+            await fetchAMLL()
+            await fetchQM()
+            if (!hasResult) await fetchOfficial()
+          }
+        } else if (priority === 'ttml') {
+          if (platform === 'migu') {
+            await fetchMigu()
+          } else {
+            // 先尝试 AMLL DB 拿 TTML
+            await fetchAMLL()
+            // 无论是否拿到 TTML，都需要 lrc/trans 作为翻译来源和回退
+            if (!resultData.lrc && !resultData.trans) {
+              await fetchOfficial()
+              if (!hasResult) await fetchQM()
+            }
+          }
+        } else if (priority === 'official') {
+          if (platform === 'migu') {
+            await fetchMigu()
+          } else {
+            await fetchOfficial()
+            if (!hasResult) await fetchQM()
+          }
+        } else {
+          // 默认：AMLL → (QQ) → 官方
+          if (platform === 'migu') {
+            await fetchMigu()
+          } else {
+            await fetchAMLL()
+            if (settings.enableQQMusicLyric.value) {
+              await fetchQM()
+            }
+            await fetchOfficial()
+          }
+        }
+
+        if (resultData.ttml && (resultData.lrc || resultData.yrc) && !ttmlValidated) {
+          if (!validateTtml(resultData.ttml)) {
+            resultData.ttml = ''
+          } else if (progressive) {
+            emitProgress('amll')
+          }
+        }
+
+        // 跨平台升级：当前无 TTML 时尝试（有 yrc 也可升级到 ttml，有 lrc 可升级到 yrc/ttml）
+        if (!resultData.ttml && (resultData.lrc || resultData.yrc || resultData.trans)) {
+          const upgraded = await tryUpgradeLyric(platform, resultData, meta)
+          if (upgraded) {
+            hasResult = true
+            emitProgress('upgrade')
+          }
+        }
+
+        // 咪咕官方歌词获取失败时（海外部署官方接口不可用），仍尝试跨平台升级作为兜底
+        if (platform === 'migu' && !hasResult) {
+          const upgraded = await tryUpgradeLyric(platform, resultData, meta)
+          if (upgraded) {
+            hasResult = true
+            emitProgress('upgrade')
+          }
+        }
+
+        if (hasResult) {
+          return { success: true, data: resultData }
+        }
+
+        if (platform === 'netease') {
+          const metingSources = enabledSources.filter((source) => source.id.startsWith('meting-'))
+          for (const metingSource of metingSources) {
+            try {
+              const metingUrl = `${metingSource.baseUrl}/?server=netease&type=lrc&id=${id}`
+              const resp = await $fetch(metingUrl, {
+                timeout: metingSource.timeout || 8000,
+                headers: metingSource.headers
+              })
+              if (resp && typeof resp === 'string' && resp.trim()) {
+                resultData.lrc = resp
+                resultData.trans = ''
+                resultData.yrc = ''
+                resultData.ttml = ''
+                emitProgress('meting')
+                return {
+                  success: true,
+                  data: cloneLyricData(resultData)
+                }
+              }
+            } catch (error: any) {
+              console.warn(
+                `[getLyrics] Meting API ${metingSource.name} 获取失败:`,
+                error?.message || error
+              )
+            }
+          }
+        }
+
+        return { success: false, error: '未获取到歌词' }
+      } catch (error: any) {
+        console.error('[getLyrics] 获取歌词失败:', error)
+        return { success: false, error: error?.message || '未知错误' }
+      }
+    })()
+      .then((res) => {
+        if (!res.success) {
+          lyricCache.delete(cacheKey)
+        }
+        return res
+      })
+      .finally(() => {
+        unsubscribeProgress()
+        setTimeout(() => {
+          if (lyricCache.get(cacheKey) === promise) {
+            lyricCache.delete(cacheKey)
+          }
+        }, LYRIC_CACHE_TTL)
+      })
+
+    lyricCache.set(cacheKey, promise)
+    return promise
   }
 
   /**
@@ -179,11 +1036,19 @@ export const useMusicSources = () => {
    */
   const searchNativeMusic = async (params: MusicSearchParams): Promise<any[]> => {
     const platform = params.platform || 'netease'
-    if (platform !== 'netease' && platform !== 'tencent') {
+    if (platform !== 'netease' && platform !== 'tencent' && platform !== 'migu') {
       return []
     }
 
-    const endpoint = platform === 'netease' ? 'wy' : 'tx'
+    let endpoint: string
+    if (platform === 'netease') {
+      endpoint = 'wy'
+    } else if (platform === 'tencent') {
+      endpoint = 'tx'
+    } else {
+      endpoint = 'mg'
+    }
+
     const url = `/api/native-api/search/${endpoint}`
     const qqMusicCookie =
       platform === 'tencent' && import.meta.client
@@ -207,6 +1072,7 @@ export const useMusicSources = () => {
 
       return response.list.map((item: any) => {
         const isNetease = platform === 'netease'
+        const isMigu = platform === 'migu'
         const txSource = response.source === 'qq-music-api' ? 'qq-music-api' : 'native-tx'
         const mid = item.songmid
         const id = isNetease ? item.songmid : mid || item.songId
@@ -218,13 +1084,13 @@ export const useMusicSources = () => {
           cover: item.img,
           album: item.albumName,
           albumId: item.albumId,
-          duration: isNetease ? item.duration * 1000 : item.duration, // Netease uses ms, Tencent uses s
+          duration: isNetease ? item.duration * 1000 : item.duration, // 网易使用 ms，腾讯/咪咕使用 s
           musicPlatform: platform,
           musicId: id?.toString(),
           url: undefined,
           hasUrl: false,
           sourceInfo: {
-            source: isNetease ? 'netease-backup' : txSource,
+            source: isNetease ? 'netease-backup' : isMigu ? 'migu' : txSource,
             originalId: id?.toString(),
             originalSongId: !isNetease && item.songId ? item.songId.toString() : undefined,
             fetchedAt: new Date(),
@@ -241,24 +1107,11 @@ export const useMusicSources = () => {
     }
   }
 
-  // 服务器是否在中国
-  const isServerInChina = ref<boolean | null>(null)
+  // 服务器是否在中国（模块级单例共享）
+  const isServerInChina = globalIsServerInChina
 
   // 检测服务器位置
-  const checkServerLocation = async () => {
-    if (isServerInChina.value !== null) return
-
-    try {
-      const data = await $fetch('/api/system/location')
-      if (data && data.success) {
-        isServerInChina.value = data.data.isInChina
-        console.log(`[useMusicSources] 服务器位置检测: ${isServerInChina.value ? '中国' : '海外'}`)
-      }
-    } catch (e) {
-      console.warn('[useMusicSources] 服务器位置检测失败，默认为海外:', e)
-      isServerInChina.value = false
-    }
-  }
+  const checkServerLocation = checkServerLocationGlobal
 
   /**
    * 搜索歌曲（带故障转移）
@@ -285,6 +1138,27 @@ export const useMusicSources = () => {
       // - QQ音乐平台：无论国内外均优先 Native Music
       // - 网易云音乐平台：仅国内服务器优先 Native Music；海外跳过，直接使用第三方 API
       const platform = params.platform || 'netease'
+      // 检查平台是否启用（SSR 阶段跳过，$fetch 无 cookie）
+      if (import.meta.client) {
+        if (!globalEnabledPlatforms.value.includes(platform)) {
+          const { currentLocale, siteConfig } = useLocale()
+          const available = globalEnabledPlatforms.value.filter((p) => p !== platform)
+          const platformName = getPlatformDisplayName(platform, siteConfig.value, currentLocale.value)
+          const availableNames = available.map((p) => getPlatformDisplayName(p, siteConfig.value, currentLocale.value)).join('、')
+          const { localize } = useServerErrors()
+          // 先按 code + params 本地化得到 message，再抛出结构化错误：
+          // data.code 供 extractErrorCode 提取，data.message 供 getThrownMessage 提取
+          const payload = {
+            data: {
+              code: 'MUSIC_SOURCE_PLATFORM_DISABLED',
+              params: [platformName, availableNames]
+            }
+          }
+          const err = new Error(localize(payload))
+          ;(err as any).data = payload.data
+          throw err
+        }
+      }
       const shouldUseNativeFirst = platform === 'tencent' || isServerInChina.value === true
 
       if (
@@ -293,9 +1167,10 @@ export const useMusicSources = () => {
         params.type !== 1009
       ) {
         try {
-          const reason = platform === 'tencent'
-            ? '[searchSongs] QQ音乐平台，优先尝试 Native Music 搜索...'
-            : '[searchSongs] 服务器位于国内，优先尝试 Native Music 搜索...'
+          const reason =
+            platform === 'tencent'
+              ? '[searchSongs] QQ音乐平台，优先尝试 Native Music 搜索...'
+              : '[searchSongs] 服务器位于国内，优先尝试 Native Music 搜索...'
           console.log(reason)
           const result = await searchNativeMusic(params)
           if (result && result.length > 0) {
@@ -349,12 +1224,21 @@ export const useMusicSources = () => {
 
         // 第一阶段：仅尝试腾讯专用源
         sourcesToTry = tencentSources
+      } else if (params.platform === 'migu') {
+        // 咪咕音乐平台：使用咪咕专用源
+        const miguSource = enabledSources.find((s) => s.id === 'migu')
+        if (miguSource) {
+          sourcesToTry = [miguSource]
+        } else {
+          throw new Error('未启用咪咕音乐音源')
+        }
       } else {
         // 网易云音乐平台（默认）：优先使用netease-backup系列，vkeys作为备用
         const neteaseSources = enabledSources.filter((s) => s.id.includes('netease-backup'))
         const vkeysSource = enabledSources.find((s) => s.id === 'vkeys')
         const otherSources = enabledSources.filter(
-          (s) => !s.id.includes('netease-backup') && s.id !== 'vkeys'
+          (s) =>
+            !s.id.includes('netease-backup') && s.id !== 'vkeys' && s.id !== 'migu'
         )
 
         sourcesToTry = [...neteaseSources, ...(vkeysSource ? [vkeysSource] : []), ...otherSources]
@@ -395,9 +1279,23 @@ export const useMusicSources = () => {
         }
       }
 
-      // 若为QQ音乐平台，尝试完腾讯源后允许作为最后手段切换到其他平台
+      // 若为QQ音乐平台，尝试完腾讯源后允许作为最后手段切换到其他平台（排除已禁用的平台）
       if (params.platform === 'tencent') {
-        const otherSources = enabledSources.filter((s) => s.id !== 'vkeys-v3' && s.id !== 'vkeys')
+        // 音源 id → 平台 key 映射（仅对本功能支持的平台生效）
+        const platformOfSource = (id: string): string => {
+          if (id.includes('netease')) return 'netease'
+          if (id.includes('bilibili')) return 'bilibili'
+          if (id.includes('migu')) return 'migu'
+          return ''
+        }
+        const otherSources = enabledSources.filter(
+          (s) =>
+            s.id !== 'vkeys-v3' &&
+            s.id !== 'vkeys' &&
+            (platformOfSource(s.id)
+              ? globalEnabledPlatforms.value.includes(platformOfSource(s.id))
+              : true)
+        )
         if (otherSources.length) {
           console.log('QQ音乐平台所有专用源失败，作为最后手段尝试其他平台音源')
           for (const source of otherSources) {
@@ -487,11 +1385,12 @@ export const useMusicSources = () => {
         return data.data.map((item: any) => ({
           id: item.id,
           title: item.name,
-          artist: typeof item.artists === 'string'
-            ? item.artists
-            : (Array.isArray(item.artists)
-              ? item.artists.map((a: any) => a.name || a).join('/')
-              : (item.artist_string || '未知艺术家')),
+          artist:
+            typeof item.artists === 'string'
+              ? item.artists
+              : Array.isArray(item.artists)
+                ? item.artists.map((a: any) => a.name || a).join('/')
+                : item.artist_string || '未知艺术家',
           cover: item.picUrl,
           album: item.album,
           albumId: item.albumId,
@@ -502,6 +1401,33 @@ export const useMusicSources = () => {
             source: 'netease-rrvenn',
             originalId: item.id?.toString(),
             fetchedAt: new Date()
+          }
+        }))
+      }
+    } else if (source.id === 'migu') {
+      // 咪咕音乐使用 Native API 搜索
+      const page = Math.floor((params.offset || 0) / (params.limit || 30)) + 1
+      url = `/api/native-api/search/mg?str=${encodeURIComponent(params.keywords)}&page=${page}&limit=${params.limit || 30}`
+      transformResponse = (data: any) => {
+        if (!data || !data.list) {
+          return []
+        }
+        return data.list.map((item: any) => ({
+          id: item.songmid,
+          title: item.name,
+          artist: item.singer?.replace(/、/g, '/') || '未知艺术家',
+          cover: item.img,
+          album: item.albumName,
+          albumId: item.albumId,
+          duration: item.duration, //秒
+          musicPlatform: 'migu',
+          musicId: item.songmid,
+          sourceInfo: {
+            source: 'migu',
+            originalId: item.songmid,
+            fetchedAt: new Date(),
+            quality: item._types,
+            types: item.types
           }
         }))
       }
@@ -680,27 +1606,35 @@ export const useMusicSources = () => {
           throw new Error(`API响应错误: ${response.message || '未知错误'}`)
         }
         const data = response.data
-        const lastLine = (data.lyric || '').split('\n').filter((l: string) => l.trim()).pop() || ''
+        const lastLine =
+          (data.lyric || '')
+            .split('\n')
+            .filter((l: string) => l.trim())
+            .pop() || ''
         const match = lastLine.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\]/)
         let durationMs = 0
         if (match) {
-          durationMs = (parseInt(match[1], 10) * 60 + parseInt(match[2], 10)) * 1000 + parseInt(match[3].padEnd(3, '0'), 10)
+          durationMs =
+            (parseInt(match[1], 10) * 60 + parseInt(match[2], 10)) * 1000 +
+            parseInt(match[3].padEnd(3, '0'), 10)
         }
-        return [{
-          id: data.id,
-          title: data.name,
-          artist: data.ar_name || '未知艺术家',
-          cover: data.pic,
-          album: data.al_name,
-          duration: durationMs,
-          musicPlatform: 'netease',
-          musicId: data.id?.toString(),
-          sourceInfo: {
-            source: 'netease-rrvenn',
-            originalId: data.id?.toString(),
-            fetchedAt: new Date()
+        return [
+          {
+            id: data.id,
+            title: data.name,
+            artist: data.ar_name || '未知艺术家',
+            cover: data.pic,
+            album: data.al_name,
+            duration: durationMs,
+            musicPlatform: 'netease',
+            musicId: data.id?.toString(),
+            sourceInfo: {
+              source: 'netease-rrvenn',
+              originalId: data.id?.toString(),
+              fetchedAt: new Date()
+            }
           }
-        }]
+        ]
       }
     } else {
       // 网易云备用API
@@ -874,6 +1808,12 @@ export const useMusicSources = () => {
         if (bilibiliSource) {
           sourcesToTry.push({ source: bilibiliSource, type: 'bilibili' })
         }
+      } else if (platform === 'migu') {
+        // 咪咕音乐平台：使用咪咕专用源
+        const miguSource = enabledSources.find((source) => source.id === 'migu')
+        if (miguSource) {
+          sourcesToTry.push({ source: miguSource, type: 'migu' as any })
+        }
       } else if (platform === 'tencent') {
         // QQ音乐平台：优先 vkeys v3（获取音质列表并选择可用项），然后回退到 vkeys v2
 
@@ -937,6 +1877,32 @@ export const useMusicSources = () => {
           if (source.id === 'bilibili') {
             const result = await getBilibiliTrackUrl(idParam, options?.bilibiliCid)
             url = result.url
+          } else if (source.id === 'migu') {
+            const miguQualityFlag =
+              quality === 2 ? 'HQ' : quality === 3 ? 'SQ' : quality === 4 ? 'ZQ24' : 'PQ'
+            try {
+              // 服务器位于海外时咪咕官方接口不可用，交由上层使用星海音源
+              if (isServerInChina.value === null) {
+                await checkServerLocation()
+              }
+              if (isServerInChina.value === false) {
+                throw new Error('服务器位于海外，咪咕播放链接改用第三方音源')
+              }
+              // 服务端以 PQ 取链后按 toneFlag 升级音质路径
+              const miguResponse: any = await $fetch('/api/native-api/migu/playurl', {
+                params: {
+                  contentId: idParam,
+                  toneFlag: miguQualityFlag
+                },
+                timeout: source.timeout || 10000
+              })
+
+              if (miguResponse?.success && miguResponse?.url) {
+                url = miguResponse.url
+              }
+            } catch (miguErr) {
+              console.warn('[getSongUrl] 咪咕播放链接获取失败:', miguErr)
+            }
           } else if (source.id === 'netease-rrvenn') {
             // rrvenn API (只支持网易云)
             let neteaseQuality: number | null = null
@@ -948,8 +1914,7 @@ export const useMusicSources = () => {
                 const { useAudioQuality } = await import('./useAudioQuality')
                 const { getQuality } = useAudioQuality()
                 neteaseQuality = Number(getQuality('netease'))
-              } catch (error) {
-              }
+              } catch (error) {}
             }
 
             if (neteaseQuality === null || Number.isNaN(neteaseQuality)) {
@@ -1145,7 +2110,7 @@ export const useMusicSources = () => {
               id: idParam,
               level: level,
               // 如果用户已登录（有cookie），默认不启用 unblock（false），否则启用（true）
-              unblock: options?.unblock ?? (!cookie)
+              unblock: options?.unblock ?? !cookie
             }
             if (cookie) {
               params.cookie = cookie
@@ -1195,252 +2160,15 @@ export const useMusicSources = () => {
    * NeteaseCloudMusicApi 优先，其次 vkeys；腾讯仅 vkeys
    */
   const getLyrics = async (
-    platform: 'netease' | 'tencent',
-    id: number | string
+    platform: 'netease' | 'tencent' | 'migu',
+    id: number | string,
+    meta?: LyricUpgradeMeta
   ): Promise<{
     success: boolean
     data?: { lrc: string; trans?: string; yrc?: string; ttml?: string }
     error?: string
   }> => {
-    const cacheKey = `${platform}:${id}`
-
-    // 复用已缓存的请求结果
-    const cached = lyricCache.get(cacheKey)
-    if (cached) {
-      return cached
-    }
-
-    const promise = (async () => {
-      try {
-      const settings = useLyricSettings()
-      const enabledSources = getEnabledSources()
-      const neteaseSource = enabledSources.find((source) => source.id.includes('netease-backup'))
-      const vkeysSource = enabledSources.find((source) => source.id === 'vkeys')
-
-      // 结果容器
-      const resultData = { lrc: '', trans: '', yrc: '', ttml: '' }
-      let hasResult = false
-
-      // 辅助函数：获取官方歌词 (网易云)
-      const fetchOfficial = async () => {
-        if (platform !== 'netease' || !neteaseSource) return
-        try {
-          const [lrcResp, yrcResp] = await Promise.allSettled([
-            $fetch(`${neteaseSource.baseUrl}/lyric`, {
-              params: { id: id.toString() },
-              timeout: neteaseSource.timeout || 8000
-            }),
-            $fetch(`${neteaseSource.baseUrl}/lyric/new`, {
-              params: { id: id.toString() },
-              timeout: neteaseSource.timeout || 8000
-            })
-          ])
-
-          if (lrcResp.status === 'fulfilled' && lrcResp.value?.code === 200) {
-            const lr = lrcResp.value
-            if (lr?.lrc?.lyric) resultData.lrc = lr.lrc.lyric
-            if (lr?.tlyric?.lyric) resultData.trans = lr.tlyric.lyric
-          }
-          if (yrcResp.status === 'fulfilled' && yrcResp.value?.code === 200) {
-            const yr = yrcResp.value
-            if (yr?.yrc?.lyric) resultData.yrc = yr.yrc.lyric
-          }
-
-          if (resultData.lrc || resultData.yrc) hasResult = true
-        } catch (e: any) {
-          console.warn('[getLyrics] NeteaseCloudMusicApi 获取失败:', e?.message || e)
-        }
-      }
-
-      // 辅助函数：获取 AMLL DB Server TTML
-      const fetchAMLL = async () => {
-        if (!settings.enableOnlineTTMLLyric.value) return
-
-        try {
-          let url: string
-          if (platform === 'tencent') {
-            url = `https://amlldb.bikonoo.com/lyrics/qq-lyrics/${id}`
-          } else if (platform === 'netease') {
-            const serverUrl = settings.amllDbServer.value
-            if (!serverUrl) return
-            url = serverUrl.replace('%s', id.toString())
-          } else {
-            return
-          }
-
-          const ttml = await $fetch(url, { responseType: 'text' })
-          if (ttml && typeof ttml === 'string' && ttml.includes('<tt')) {
-            resultData.ttml = ttml
-            hasResult = true
-          }
-        } catch (e) {
-          // console.warn('[getLyrics] AMLL DB Server 获取失败')
-        }
-      }
-
-      // 辅助函数：获取 QQ 音乐歌词（原生接口 + vkeys 兜底）
-      const fetchQM = async () => {
-        // 如果禁用了 QM 歌词且不是强制 QM 模式，则跳过
-        if (!settings.enableQQMusicLyric.value && settings.lyricPriority.value !== 'qm') return
-
-        if (platform === 'tencent') {
-          try {
-            let qqMusicCookie = ''
-            if (import.meta.client) {
-              qqMusicCookie = localStorage.getItem('qq_music_cookie') || ''
-            }
-
-            const nativeResp = await $fetch('/api/native-api/lyric/tx', {
-              params: {
-                songmid: String(id),
-                ...(qqMusicCookie ? { cookie: qqMusicCookie } : {})
-              },
-              timeout: 8000
-            })
-            if (nativeResp?.success && nativeResp?.data) {
-              const d = nativeResp.data
-              if (d.lrc) resultData.lrc = d.lrc
-              if (d.trans) resultData.trans = d.trans
-              if (d.lrc) {
-                hasResult = true
-                return
-              }
-            }
-          } catch (e) {
-            console.warn('[getLyrics] 原生歌词接口失败:', e)
-          }
-        }
-
-        if (!vkeysSource) return
-
-        try {
-          let url: string
-          const lyricIdParam = getVkeysIdParam(platform as 'netease' | 'tencent', id)
-          if (platform === 'netease') {
-            url = `${vkeysSource.baseUrl}/netease/lyric?${lyricIdParam.key}=${encodeURIComponent(lyricIdParam.value)}`
-          } else if (platform === 'tencent') {
-            url = `${vkeysSource.baseUrl}/tencent/lyric?${lyricIdParam.key}=${encodeURIComponent(lyricIdParam.value)}`
-          } else {
-            return
-          }
-
-          const resp = await $fetch(url, {
-            timeout: vkeysSource.timeout || 8000,
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-          })
-          if (resp?.code === 200 && resp?.data) {
-            const d = resp.data
-            if (d.lrc) resultData.lrc = d.lrc
-            if (d.trans) resultData.trans = d.trans
-            if (d.yrc) resultData.yrc = d.yrc // QRC
-            if (d.lrc || d.yrc) hasResult = true
-          }
-        } catch (e) {
-          console.warn('[getLyrics] vkeys 获取失败:', e)
-        }
-      }
-
-      // 优先级策略执行
-      const priority = settings.lyricPriority.value
-      console.log(`[getLyrics] 使用策略: ${priority}, 平台: ${platform}, ID: ${id}`)
-
-      if (priority === 'qm') {
-        // QQ 音乐优先：AMLL TTML → native 歌词 → vkeys 兜底
-        await fetchAMLL()
-        await fetchQM()
-        if (!hasResult) {
-          await Promise.all([fetchOfficial()])
-        }
-      } else if (priority === 'ttml') {
-        await fetchAMLL()
-        // 如果 AMLL 没拿到 TTML，尝试官方
-        if (!resultData.ttml) {
-          await fetchOfficial()
-        } else {
-          // 即使拿到了 TTML，也可能需要官方的 LRC/翻译 作为补充（如果 AMLL 只有 TTML）
-          // 但通常 TTML 足够了。为了保险起见，如果缺 LRC，可以去官方拿一下？
-          // SPlayer 逻辑是：fetchTTMLLyric -> fetchOfficialLyric -> fetchQQMusicLyric
-          // 这里简化：如果 fetchAMLL 成功，我们认为主要任务完成，但为了完整性（如翻译），可以尝试官方
-          if (!resultData.lrc || !resultData.trans) {
-            await fetchOfficial()
-          }
-        }
-
-        if (!hasResult) {
-          await fetchQM()
-        }
-      } else if (priority === 'official') {
-        await fetchOfficial()
-      } else {
-        // auto / default：AMLL TTML 优先获取最高质量逐词歌词
-        await fetchAMLL()
-        if (settings.enableQQMusicLyric.value) {
-          await fetchQM()
-        }
-        await fetchOfficial()
-      }
-
-      // 检查是否有结果
-      if (hasResult) {
-        return { success: true, data: resultData }
-      }
-
-      // 最后尝试 Meting API（仅支持网易云，作为最后的 Fallback）
-      if (platform === 'netease') {
-        const metingSources = enabledSources.filter((source) => source.id.startsWith('meting-'))
-
-        for (const metingSource of metingSources) {
-          try {
-            const metingUrl = `${metingSource.baseUrl}/?server=netease&type=lrc&id=${id}`
-            const resp = await $fetch(metingUrl, {
-              timeout: metingSource.timeout || 8000,
-              headers: metingSource.headers
-            })
-
-            // Meting API 直接返回歌词文本
-            if (resp && typeof resp === 'string' && resp.trim()) {
-              return {
-                success: true,
-                data: {
-                  lrc: resp,
-                  trans: '',
-                  yrc: '',
-                  ttml: ''
-                }
-              }
-            }
-          } catch (error: any) {
-            console.warn(
-              `[getLyrics] Meting API ${metingSource.name} 获取失败:`,
-              error?.message || error
-            )
-          }
-        }
-      }
-
-      return { success: false, error: '未获取到歌词' }
-    } catch (error: any) {
-      console.error('[getLyrics] 获取歌词失败:', error)
-      return { success: false, error: error?.message || '未知错误' }
-    }
-    })().then((res) => {
-      if (!res.success) {
-        // 失败立即清缓存，允许重试
-        lyricCache.delete(cacheKey)
-      }
-      return res
-    }).finally(() => {
-      setTimeout(() => {
-        if (lyricCache.get(cacheKey) === promise) {
-          lyricCache.delete(cacheKey)
-        }
-      }, LYRIC_CACHE_TTL)
-    })
-
-    lyricCache.set(cacheKey, promise)
-    return promise
+    return fetchLyricsWithoutUpgrade(platform, id, meta)
   }
 
   /**
@@ -1935,6 +2663,7 @@ export const useMusicSources = () => {
     sourceStatus: readonly(sourceStatus),
     isSearching: readonly(isSearching),
     lastUsedSource: readonly(lastUsedSource),
+    isServerInChina: readonly(isServerInChina),
 
     // 计算属性
     sourceStatusSummary: getSourceStatusSummary,
@@ -1948,6 +2677,7 @@ export const useMusicSources = () => {
     getMetingSongInfo,
     updateSourceStatus,
     validatePlayUrl,
-    getDjPrograms
+    getDjPrograms,
+    checkServerLocation
   }
 }

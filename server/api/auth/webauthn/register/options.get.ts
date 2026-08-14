@@ -3,11 +3,12 @@ import { isoUint8Array } from '@simplewebauthn/server/helpers'
 import { setWebAuthnChallenge } from '~~/server/utils/webauthn-token'
 import { getWebAuthnConfig } from '~~/server/utils/webauthn-config'
 import { db, eq, and, userIdentities } from '~/drizzle/db'
+import { createApiError } from '~~/server/utils/apiError'
 
 export default defineEventHandler(async (event) => {
   const user = event.context.user
   if (!user) {
-    throw createError({ statusCode: 401, message: '未授权访问' })
+    throw createApiError(401, 'AUTH_UNAUTHORIZED_ACCESS', '未授权访问')
   }
 
   // 获取该用户已绑定的 WebAuthn 凭证
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
   })
 
   // 防止重复注册相同凭证，使用存储的实际 transports 信息
-  const excludeCredentials = existingCredentials.map(cred => {
+  const excludeCredentials = existingCredentials.map((cred) => {
     let transports: string[] | undefined
     try {
       if (cred.providerUsername) {
@@ -39,18 +40,22 @@ export default defineEventHandler(async (event) => {
 
   const { rpID } = getWebAuthnConfig(event)
   const rpName = 'VoiceHub'
+  const userName = user.username || user.email || user.id.toString()
+  const userDisplayName = user.name || userName
 
   const options = await generateRegistrationOptions({
     rpName,
     rpID,
     userID: isoUint8Array.fromUTF8String(user.id.toString()),
-    userName: user.username || user.email,
+    userName,
+    userDisplayName,
     attestationType: 'none',
+    supportedAlgorithmIDs: [-7, -257],
     excludeCredentials,
     authenticatorSelection: {
       residentKey: 'required',
-      userVerification: 'preferred',
-    },
+      userVerification: 'preferred'
+    }
   })
 
   // 存储注册挑战到 Cookie

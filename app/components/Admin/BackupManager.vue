@@ -2,8 +2,8 @@
   <div class="backup-manager">
     <!-- 标题 -->
     <div class="header">
-      <h3>数据库备份</h3>
-      <p class="description">导出和导入数据库备份</p>
+      <h3>{{ locale.title }}</h3>
+      <p class="description">{{ locale.desc }}</p>
     </div>
 
     <!-- 主要功能区 -->
@@ -17,15 +17,15 @@
           </svg>
         </div>
         <div class="card-content">
-          <h4>导出备份</h4>
-          <p>创建数据库备份文件</p>
+          <h4>{{ locale.exportTitle }}</h4>
+          <p>{{ locale.exportDesc }}</p>
           <button
             :disabled="createLoading"
             class="action-btn primary"
             @click="showCreateModal = true"
           >
-            <span v-if="createLoading">导出中...</span>
-            <span v-else>开始导出</span>
+            <span v-if="createLoading">{{ locale.exporting }}</span>
+            <span v-else>{{ locale.startExport }}</span>
           </button>
         </div>
       </div>
@@ -39,25 +39,25 @@
           </svg>
         </div>
         <div class="card-content">
-          <h4>导入备份</h4>
-          <p>从备份文件恢复数据</p>
+          <h4>{{ locale.importTitle }}</h4>
+          <p>{{ locale.importDesc }}</p>
           <button
             :disabled="uploadLoading"
             class="action-btn secondary"
             @click="showUploadModal = true"
           >
-            <span v-if="uploadLoading">导入中...</span>
-            <span v-else>选择文件</span>
+            <span v-if="uploadLoading">{{ locale.importing }}</span>
+            <span v-else>{{ locale.chooseFile }}</span>
           </button>
         </div>
       </div>
     </div>
 
     <!-- 创建备份模态框 -->
-    <div v-if="showCreateModal" class="modal-overlay" @click="showCreateModal = false">
+    <div v-if="showCreateModal" class="backupmanager-modal-overlay" @click="showCreateModal = false">
       <div class="modal" @click.stop>
         <div class="modal-header">
-          <h3>创建数据库备份</h3>
+          <h3>{{ locale.createTitle }}</h3>
           <button class="close-btn" @click="showCreateModal = false">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <line x1="18" x2="6" y1="6" y2="18" />
@@ -67,43 +67,43 @@
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label>备份类型</label>
+            <label>{{ locale.backupType }}</label>
             <div class="radio-group">
               <label class="radio-option">
                 <input v-model="createForm.tables" type="radio" value="all" >
-                <span>完整备份（推荐）</span>
-                <small>备份所有数据表</small>
+                <span>{{ locale.fullBackup }}</span>
+                <small>{{ locale.fullBackupDesc }}</small>
               </label>
               <label class="radio-option">
                 <input v-model="createForm.tables" type="radio" value="users" >
-                <span>仅用户数据</span>
-                <small>只备份用户相关数据</small>
+                <span>{{ locale.userDataOnly }}</span>
+                <small>{{ locale.userDataOnlyDesc }}</small>
               </label>
             </div>
           </div>
           <div class="form-group">
             <label class="checkbox-option">
               <input v-model="createForm.includeSystemData" type="checkbox" >
-              <span>包含系统设置</span>
-              <small>包含系统配置和设置数据</small>
+              <span>{{ locale.includeSystemSettings }}</span>
+              <small>{{ locale.includeSystemSettingsDesc }}</small>
             </label>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="action-btn secondary" @click="showCreateModal = false">取消</button>
+          <button class="action-btn secondary" @click="showCreateModal = false">{{ locale.cancel }}</button>
           <button :disabled="createLoading" class="action-btn primary" @click="createBackup">
-            <span v-if="createLoading">创建中...</span>
-            <span v-else>创建备份</span>
+            <span v-if="createLoading">{{ locale.creating }}</span>
+            <span v-else>{{ locale.createBackup }}</span>
           </button>
         </div>
       </div>
     </div>
 
     <!-- 导入备份模态框 -->
-    <div v-if="showUploadModal" class="modal-overlay" @click="showUploadModal = false">
+    <div v-if="showUploadModal" class="backupmanager-modal-overlay" @click="showUploadModal = false">
       <div class="modal" @click.stop>
         <div class="modal-header">
-          <h3>导入备份文件</h3>
+          <h3>{{ locale.importFileTitle }}</h3>
           <button class="close-btn" @click="showUploadModal = false">
             <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <line x1="18" x2="6" y1="6" y2="18" />
@@ -126,8 +126,8 @@
                 <polyline points="17,8 12,3 7,8" />
                 <line x1="12" x2="12" y1="3" y2="15" />
               </svg>
-              <h4>选择或拖拽备份文件</h4>
-              <p>支持 .json 格式的备份文件，最大 100MB</p>
+              <h4>{{ locale.uploadTitle }}</h4>
+              <p>{{ locale.uploadDesc }}</p>
               <input
                 ref="fileInput"
                 accept=".json,application/json"
@@ -161,17 +161,17 @@
           </div>
 
           <div class="form-group">
-            <label>恢复模式</label>
+            <label>{{ locale.restoreMode }}</label>
             <div class="radio-group">
               <label class="radio-option">
                 <input v-model="restoreForm.mode" type="radio" value="merge" >
-                <span>合并模式（推荐）</span>
-                <small>更新现有记录，添加新记录</small>
+                <span>{{ locale.mergeMode }}</span>
+                <small>{{ locale.mergeModeDesc }}</small>
               </label>
               <label class="radio-option">
                 <input v-model="restoreForm.mode" type="radio" value="replace" >
-                <span>替换模式</span>
-                <small>先清空数据，然后导入备份</small>
+                <span>{{ locale.replaceMode }}</span>
+                <small>{{ locale.replaceModeDesc }}</small>
               </label>
             </div>
           </div>
@@ -179,8 +179,8 @@
           <div v-if="restoreForm.mode === 'replace'" class="form-group">
             <label class="checkbox-option danger">
               <input v-model="restoreForm.clearExisting" type="checkbox" >
-              <span>我确认要清空现有数据</span>
-              <small>此操作不可逆，请谨慎操作</small>
+              <span>{{ locale.confirmClear }}</span>
+              <small>{{ locale.confirmClearDesc }}</small>
             </label>
           </div>
 
@@ -190,8 +190,8 @@
           >
             <label class="checkbox-option">
               <input v-model="restoreForm.overwriteSuperAdmin" type="checkbox" >
-              <span>覆盖备份中的超级管理员账号数据</span>
-              <small>关闭时将保留当前超级管理员及其第三方绑定、2FA相关数据</small>
+              <span>{{ locale.overwriteSuperAdmin }}</span>
+              <small>{{ locale.overwriteSuperAdminDesc }}</small>
             </label>
           </div>
 
@@ -204,13 +204,13 @@
               <line x1="12" x2="12.01" y1="17" y2="17" />
             </svg>
             <div>
-              <h4>注意</h4>
-              <p>导入备份将会影响现有数据，请确保您了解操作的后果。</p>
+              <h4>{{ locale.warningTitle }}</h4>
+              <p>{{ locale.warningDesc }}</p>
             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="action-btn secondary" @click="showUploadModal = false">取消</button>
+          <button class="action-btn secondary" @click="showUploadModal = false">{{ locale.cancel }}</button>
           <button
             :disabled="
               !selectedFile ||
@@ -220,8 +220,8 @@
             class="action-btn primary"
             @click="uploadFile"
           >
-            <span v-if="uploadLoading">导入中...</span>
-            <span v-else>开始导入</span>
+            <span v-if="uploadLoading">{{ locale.importing }}</span>
+            <span v-else>{{ locale.startImport }}</span>
           </button>
         </div>
       </div>
@@ -230,8 +230,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useAuth } from '~/composables/useAuth'
+import { useLocale } from '~/utils/locale'
+
+const { admin } = useLocale()
+const locale = computed(() => admin.value?.backupManager || {})
+const { msg: getLocaleText } = useLocaleText(locale)
 
 // 响应式数据
 const createLoading = ref(false)
@@ -305,14 +310,14 @@ const createBackup = async () => {
           // 显示成功消息
           const sizeText = backup.size ? ` (${formatFileSize(backup.size)})` : ''
           if (window.$showNotification) {
-            window.$showNotification(`备份文件已下载: ${backup.filename}${sizeText}`, 'success')
+            window.$showNotification(getLocaleText('downloaded', backup.filename, sizeText), 'success')
           }
 
           console.log('✅ 文件下载成功:', backup.filename)
         } catch (downloadError) {
           console.error('下载失败:', downloadError)
           if (window.$showNotification) {
-            window.$showNotification('文件下载失败: ' + downloadError.message, 'error')
+            window.$showNotification(getLocaleText('fileDownloadFailed', downloadError.message), 'error')
           }
         }
       } else if (backup.downloadMode === 'file' && backup.filename) {
@@ -348,20 +353,20 @@ const createBackup = async () => {
           // 显示成功消息
           const sizeText = backup.size ? ` (${formatFileSize(backup.size)})` : ''
           if (window.$showNotification) {
-            window.$showNotification(`备份文件已下载: ${backup.filename}${sizeText}`, 'success')
+            window.$showNotification(getLocaleText('downloaded', backup.filename, sizeText), 'success')
           }
 
           console.log('✅ 文件下载成功:', backup.filename)
         } catch (downloadError) {
           console.error('文件下载失败:', downloadError)
           if (window.$showNotification) {
-            window.$showNotification('文件下载失败: ' + downloadError.message, 'error')
+            window.$showNotification(getLocaleText('fileDownloadFailed', downloadError.message), 'error')
           }
         }
       } else {
         console.error('无效的下载模式或缺少数据')
         if (window.$showNotification) {
-          window.$showNotification('备份创建失败：无效的响应格式', 'error')
+          window.$showNotification(locale.value?.invalidResponse || '服务器返回了无效响应', 'error')
         }
         showCreateModal.value = false
         return
@@ -369,16 +374,16 @@ const createBackup = async () => {
     } else {
       console.error('服务器响应格式错误:', response)
       if (window.$showNotification) {
-        window.$showNotification('备份创建失败：服务器响应格式错误', 'error')
+        window.$showNotification(locale.value?.serverResponseInvalid || '服务器响应格式无效', 'error')
       }
     }
 
     showCreateModal.value = false
   } catch (error) {
     console.error('创建备份失败:', error)
-    const errorMessage = error.data?.message || error.message || '未知错误'
+    const errorMessage = error.data?.message || error.message || locale.value?.unknownError || '未知错误'
     if (window.$showNotification) {
-      window.$showNotification('创建备份失败: ' + errorMessage, 'error')
+      window.$showNotification(getLocaleText('createFailed', errorMessage), 'error')
     }
   } finally {
     createLoading.value = false
@@ -399,7 +404,7 @@ const parseBackupSuperAdmin = async (file) => {
     hasSuperAdminInBackup.value = false
     restoreForm.value.overwriteSuperAdmin = false
     if (window.$showNotification) {
-      window.$showNotification('无法解析备份文件，请检查文件格式是否正确。', 'error')
+      window.$showNotification(locale.value?.parseFailed || '备份文件解析失败', 'error')
     }
     console.error('解析备份文件失败:', error)
   }
@@ -458,7 +463,7 @@ const uploadFile = async () => {
       // 显示成功通知
       if (window.$showNotification) {
         window.$showNotification(
-          `备份恢复成功！处理了 ${response.details?.tablesProcessed || 0} 个表，恢复了 ${response.details?.recordsRestored || 0} 条记录`,
+          getLocaleText('restoreSuccess', response.details?.tablesProcessed || 0, response.details?.recordsRestored || 0),
           'success'
         )
 
@@ -466,7 +471,7 @@ const uploadFile = async () => {
         if (response.details?.errors && response.details.errors.length > 0) {
           setTimeout(() => {
             window.$showNotification(
-              `恢复过程中发生了 ${response.details.errors.length} 个错误`,
+              getLocaleText('restoreWarning', response.details.errors.length),
               'warning'
             )
           }, 1000)
@@ -474,7 +479,7 @@ const uploadFile = async () => {
 
         // 显示即将重定向的通知
         setTimeout(() => {
-          window.$showNotification('数据库恢复完成，3秒后将返回首页重新登录', 'info')
+          window.$showNotification(locale.value?.restoreCompleteRedirect || '恢复完成，即将刷新页面', 'info')
         }, 2000)
       }
 
@@ -493,13 +498,13 @@ const uploadFile = async () => {
       }, 5000)
     } else {
       if (window.$showNotification) {
-        window.$showNotification('备份导入失败: ' + (response.message || '未知错误'), 'error')
+        window.$showNotification(getLocaleText('importFailed', response.message || locale.value.unknownError), 'error')
       }
     }
   } catch (error) {
     console.error('导入备份失败:', error)
     if (window.$showNotification) {
-      window.$showNotification('导入备份失败: ' + (error.data?.message || error.message), 'error')
+      window.$showNotification(getLocaleText('importFailed', error.data?.message || error.message), 'error')
     }
   } finally {
     uploadLoading.value = false
@@ -520,8 +525,8 @@ const formatFileSize = (bytes) => {
 /* 主容器 */
 .backup-manager {
   min-height: 100vh;
-  background: #1a1a1a;
-  color: #e5e5e5;
+  background: var(--panel-bg-deep);
+  color: var(--panel-border-light);
   padding: 2rem;
   position: relative;
 }
@@ -535,13 +540,13 @@ const formatFileSize = (bytes) => {
 .header h3 {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 1rem 0;
 }
 
 .header .description {
   font-size: 1.125rem;
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
   margin: 0;
 }
 
@@ -556,8 +561,8 @@ const formatFileSize = (bytes) => {
 
 /* 操作卡片 */
 .action-card {
-  background: #2a2a2a;
-  border: 1px solid #404040;
+  background: var(--panel-border);
+  border: 1px solid var(--panel-border-dark);
   border-radius: 12px;
   padding: 2rem;
   text-align: center;
@@ -565,8 +570,8 @@ const formatFileSize = (bytes) => {
 }
 
 .action-card:hover {
-  border-color: #606060;
-  background: #2f2f2f;
+  border-color: var(--panel-border-dark);
+  background: var(--panel-border-subtle);
 }
 
 .action-card .card-content {
@@ -582,12 +587,12 @@ const formatFileSize = (bytes) => {
   width: 4rem;
   height: 4rem;
   margin: 0 auto 1.5rem;
-  background: #404040;
+  background: var(--panel-border-dark);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .action-icon svg {
@@ -599,12 +604,12 @@ const formatFileSize = (bytes) => {
 .action-card h4 {
   font-size: 1.5rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 0.75rem 0;
 }
 
 .action-card p {
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
   font-size: 1rem;
   margin: 0 0 2rem 0;
   line-height: 1.6;
@@ -629,24 +634,24 @@ const formatFileSize = (bytes) => {
 }
 
 .action-btn.primary {
-  background: #4a90e2;
+  background: var(--color-accent);
 }
 
 .action-btn.primary:hover {
-  background: #357abd;
+  background: var(--color-accent);
 }
 
 .action-btn.secondary {
-  background: #606060;
+  background: var(--panel-border-dark);
 }
 
 .action-btn.secondary:hover {
-  background: #505050;
+  background: var(--panel-border-dark);
 }
 
 .action-btn:disabled {
-  background: #404040 !important;
-  color: #808080 !important;
+  background: var(--panel-border-dark) !important;
+  color: var(--text-muted) !important;
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -657,13 +662,13 @@ const formatFileSize = (bytes) => {
 }
 
 /* 模态框样式 */
-.modal-overlay {
+.backupmanager-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--modal-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -672,8 +677,8 @@ const formatFileSize = (bytes) => {
 }
 
 .modal {
-  background: #2a2a2a;
-  border: 1px solid #404040;
+  background: var(--panel-border);
+  border: 1px solid var(--panel-border-dark);
   border-radius: 12px;
   max-width: 600px;
   width: 100%;
@@ -691,19 +696,19 @@ const formatFileSize = (bytes) => {
 
 .current-status h4 {
   margin: 0 0 15px 0;
-  color: #4a90e2;
+  color: var(--color-accent);
   font-size: 18px;
 }
 
 .progress-stats p {
   margin: 5px 0;
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
 }
 
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: #404040;
+  background: var(--panel-border-dark);
   border-radius: 4px;
   margin: 15px 0;
   overflow: hidden;
@@ -711,7 +716,7 @@ const formatFileSize = (bytes) => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4a90e2, #357abd);
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent));
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -724,7 +729,7 @@ const formatFileSize = (bytes) => {
 .progress-details h5,
 .progress-errors h5 {
   margin: 0 0 10px 0;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 600;
 }
@@ -733,17 +738,17 @@ const formatFileSize = (bytes) => {
 .errors-list {
   max-height: 150px;
   overflow-y: auto;
-  border: 1px solid #505050;
+  border: 1px solid var(--panel-border-dark);
   border-radius: 6px;
   padding: 10px;
-  background: #333333;
+  background: var(--text-primary);
 }
 
 .detail-item {
   padding: 4px 0;
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
   font-size: 13px;
-  border-bottom: 1px solid #404040;
+  border-bottom: 1px solid var(--panel-border-dark);
 }
 
 .detail-item:last-child {
@@ -752,9 +757,9 @@ const formatFileSize = (bytes) => {
 
 .error-item {
   padding: 4px 0;
-  color: #ff6b6b;
+  color: var(--color-error-light);
   font-size: 13px;
-  border-bottom: 1px solid #4a2a2a;
+  border-bottom: 1px solid var(--panel-bg-darker);
 }
 
 .error-item:last-child {
@@ -772,14 +777,14 @@ const formatFileSize = (bytes) => {
 .modal-title {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0;
 }
 
 .close-btn {
-  background: #404040;
+  background: var(--panel-border-dark);
   border: none;
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
   cursor: pointer;
   padding: 0.75rem;
   border-radius: 8px;
@@ -787,8 +792,8 @@ const formatFileSize = (bytes) => {
 }
 
 .close-btn:hover {
-  background: #505050;
-  color: #ffffff;
+  background: var(--panel-border-dark);
+  color: var(--text-primary);
 }
 
 .close-btn svg {
@@ -802,11 +807,11 @@ const formatFileSize = (bytes) => {
 
 .modal-footer {
   padding: 1.5rem 2rem;
-  border-top: 1px solid #404040;
+  border-top: 1px solid var(--panel-border-dark);
   display: flex;
   gap: 1rem;
   justify-content: flex-end;
-  background: #252525;
+  background: var(--panel-border-subtle);
 }
 
 .modal-footer button {
@@ -822,7 +827,7 @@ const formatFileSize = (bytes) => {
   display: block;
   font-size: 1.125rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 1rem;
 }
 
@@ -838,8 +843,8 @@ const formatFileSize = (bytes) => {
   align-items: flex-start;
   gap: 1rem;
   padding: 1.25rem;
-  background: #333333;
-  border: 1px solid #505050;
+  background: var(--text-primary);
+  border: 1px solid var(--panel-border-dark);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -847,8 +852,8 @@ const formatFileSize = (bytes) => {
 
 .radio-option:hover,
 .checkbox-option:hover {
-  border-color: #606060;
-  background: #383838;
+  border-color: var(--panel-border-dark);
+  background: var(--panel-border-dark);
 }
 
 .radio-option input[type='radio'],
@@ -856,7 +861,7 @@ const formatFileSize = (bytes) => {
   width: 1.25rem;
   height: 1.25rem;
   margin: 0;
-  accent-color: #4a90e2;
+  accent-color: var(--color-accent);
   cursor: pointer;
 }
 
@@ -870,7 +875,7 @@ const formatFileSize = (bytes) => {
   display: block;
   font-size: 1rem;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
@@ -878,21 +883,21 @@ const formatFileSize = (bytes) => {
 .checkbox-option small {
   display: block;
   font-size: 0.875rem;
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
   line-height: 1.4;
 }
 
 .checkbox-option.danger {
-  border-color: #d32f2f;
-  background: rgba(211, 47, 47, 0.1);
+  border-color: var(--color-error-hover);
+  background: var(--backup-manager-danger-bg);
 }
 
 .checkbox-option.danger span {
-  color: #ff6b6b;
+  color: var(--color-error-light);
 }
 
 .checkbox-option.danger small {
-  color: #ff8a80;
+  color: var(--color-error-light);
 }
 
 /* 文件上传区域 */
@@ -901,37 +906,37 @@ const formatFileSize = (bytes) => {
 }
 
 .upload-area {
-  border: 2px dashed #505050;
+  border: 2px dashed var(--panel-border-dark);
   border-radius: 8px;
   padding: 3rem 2rem;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: #333333;
+  background: var(--text-primary);
 }
 
 .upload-area:hover,
 .upload-area.drag-over {
-  border-color: #4a90e2;
-  background: #383838;
+  border-color: var(--color-accent);
+  background: var(--panel-border-dark);
 }
 
 .upload-area svg {
   width: 4rem;
   height: 4rem;
-  color: #4a90e2;
+  color: var(--color-accent);
   margin-bottom: 1.5rem;
 }
 
 .upload-area h4 {
   font-size: 1.25rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
   margin: 0 0 0.5rem 0;
 }
 
 .upload-area p {
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
   font-size: 1rem;
   margin: 0;
 }
@@ -941,8 +946,8 @@ const formatFileSize = (bytes) => {
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem;
-  background: #333333;
-  border: 1px solid #505050;
+  background: var(--text-primary);
+  border: 1px solid var(--panel-border-dark);
   border-radius: 8px;
   margin-top: 1rem;
 }
@@ -957,7 +962,7 @@ const formatFileSize = (bytes) => {
 .file-info svg {
   width: 1.5rem;
   height: 1.5rem;
-  color: #4a90e2;
+  color: var(--color-accent);
   flex-shrink: 0;
 }
 
@@ -969,28 +974,28 @@ const formatFileSize = (bytes) => {
   display: block;
   font-size: 1rem;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary);
   margin-bottom: 0.25rem;
 }
 
 .file-size {
   display: block;
   font-size: 0.875rem;
-  color: #a0a0a0;
+  color: var(--text-muted-dark);
 }
 
 .remove-file-btn {
-  background: rgba(211, 47, 47, 0.2);
+  background: var(--backup-manager-file-remove-bg);
   border: none;
   padding: 0.75rem;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #ff6b6b;
+  color: var(--color-error-light);
 }
 
 .remove-file-btn:hover {
-  background: rgba(211, 47, 47, 0.3);
+  background: var(--backup-manager-file-remove-bg-hover);
 }
 
 .remove-file-btn svg {
@@ -1000,8 +1005,8 @@ const formatFileSize = (bytes) => {
 
 /* 警告框 */
 .warning-box {
-  background: rgba(255, 152, 0, 0.1);
-  border: 1px solid #ff9800;
+  background: var(--backup-manager-warning-box-bg);
+  border: 1px solid var(--color-orange);
   border-radius: 8px;
   padding: 1.5rem;
   display: flex;
@@ -1013,7 +1018,7 @@ const formatFileSize = (bytes) => {
 .warning-box svg {
   width: 1.5rem;
   height: 1.5rem;
-  color: #ff9800;
+  color: var(--color-orange);
   flex-shrink: 0;
   margin-top: 0.125rem;
 }
@@ -1023,14 +1028,14 @@ const formatFileSize = (bytes) => {
 }
 
 .warning-box h4 {
-  color: #ff9800;
+  color: var(--color-orange);
   font-weight: 600;
   margin: 0 0 0.5rem 0;
   font-size: 1rem;
 }
 
 .warning-box p {
-  color: #ffb74d;
+  color: var(--color-orange);
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
@@ -1045,7 +1050,7 @@ const formatFileSize = (bytes) => {
   border-radius: 8px;
   color: white;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px var(--mask-30);
   z-index: 1001;
   animation: slideInRight 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -1056,23 +1061,23 @@ const formatFileSize = (bytes) => {
 }
 
 .notification.success {
-  background: #2e7d32;
-  border: 1px solid #4caf50;
+  background: var(--color-success);
+  border: 1px solid var(--color-success);
 }
 
 .notification.error {
-  background: #d32f2f;
-  border: 1px solid #f44336;
+  background: var(--color-error-hover);
+  border: 1px solid var(--color-error);
 }
 
 .notification.warning {
-  background: #f57c00;
-  border: 1px solid #ff9800;
+  background: var(--color-orange);
+  border: 1px solid var(--color-orange);
 }
 
 .notification.info {
-  background: #1976d2;
-  border: 1px solid #2196f3;
+  background: var(--color-accent-hover);
+  border: 1px solid var(--color-accent);
 }
 
 @keyframes slideInRight {

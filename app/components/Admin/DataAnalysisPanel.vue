@@ -6,17 +6,19 @@
       class="flex flex-col items-center justify-center min-h-[60vh] space-y-6"
     >
       <div class="relative w-24 h-24">
-        <div class="absolute inset-0 border-4 border-blue-500/20 rounded-full" />
-        <div class="absolute inset-0 border-4 border-t-blue-500 rounded-full animate-spin" />
+        <div class="absolute inset-0 border-4 border-primary-20 rounded-full" />
         <div class="absolute inset-0 flex items-center justify-center">
-          <Activity class="text-blue-500 animate-pulse" :size="32" />
+          <AppSpinner :size="96" />
+        </div>
+        <div class="absolute inset-0 flex items-center justify-center">
+          <Activity class="text-primary animate-pulse" :size="32" />
         </div>
       </div>
       <div class="text-center">
-        <h3 class="text-xl font-black text-white tracking-tight">
+        <h3 class="text-xl font-black text-text-primary tracking-tight">
           {{ loadingSteps[currentLoadingStep] }}
         </h3>
-        <p class="text-sm text-zinc-500 mt-2">正在获取最新的统计数据...</p>
+        <p class="text-sm text-text-tertiary mt-2">{{ locale.loadingDesc }}</p>
       </div>
     </div>
 
@@ -25,18 +27,18 @@
       v-else-if="error && !hasInitialData"
       class="flex flex-col items-center justify-center min-h-[60vh] space-y-6"
     >
-      <div class="p-6 bg-red-500/10 border border-red-500/20 rounded-3xl">
-        <X class="text-red-500" :size="48" />
+      <div class="p-6 bg-error-10 border border-error-20 rounded-3xl">
+        <X class="text-error" :size="48" />
       </div>
       <div class="text-center">
-        <h3 class="text-xl font-black text-white tracking-tight">数据加载失败</h3>
-        <p class="text-sm text-zinc-500 mt-2 max-w-md">{{ error }}</p>
+        <h3 class="text-xl font-black text-text-primary tracking-tight">{{ locale.loadFailed }}</h3>
+        <p class="text-sm text-text-tertiary mt-2 max-w-md">{{ error }}</p>
         <button
-          class="mt-6 px-8 py-3 bg-zinc-900 border border-zinc-800 rounded-full text-sm font-black text-white hover:bg-zinc-800 transition-all flex items-center gap-2 mx-auto"
+          class="mt-6 px-8 py-3 bg-bg-secondary border border-border-secondary rounded-full text-sm font-black text-text-primary hover:bg-bg-tertiary transition-all flex items-center gap-2 mx-auto"
           @click="refreshAllData"
         >
           <RefreshCw :size="16" />
-          立即重试
+          {{ locale.retryNow }}
         </button>
       </div>
     </div>
@@ -46,23 +48,23 @@
       <!-- 顶部标题和筛选栏 -->
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 class="text-3xl font-black text-white tracking-tight">数据中心</h2>
-          <p class="text-sm text-zinc-500 mt-1 font-medium">洞察校园声音背后的互动趋势与影响力</p>
+          <h2 class="text-3xl font-black text-text-primary tracking-tight">{{ locale.title }}</h2>
+          <p class="text-sm text-text-tertiary mt-1 font-medium">{{ locale.desc }}</p>
         </div>
         <div class="flex items-center gap-3">
           <button
             :disabled="isLoading"
-            class="p-2.5 bg-zinc-900/50 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-all group disabled:opacity-50"
+            class="p-2.5 bg-bg-secondary-50 border border-border-secondary rounded-full text-text-tertiary hover:text-text-primary transition-all group disabled:opacity-50 flex items-center justify-center"
             @click="refreshAllData"
           >
             <RefreshCw :size="18" :class="{ 'animate-spin': isLoading }" />
           </button>
           <div
-            class="px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full flex items-center gap-2"
+            class="px-3 py-1.5 bg-primary-10 border border-primary-20 rounded-full flex items-center gap-2"
           >
-            <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-            <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest"
-              >实时模式</span
+            <div class="w-2 h-2 bg-primary rounded-full animate-pulse" />
+            <span class="text-[10px] font-black text-primary uppercase tracking-widest"
+              >{{ locale.realtimeMode }}</span
             >
           </div>
           <CustomSelect
@@ -70,7 +72,7 @@
             :options="availableSemesterOptions"
             label-key="name"
             value-key="value"
-            placeholder="选择学期"
+            :placeholder="locale.selectSemester"
             class-name="w-48"
             @change="handleSemesterChange"
           />
@@ -82,37 +84,46 @@
         <div
           v-for="(stat, i) in kpiStats"
           :key="i"
-          class="group relative p-6 bg-zinc-900/40 border border-zinc-800/60 rounded-[2rem] overflow-hidden hover:border-zinc-700 transition-all hover:shadow-2xl hover:shadow-black/40"
+          class="group relative p-6 bg-bg-secondary-40 border border-border-secondary-60 rounded-[2rem] overflow-hidden hover:border-border-tertiary transition-all hover:shadow-2xl hover:shadow-[0_25px_50px_var(--shadow-color-deep)]"
         >
           <div class="flex justify-between items-start">
             <div
-              :class="`p-3 rounded-2xl bg-zinc-950 border border-zinc-800 text-zinc-400 group-hover:text-${stat.color}-400 group-hover:border-${stat.color}-500/30 transition-all`"
+              :class="[
+                'p-3 rounded-2xl bg-bg-primary border border-border-secondary text-text-tertiary transition-all group-hover:border-border-tertiary',
+                stat.iconColorHoverClass
+              ]"
             >
               <component :is="stat.icon" :size="20" />
             </div>
             <div
               v-if="stat.trend !== 0"
-              :class="`flex items-center gap-1 text-[11px] font-black ${stat.trend < 0 ? 'text-red-500' : `text-${stat.color}-500`}`"
+              :class="[
+                'flex items-center gap-1 text-[11px] font-black',
+                stat.trendColorClass
+              ]"
             >
               <ArrowDownRight v-if="stat.trend < 0" :size="12" />
               <ArrowUpRight v-else :size="12" />
               {{ Math.abs(stat.trend) }}%
             </div>
-            <div v-else class="text-[11px] font-black text-zinc-500 uppercase tracking-widest">
-              稳定
+            <div v-else class="text-[11px] font-black text-text-tertiary uppercase tracking-widest">
+              {{ locale.stable }}
             </div>
           </div>
           <div class="mt-4">
-            <h4 class="text-3xl font-black text-zinc-100 tracking-tighter">
+            <h4 class="text-3xl font-black text-text-primary tracking-tighter">
               {{ formatNumber(stat.value) }}
             </h4>
-            <p class="text-[10px] font-black text-zinc-600 uppercase tracking-[0.2em] mt-1">
+            <p class="text-[10px] font-black text-text-disabled uppercase tracking-[0.2em] mt-1">
               {{ stat.label }}
             </p>
           </div>
           <!-- 背景装饰 -->
           <div
-            :class="`absolute -right-4 -bottom-4 w-24 h-24 bg-${stat.color}-500/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity`"
+            :class="[
+              'absolute -right-4 -bottom-4 w-24 h-24 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity rounded-full pointer-events-none',
+              stat.glowColorClass
+            ]"
           />
         </div>
       </div>
@@ -122,68 +133,68 @@
         <!-- 实时脉冲部分 -->
         <div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div
-            class="p-8 bg-zinc-900/20 border border-zinc-800/40 rounded-3xl flex items-center justify-between relative overflow-hidden group cursor-help"
+            class="p-8 bg-bg-secondary-20 border border-border-secondary-40 rounded-3xl flex items-center justify-between relative overflow-hidden group cursor-help"
             @mouseenter="handleMouseEnter"
             @mouseleave="handleMouseLeave"
           >
             <div class="relative z-10">
-              <span class="text-[10px] font-black text-zinc-600 uppercase tracking-widest"
-                >当前活跃用户</span
+              <span class="text-[10px] font-black text-text-disabled uppercase tracking-widest"
+                >{{ locale.currentActiveUsers }}</span
               >
               <div class="flex items-baseline gap-2 mt-1">
-                <h3 class="text-5xl font-black text-white">{{ realtimeStats.activeUsers }}</h3>
-                <span class="text-xs font-bold text-zinc-500">人在线</span>
+                <h3 class="text-5xl font-black text-text-primary">{{ realtimeStats.activeUsers }}</h3>
+                <span class="text-xs font-bold text-text-tertiary">{{ locale.onlineUnit }}</span>
               </div>
             </div>
             <div class="relative z-10 w-24 h-24 flex items-center justify-center">
-              <div class="absolute inset-0 bg-blue-500/20 rounded-full animate-ping opacity-20" />
-              <div class="absolute inset-4 bg-blue-500/20 rounded-full animate-pulse opacity-40" />
-              <Activity class="text-blue-500" :size="32" />
+              <div class="absolute inset-0 bg-primary-20 rounded-full animate-ping opacity-20" />
+              <div class="absolute inset-4 bg-primary-20 rounded-full animate-pulse opacity-40" />
+              <Activity class="text-primary" :size="32" />
             </div>
           </div>
           <div
-            class="p-8 bg-zinc-900/20 border border-zinc-800/40 rounded-3xl flex items-center justify-between relative overflow-hidden group"
+            class="p-8 bg-bg-secondary-20 border border-border-secondary-40 rounded-3xl flex items-center justify-between relative overflow-hidden group"
           >
             <div class="relative z-10">
-              <span class="text-[10px] font-black text-zinc-600 uppercase tracking-widest"
-                >今日累计点播</span
+              <span class="text-[10px] font-black text-text-disabled uppercase tracking-widest"
+                >{{ locale.todayRequests }}</span
               >
               <div class="flex items-baseline gap-2 mt-1">
-                <h3 class="text-5xl font-black text-emerald-500">
+                <h3 class="text-5xl font-black text-success">
                   {{ realtimeStats.todayRequests }}
                 </h3>
-                <span class="text-xs font-bold text-zinc-500">首歌曲</span>
+                <span class="text-xs font-bold text-text-tertiary">{{ locale.songUnit }}</span>
               </div>
             </div>
             <div class="relative z-10 w-24 h-24 flex items-center justify-center">
               <div
-                class="absolute inset-0 bg-emerald-500/20 rounded-full animate-ping opacity-10"
+                class="absolute inset-0 bg-success-20 rounded-full animate-ping opacity-10"
               />
-              <Globe class="text-emerald-500" :size="32" />
+              <Globe class="text-success" :size="32" />
             </div>
           </div>
         </div>
 
         <!-- 趋势分析图表卡片 -->
         <div
-          class="lg:col-span-8 bg-zinc-900/40 border border-zinc-800 rounded-[3rem] p-8 shadow-2xl overflow-hidden flex flex-col min-h-[500px]"
+          class="lg:col-span-8 bg-bg-secondary-40 border border-border-secondary rounded-[3rem] p-8 shadow-2xl overflow-hidden flex flex-col min-h-[500px]"
         >
           <div class="flex items-center justify-between mb-10">
             <div>
-              <h3 class="text-xl font-bold flex items-center gap-3 text-white">
-                <BarChart2 class="text-blue-500" :size="20" />
-                点歌趋势分析
+              <h3 class="text-xl font-bold flex items-center gap-3 text-text-primary">
+                <BarChart2 class="text-primary" :size="20" />
+                {{ locale.trendTitle }}
               </h3>
-              <p class="text-xs text-zinc-500 mt-1">近 7 日投稿量波动情况</p>
+              <p class="text-xs text-text-tertiary mt-1">{{ locale.trendDesc }}</p>
             </div>
             <div class="flex items-center gap-4">
-              <div v-if="panelStates.trends.loading" class="animate-spin text-blue-500">
+              <div v-if="panelStates.trends.loading" class="animate-spin text-primary">
                 <RefreshCw :size="16" />
               </div>
               <button
                 v-if="panelStates.trends.error"
-                class="p-2 text-red-400 hover:text-red-300 transition-colors"
-                title="重试"
+                class="p-2 text-error hover:text-error transition-colors"
+                :title="locale.retry"
                 @click="loadTrends"
               >
                 <RefreshCw :size="16" />
@@ -195,28 +206,26 @@
             v-if="panelStates.trends.loading && trendData.length === 0"
             class="flex-1 flex flex-col items-center justify-center space-y-4"
           >
-            <div
-              class="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin"
-            />
-            <p class="text-xs font-black text-zinc-600 uppercase tracking-widest">
-              正在加载趋势数据...
+            <AppSpinner :size="48" />
+            <p class="text-xs font-black text-text-disabled uppercase tracking-widest">
+              {{ locale.loadingTrends }}
             </p>
           </div>
           <div
             v-else-if="panelStates.trends.error && trendData.length === 0"
             class="flex-1 flex flex-col items-center justify-center space-y-4"
           >
-            <div class="p-4 bg-red-500/10 rounded-2xl">
-              <Activity class="text-red-500/50" :size="32" />
+            <div class="p-4 bg-error-10 rounded-2xl">
+              <Activity class="text-error-50" :size="32" />
             </div>
-            <p class="text-xs font-black text-red-400 uppercase tracking-widest">
+            <p class="text-xs font-black text-error uppercase tracking-widest">
               {{ panelStates.trends.error }}
             </p>
             <button
-              class="px-6 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-[10px] font-black uppercase tracking-widest rounded-full transition-all"
+              class="px-6 py-2 bg-bg-tertiary hover:bg-bg-quaternary text-text-primary text-[10px] font-black uppercase tracking-widest rounded-full transition-all"
               @click="loadTrends"
             >
-              立即重试
+              {{ locale.retryNow }}
             </button>
           </div>
           <div
@@ -233,56 +242,56 @@
                   :style="{
                     height: `${(item.count / Math.max(...trendData.map((d) => d.count), 1)) * 100}%`
                   }"
-                  class="w-full bg-gradient-to-t from-blue-600/10 to-blue-500/40 rounded-t-xl group-hover:from-blue-600/30 group-hover:to-blue-400 transition-all border-x border-t border-blue-500/20 group-hover:border-blue-500/40 min-h-[4px]"
+                  class="w-full bg-gradient-to-t from-primary-10 to-primary-40 rounded-t-xl group-hover:from-primary-30 group-hover:to-primary-60 transition-all border-x border-t border-primary-20 group-hover:border-primary-40 min-h-[4px]"
                 />
                 <div
-                  class="absolute left-1/2 -translate-x-1/2 -translate-y-full mb-2 text-[10px] font-black text-blue-400 opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap pointer-events-none z-10"
+                  class="absolute left-1/2 -translate-x-1/2 -translate-y-full mb-2 text-[10px] font-black text-primary opacity-0 group-hover:opacity-100 transition-all whitespace-nowrap pointer-events-none z-10"
                   :style="{
                     bottom: `${(item.count / Math.max(...trendData.map((d) => d.count), 1)) * 100}%`
                   }"
                 >
-                  {{ item.count }}首
+                  {{ locale.countSongs(item.count) }}
                 </div>
               </div>
               <span
-                class="text-[10px] font-black text-zinc-600 group-hover:text-zinc-400 transition-colors uppercase tracking-widest"
+                class="text-[10px] font-black text-text-disabled group-hover:text-text-tertiary transition-colors uppercase tracking-widest"
               >
                 {{ formatDateShort(item.date) }}
               </span>
             </div>
           </div>
-          <div v-else class="flex-1 flex flex-col items-center justify-center text-zinc-600">
+          <div v-else class="flex-1 flex flex-col items-center justify-center text-text-disabled">
             <BarChart2 :size="48" class="opacity-20" />
-            <p class="text-sm font-medium mt-4">暂无趋势数据</p>
+            <p class="text-sm font-medium mt-4">{{ locale.noTrendData }}</p>
           </div>
         </div>
 
         <!-- 热门歌曲排行榜 -->
         <div
-          class="lg:col-span-4 bg-zinc-900/40 border border-zinc-800 rounded-[3rem] p-8 flex flex-col min-h-[500px]"
+          class="lg:col-span-4 bg-bg-secondary-40 border border-border-secondary rounded-[3rem] p-8 flex flex-col min-h-[500px]"
         >
           <div class="flex items-center justify-between mb-8">
-            <h3 class="text-xl font-bold flex items-center gap-3 text-white">
-              <Trophy class="text-amber-500" :size="20" />
-              热门歌曲排行
+            <h3 class="text-xl font-bold flex items-center gap-3 text-text-primary">
+              <Trophy class="text-warning" :size="20" />
+              {{ locale.topSongsTitle }}
             </h3>
             <div class="flex items-center gap-4">
               <div class="flex gap-2">
                 <button
-                  :class="`text-[10px] font-black uppercase tracking-widest transition-colors ${selectedSortBy === 'vote' ? 'text-blue-500' : 'text-zinc-600 hover:text-zinc-400'}`"
+                  :class="`text-[10px] font-black uppercase tracking-widest transition-colors ${selectedSortBy === 'vote' ? 'text-primary' : 'text-text-disabled hover:text-text-tertiary'}`"
                   @click="handleSortChange('vote')"
                 >
-                  点赞
+                  {{ locale.likes }}
                 </button>
-                <span class="text-zinc-800">|</span>
+                <span class="text-text-primary">|</span>
                 <button
-                  :class="`text-[10px] font-black uppercase tracking-widest transition-colors ${selectedSortBy === 'replay' ? 'text-blue-500' : 'text-zinc-600 hover:text-zinc-400'}`"
+                  :class="`text-[10px] font-black uppercase tracking-widest transition-colors ${selectedSortBy === 'replay' ? 'text-primary' : 'text-text-disabled hover:text-text-tertiary'}`"
                   @click="handleSortChange('replay')"
                 >
-                  重播
+                  {{ locale.replays }}
                 </button>
               </div>
-              <div v-if="panelStates.topSongs.loading" class="animate-spin text-amber-500">
+              <div v-if="panelStates.topSongs.loading" class="animate-spin text-warning">
                 <RefreshCw :size="14" />
               </div>
             </div>
@@ -292,21 +301,21 @@
             v-if="panelStates.topSongs.loading && topSongs.length === 0"
             class="flex-1 space-y-4"
           >
-            <div v-for="i in 5" :key="i" class="h-20 bg-zinc-800/20 animate-pulse rounded-2xl" />
+            <div v-for="i in 5" :key="i" class="h-20 bg-bg-tertiary-20 animate-pulse rounded-2xl" />
           </div>
           <div
             v-else-if="panelStates.topSongs.error && topSongs.length === 0"
             class="flex-1 flex flex-col items-center justify-center space-y-4"
           >
-            <Music :size="32" class="text-red-500/20" />
-            <p class="text-[10px] font-black text-red-400 uppercase tracking-widest">
+            <Music :size="32" class="text-error-20" />
+            <p class="text-[10px] font-black text-error uppercase tracking-widest">
               {{ panelStates.topSongs.error }}
             </p>
             <button
-              class="px-4 py-2 bg-zinc-800 text-[10px] font-black uppercase rounded-full hover:bg-zinc-700 text-white transition-colors"
+              class="px-4 py-2 bg-bg-tertiary text-[10px] font-black uppercase rounded-full hover:bg-bg-quaternary text-text-primary transition-colors"
               @click="loadTopSongs"
             >
-              重试
+              {{ locale.retry }}
             </button>
           </div>
           <div
@@ -316,42 +325,42 @@
             <div
               v-for="(song, i) in topSongs.slice(0, 5)"
               :key="i"
-              class="p-4 bg-zinc-950/50 border border-zinc-800/40 rounded-2xl flex items-center gap-4 group hover:bg-zinc-800/30 transition-all"
+              class="p-4 bg-bg-primary-50 border border-border-secondary-40 rounded-2xl flex items-center gap-4 group hover:bg-bg-tertiary-30 transition-all"
             >
               <div
                 :class="`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
                   i === 0
-                    ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                    ? 'bg-warning text-black shadow-lg shadow-[var(--warning-glow-20)]'
                     : i === 1
-                      ? 'bg-zinc-300 text-black'
+                      ? 'bg-bg-quaternary text-black'
                       : i === 2
-                        ? 'bg-amber-800 text-white'
-                        : 'text-zinc-600 border border-zinc-800'
+                        ? 'bg-brand-yellow text-text-primary'
+                        : 'text-text-disabled border border-border-secondary'
                 }`"
               >
                 {{ i + 1 }}
               </div>
               <div class="flex-1 min-w-0">
                 <h4
-                  class="text-sm font-bold text-zinc-200 truncate group-hover:text-white transition-colors"
+                  class="text-sm font-bold text-text-primary truncate group-hover:text-text-primary transition-colors"
                 >
                   {{ song.title }}
                 </h4>
-                <p class="text-[10px] text-zinc-600 font-medium truncate uppercase tracking-widest">
+                <p class="text-[10px] text-text-disabled font-medium truncate uppercase tracking-widest">
                   {{ song.artist }}
                 </p>
               </div>
               <div class="text-right">
-                <span class="text-xs font-black text-zinc-400">{{ song.count }}</span>
-                <div class="text-[8px] font-black text-zinc-700 uppercase">
-                  {{ selectedSortBy === 'replay' ? '次数' : '点赞' }}
+                <span class="text-xs font-black text-text-tertiary">{{ song.count }}</span>
+                <div class="text-[8px] font-black text-text-secondary uppercase">
+                  {{ selectedSortBy === 'replay' ? locale.times : locale.likes }}
                 </div>
               </div>
             </div>
           </div>
-          <div v-else class="flex-1 flex flex-col items-center justify-center text-zinc-700">
+          <div v-else class="flex-1 flex flex-col items-center justify-center text-text-secondary">
             <Music :size="32" class="opacity-20 mb-2" />
-            <p class="text-xs font-bold uppercase tracking-widest">暂无数据</p>
+            <p class="text-xs font-bold uppercase tracking-widest">{{ locale.noData }}</p>
           </div>
         </div>
       </div>
@@ -360,14 +369,14 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <!-- 活跃用户排行榜 -->
         <div
-          class="bg-zinc-900/40 border border-zinc-800 rounded-[3rem] p-8 flex flex-col min-h-[500px]"
+          class="bg-bg-secondary-40 border border-border-secondary rounded-[3rem] p-8 flex flex-col min-h-[500px]"
         >
           <div class="flex items-center justify-between mb-8">
-            <h3 class="text-xl font-bold flex items-center gap-3 text-white">
-              <UserCheck class="text-purple-500" :size="20" />
-              活跃用户排行榜
+            <h3 class="text-xl font-bold flex items-center gap-3 text-text-primary">
+              <UserCheck class="text-info" :size="20" />
+              {{ locale.activeUsersTitle }}
             </h3>
-            <div v-if="panelStates.activeUsers.loading" class="animate-spin text-purple-500">
+            <div v-if="panelStates.activeUsers.loading" class="animate-spin text-info">
               <RefreshCw :size="16" />
             </div>
           </div>
@@ -376,21 +385,21 @@
             v-if="panelStates.activeUsers.loading && activeUsers.length === 0"
             class="flex-1 space-y-4"
           >
-            <div v-for="i in 4" :key="i" class="h-24 bg-zinc-800/20 animate-pulse rounded-3xl" />
+            <div v-for="i in 4" :key="i" class="h-24 bg-bg-tertiary-20 animate-pulse rounded-3xl" />
           </div>
           <div
             v-else-if="panelStates.activeUsers.error && activeUsers.length === 0"
             class="flex-1 flex flex-col items-center justify-center space-y-4"
           >
-            <Users :size="32" class="text-red-500/20" />
-            <p class="text-[10px] font-black text-red-400 uppercase tracking-widest">
+            <Users :size="32" class="text-error-20" />
+            <p class="text-[10px] font-black text-error uppercase tracking-widest">
               {{ panelStates.activeUsers.error }}
             </p>
             <button
-              class="px-4 py-2 bg-zinc-800 text-[10px] font-black uppercase rounded-full hover:bg-zinc-700 text-white transition-colors"
+              class="px-4 py-2 bg-bg-tertiary text-[10px] font-black uppercase rounded-full hover:bg-bg-quaternary text-text-primary transition-colors"
               @click="loadActiveUsers"
             >
-              重试
+              {{ locale.retry }}
             </button>
           </div>
           <div
@@ -400,57 +409,57 @@
             <div
               v-for="(user, i) in activeUsers.slice(0, 5)"
               :key="i"
-              class="relative p-5 bg-zinc-950/30 border border-zinc-800/50 rounded-3xl overflow-hidden group"
+              class="relative p-5 bg-bg-primary-30 border border-border-secondary-50 rounded-3xl overflow-hidden group"
             >
               <div class="flex items-center gap-4 relative z-10">
                 <div
-                  class="w-12 h-12 rounded-2xl bg-zinc-800 flex items-center justify-center font-black text-zinc-500 group-hover:text-zinc-200 transition-colors"
+                  class="w-12 h-12 rounded-2xl bg-bg-tertiary flex items-center justify-center font-black text-text-tertiary group-hover:text-text-primary transition-colors"
                 >
                   {{ user.name.charAt(0) }}
                 </div>
                 <div class="flex-1">
-                  <h4 class="text-sm font-bold text-zinc-100">{{ user.name }}</h4>
-                  <p class="text-xs text-zinc-600 font-medium mt-1">
-                    {{ user.contributions }}首投稿 · {{ user.likes }}次点赞
+                  <h4 class="text-sm font-bold text-text-primary">{{ user.name }}</h4>
+                  <p class="text-xs text-text-disabled font-medium mt-1">
+                    {{ locale.userActivity(user.contributions, user.likes) }}
                   </p>
                 </div>
                 <div class="text-right">
                   <span
-                    class="text-xl font-black text-zinc-300 group-hover:text-purple-400 transition-colors"
+                    class="text-xl font-black text-text-secondary group-hover:text-info transition-colors"
                     >{{ user.activityScore }}</span
                   >
-                  <p class="text-[10px] font-black text-zinc-700 uppercase tracking-widest">
-                    活跃度
+                  <p class="text-[10px] font-black text-text-secondary uppercase tracking-widest">
+                    {{ locale.activity }}
                   </p>
                 </div>
               </div>
               <!-- 进度条指示器 -->
               <div
-                class="absolute bottom-0 left-0 h-1 bg-purple-500/20 group-hover:bg-purple-500/40 transition-all"
+                class="absolute bottom-0 left-0 h-1 bg-info-20 group-hover:bg-info-40 transition-all"
                 :style="{
                   width: `${(user.activityScore / Math.max(...activeUsers.map((u) => u.activityScore), 1)) * 100}%`
                 }"
               />
             </div>
           </div>
-          <div v-else class="flex-1 flex flex-col items-center justify-center text-zinc-700">
+          <div v-else class="flex-1 flex flex-col items-center justify-center text-text-secondary">
             <Users :size="32" class="opacity-20 mb-2" />
-            <p class="text-xs font-bold uppercase tracking-widest">暂无活跃用户</p>
+            <p class="text-xs font-bold uppercase tracking-widest">{{ locale.noActiveUsers }}</p>
           </div>
         </div>
 
         <!-- 学期对比分析 -->
         <div
-          class="bg-zinc-900/40 border border-zinc-800 rounded-[3rem] p-8 flex flex-col min-h-[500px]"
+          class="bg-bg-secondary-40 border border-border-secondary rounded-[3rem] p-8 flex flex-col min-h-[500px]"
         >
           <div class="flex items-center justify-between mb-8">
-            <h3 class="text-xl font-bold flex items-center gap-3 text-white">
-              <Globe class="text-emerald-500" :size="20" />
-              学期对比分析
+            <h3 class="text-xl font-bold flex items-center gap-3 text-text-primary">
+              <Globe class="text-success" :size="20" />
+              {{ locale.semesterComparisonTitle }}
             </h3>
             <div
               v-if="panelStates.semesterComparison.loading"
-              class="animate-spin text-emerald-500"
+              class="animate-spin text-success"
             >
               <RefreshCw :size="16" />
             </div>
@@ -460,21 +469,21 @@
             v-if="panelStates.semesterComparison.loading && semesterComparison.length === 0"
             class="flex-1 space-y-4"
           >
-            <div v-for="i in 3" :key="i" class="h-32 bg-zinc-800/20 animate-pulse rounded-[2rem]" />
+            <div v-for="i in 3" :key="i" class="h-32 bg-bg-tertiary-20 animate-pulse rounded-[2rem]" />
           </div>
           <div
             v-else-if="panelStates.semesterComparison.error && semesterComparison.length === 0"
             class="flex-1 flex flex-col items-center justify-center space-y-4"
           >
-            <Globe :size="32" class="text-red-500/20" />
-            <p class="text-[10px] font-black text-red-400 uppercase tracking-widest">
+            <Globe :size="32" class="text-error-20" />
+            <p class="text-[10px] font-black text-error uppercase tracking-widest">
               {{ panelStates.semesterComparison.error }}
             </p>
             <button
-              class="px-4 py-2 bg-zinc-800 text-[10px] font-black uppercase rounded-full hover:bg-zinc-700 text-white transition-colors"
+              class="px-4 py-2 bg-bg-tertiary text-[10px] font-black uppercase rounded-full hover:bg-bg-quaternary text-text-primary transition-colors"
               @click="loadSemesterComparison"
             >
-              重试
+              {{ locale.retry }}
             </button>
           </div>
           <div
@@ -484,44 +493,44 @@
             <div
               v-for="(sem, i) in semesterComparison"
               :key="i"
-              :class="`p-6 border rounded-[2rem] transition-all ${sem.isActive ? 'bg-emerald-500/5 border-emerald-500/20 shadow-lg shadow-emerald-500/5' : 'bg-zinc-950/20 border-zinc-800/60 opacity-60 hover:opacity-100'}`"
+              :class="`p-6 border rounded-[2rem] transition-all ${sem.isActive ? 'bg-success-5 border-success-20 shadow-lg shadow-[var(--success-glow-5)]' : 'bg-bg-primary-20 border-border-secondary-60 opacity-60 hover:opacity-100'}`"
             >
               <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-black text-zinc-300 uppercase tracking-widest">{{
+                <span class="text-xs font-black text-text-secondary uppercase tracking-widest">{{
                   sem.semester
                 }}</span>
                 <span
                   v-if="sem.isActive"
-                  class="px-2 py-0.5 bg-emerald-500/20 text-emerald-500 rounded text-[8px] font-black uppercase"
-                  >当前学期</span
+                  class="px-2 py-0.5 bg-success-20 text-success rounded text-[8px] font-black uppercase"
+                  >{{ locale.currentSemester }}</span
                 >
-                <span v-else class="text-[10px] font-black text-zinc-600">历史基准</span>
+                <span v-else class="text-[10px] font-black text-text-disabled">{{ locale.historyBaseline }}</span>
               </div>
               <div class="grid grid-cols-3 gap-4">
                 <div>
-                  <h5 class="text-lg font-black text-zinc-100">{{ sem.totalSongs }}</h5>
-                  <p class="text-[9px] font-black text-zinc-600 uppercase tracking-tighter mt-1">
-                    歌曲总量
+                  <h5 class="text-lg font-black text-text-primary">{{ sem.totalSongs }}</h5>
+                  <p class="text-[9px] font-black text-text-disabled uppercase tracking-tighter mt-1">
+                    {{ locale.totalSongs }}
                   </p>
                 </div>
                 <div>
-                  <h5 class="text-lg font-black text-zinc-100">{{ sem.totalSchedules }}</h5>
-                  <p class="text-[9px] font-black text-zinc-600 uppercase tracking-tighter mt-1">
-                    排期总数
+                  <h5 class="text-lg font-black text-text-primary">{{ sem.totalSchedules }}</h5>
+                  <p class="text-[9px] font-black text-text-disabled uppercase tracking-tighter mt-1">
+                    {{ locale.totalSchedules }}
                   </p>
                 </div>
                 <div>
-                  <h5 class="text-lg font-black text-zinc-100">{{ sem.totalRequests }}</h5>
-                  <p class="text-[9px] font-black text-zinc-600 uppercase tracking-tighter mt-1">
-                    获赞总数
+                  <h5 class="text-lg font-black text-text-primary">{{ sem.totalRequests }}</h5>
+                  <p class="text-[9px] font-black text-text-disabled uppercase tracking-tighter mt-1">
+                    {{ locale.totalLikes }}
                   </p>
                 </div>
               </div>
             </div>
           </div>
-          <div v-else class="flex-1 flex flex-col items-center justify-center text-zinc-700">
+          <div v-else class="flex-1 flex flex-col items-center justify-center text-text-secondary">
             <Globe :size="32" class="opacity-20 mb-2" />
-            <p class="text-xs font-bold uppercase tracking-widest">暂无对比数据</p>
+            <p class="text-xs font-bold uppercase tracking-widest">{{ locale.noComparisonData }}</p>
           </div>
         </div>
       </div>
@@ -537,17 +546,17 @@
         @mouseleave="handleTooltipMouseLeave"
       >
         <div
-          class="bg-zinc-900 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden min-w-[320px] backdrop-blur-xl bg-opacity-90 animate-in fade-in zoom-in duration-200"
+          class="bg-bg-secondary border border-border-secondary rounded-3xl shadow-2xl overflow-hidden min-w-[320px] backdrop-blur-xl bg-opacity-90 animate-in fade-in zoom-in duration-200"
         >
           <div
-            class="p-6 border-b border-zinc-800/50 bg-gradient-to-br from-blue-500/10 to-transparent"
+            class="p-6 border-b border-border-secondary-50 bg-gradient-to-br from-primary-10 to-transparent"
           >
             <div class="flex items-center justify-between mb-4">
-              <h4 class="text-sm font-black text-white uppercase tracking-widest">活跃用户详情</h4>
-              <div class="flex items-center gap-2 px-2 py-1 bg-blue-500/20 rounded-full">
-                <div class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                <span class="text-[10px] font-black text-blue-400"
-                  >{{ realtimeStats.activeUsers }} 在线</span
+              <h4 class="text-sm font-black text-text-primary uppercase tracking-widest">{{ locale.activeUserDetails }}</h4>
+              <div class="flex items-center gap-2 px-2 py-1 bg-primary-20 rounded-full">
+                <div class="w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
+                <span class="text-[10px] font-black text-primary"
+                  >{{ locale.onlineCount(realtimeStats.activeUsers) }}</span
                 >
               </div>
             </div>
@@ -559,39 +568,39 @@
               <div
                 v-for="user in realtimeStats.activeUsersList.slice(0, 5)"
                 :key="user.id"
-                class="flex items-center gap-3 p-3 bg-zinc-950/50 border border-zinc-800/50 rounded-2xl group hover:border-blue-500/30 transition-all"
+                class="flex items-center gap-3 p-3 bg-bg-primary-50 border border-border-secondary-50 rounded-2xl group hover:border-primary-30 transition-all"
               >
                 <div
-                  class="w-10 h-10 rounded-xl bg-zinc-800 flex items-center justify-center font-black text-zinc-500 group-hover:text-blue-400 transition-colors"
+                  class="w-10 h-10 rounded-xl bg-bg-tertiary flex items-center justify-center font-black text-text-tertiary group-hover:text-primary transition-colors"
                 >
                   {{ user.name.charAt(0) }}
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="text-xs font-bold text-zinc-200 truncate">{{ user.name }}</div>
-                  <div class="text-[10px] text-zinc-500 font-medium truncate">
+                  <div class="text-xs font-bold text-text-primary truncate">{{ user.name }}</div>
+                  <div class="text-[10px] text-text-tertiary font-medium truncate">
                     @{{ user.username }}
                   </div>
                 </div>
-                <div class="text-[10px] font-black text-zinc-600 bg-zinc-900 px-2 py-1 rounded-lg">
+                <div class="text-[10px] font-black text-text-disabled bg-bg-secondary px-2 py-1 rounded-lg">
                   {{ user.lastActive }}
                 </div>
               </div>
               <div v-if="realtimeStats.activeUsersList.length > 5" class="text-center py-2">
-                <span class="text-[10px] font-black text-zinc-600 uppercase tracking-widest"
-                  >及其他 {{ realtimeStats.activeUsersList.length - 5 }} 位用户</span
+                <span class="text-[10px] font-black text-text-disabled uppercase tracking-widest"
+                  >{{ locale.andMoreUsers(realtimeStats.activeUsersList.length - 5) }}</span
                 >
               </div>
             </div>
-            <div v-else class="py-10 flex flex-col items-center justify-center text-zinc-600">
+            <div v-else class="py-10 flex flex-col items-center justify-center text-text-disabled">
               <Users :size="32" class="opacity-20 mb-3" />
-              <p class="text-xs font-black uppercase tracking-widest">暂无在线用户</p>
+              <p class="text-xs font-black uppercase tracking-widest">{{ locale.noOnlineUsers }}</p>
             </div>
           </div>
-          <div class="px-6 py-4 bg-zinc-950/50 flex items-center justify-between">
-            <span class="text-[10px] font-black text-zinc-600 uppercase tracking-widest"
-              >实时数据同步中</span
+          <div class="px-6 py-4 bg-bg-primary-50 flex items-center justify-between">
+            <span class="text-[10px] font-black text-text-disabled uppercase tracking-widest"
+              >{{ locale.syncingRealtime }}</span
             >
-            <Activity :size="12" class="text-blue-500 animate-pulse" />
+            <Activity :size="12" class="text-primary animate-pulse" />
           </div>
         </div>
       </div>
@@ -601,6 +610,7 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
+import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import {
   TrendingUp,
   Users,
@@ -619,12 +629,42 @@ import {
   MousePointer2,
   Check,
   X
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { useSemesters } from '~/composables/useSemesters'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
+import { useLocale } from '~/utils/locale'
 
 // 使用学期管理 composable
 const { fetchSemesters, semesters: availableSemesters, currentSemester } = useSemesters()
+const { admin } = useLocale()
+const locale = computed(() => {
+  const base = admin.value?.dataAnalysis || {}
+  return useSafeLocale({
+    ...base,
+    countSongs: base.countSongs || ((count) => `${count}首`),
+    userActivity: base.userActivity || ((contributions, likes) => `${contributions}首投稿 · ${likes}次点赞`),
+    andMoreUsers: base.andMoreUsers || ((count) => `及其他 ${count} 位用户`),
+    onlineCount: base.onlineCount || ((count) => `${count} 在线`),
+    messages: {
+      updated: '数据已更新',
+      refreshSuccess: '数据刷新成功',
+      ...(base.messages || {})
+    },
+    errors: {
+      topSongs: '加载热门歌曲失败',
+      loadData: '加载数据失败，请稍后重试',
+      stats: '加载统计数据失败',
+      trends: '加载趋势数据失败',
+      activeUsers: '加载活跃用户失败',
+      userEngagement: '加载用户参与度失败',
+      semesterComparison: '加载学期对比失败',
+      init: '初始化失败，请刷新页面重试',
+      initNotify: '数据初始化失败',
+      retry: '重试失败',
+      ...(base.errors || {})
+    }
+  })
+})
 
 // 响应式数据
 const selectedSemester = ref('all')
@@ -637,11 +677,11 @@ const currentLoadingStep = ref(0)
 // 转换学期列表以适应 CustomSelect
 const availableSemesterOptions = computed(() => {
   const options = (availableSemesters.value || []).map((s) => ({ name: s.name, value: s.name }))
-  return [{ name: '全部学期', value: 'all' }, ...options]
+  return [{ name: locale.value.allSemesters, value: 'all' }, ...options]
 })
 
 // 加载步骤
-const loadingSteps = ['获取学期信息', '加载统计数据', '获取图表数据', '加载实时数据']
+const loadingSteps = computed(() => locale.value.loadingSteps || ['获取学期信息', '加载统计数据', '获取图表数据', '加载实时数据'])
 
 const analysisData = ref({
   totalSongs: 0,
@@ -663,32 +703,44 @@ const analysisData = ref({
 // 计算 KPI 统计数据
 const kpiStats = computed(() => [
   {
-    label: '注册用户总量',
+    label: locale.value?.kpi?.totalUsers || 'Total users',
     value: analysisData.value.totalUsers,
     trend: analysisData.value.usersChange,
     icon: Users,
-    color: 'blue'
+    color: 'blue',
+    iconColorHoverClass: 'group-hover:text-primary group-hover:border-primary-30',
+    trendColorClass: 'text-primary',
+    glowColorClass: 'bg-primary-5'
   },
   {
-    label: '活跃歌曲库',
+    label: locale.value?.kpi?.activeSongs || 'Active songs',
     value: analysisData.value.totalSongs,
     trend: analysisData.value.songsChange,
     icon: Music,
-    color: 'emerald'
+    color: 'emerald',
+    iconColorHoverClass: 'group-hover:text-success group-hover:border-success-30',
+    trendColorClass: 'text-success',
+    glowColorClass: 'bg-success-5'
   },
   {
-    label: '本学期排期天数',
+    label: locale.value?.kpi?.scheduleDays || 'Schedule days',
     value: analysisData.value.totalSchedules,
     trend: analysisData.value.schedulesChange,
     icon: Calendar,
-    color: 'amber'
+    color: 'amber',
+    iconColorHoverClass: 'group-hover:text-warning group-hover:border-warning-30',
+    trendColorClass: 'text-warning',
+    glowColorClass: 'bg-warning-5'
   },
   {
-    label: '累计点歌次数',
+    label: locale.value?.kpi?.totalRequests || 'Total requests',
     value: analysisData.value.totalRequests,
     trend: analysisData.value.requestsChange,
     icon: Heart,
-    color: 'rose'
+    color: 'rose',
+    iconColorHoverClass: 'group-hover:text-error group-hover:border-error-30',
+    trendColorClass: 'text-error',
+    glowColorClass: 'bg-error-5'
   }
 ])
 
@@ -782,7 +834,7 @@ const handleSemesterChange = async () => {
   await Promise.all([loadAnalysisData(), loadChartData(), loadRealtimeStats()])
 
   if (window.$showNotification) {
-    window.$showNotification('数据已更新', 'success')
+    window.$showNotification(locale.value.messages.updated, 'success')
   }
 }
 
@@ -809,10 +861,10 @@ const handleSortChange = async (sortBy) => {
     panelStates.value.topSongs.error = null
   } catch (err) {
     console.warn('获取热门歌曲数据失败:', err)
-    panelStates.value.topSongs.error = '加载热门歌曲失败'
+    panelStates.value.topSongs.error = locale.value.errors.topSongs
     topSongs.value = []
     if (window.$showNotification) {
-      window.$showNotification('加载热门歌曲失败', 'error')
+      window.$showNotification(locale.value.errors.topSongs, 'error')
     }
   } finally {
     panelStates.value.topSongs.loading = false
@@ -856,9 +908,9 @@ const loadAnalysisData = async () => {
     }
   } catch (err) {
     console.error('加载分析数据失败:', err)
-    error.value = '加载数据失败，请稍后重试'
+    error.value = locale.value.errors.loadData
     if (window.$showNotification) {
-      window.$showNotification('加载统计数据失败', 'error')
+      window.$showNotification(locale.value.errors.stats, 'error')
     }
   } finally {
     isLoading.value = false
@@ -911,7 +963,7 @@ const loadChartData = async () => {
       panelStates.value.trends.error = null
     } catch (err) {
       console.warn('获取趋势数据失败:', err)
-      panelStates.value.trends.error = '加载趋势数据失败'
+      panelStates.value.trends.error = locale.value.errors.trends
       trendData.value = []
     } finally {
       panelStates.value.trends.loading = false
@@ -931,7 +983,7 @@ const loadChartData = async () => {
       panelStates.value.topSongs.error = null
     } catch (err) {
       console.warn('获取热门歌曲数据失败:', err)
-      panelStates.value.topSongs.error = '加载热门歌曲失败'
+      panelStates.value.topSongs.error = locale.value.errors.topSongs
       topSongs.value = []
     } finally {
       panelStates.value.topSongs.loading = false
@@ -951,7 +1003,7 @@ const loadChartData = async () => {
       panelStates.value.activeUsers.error = null
     } catch (err) {
       console.warn('获取活跃用户数据失败:', err)
-      panelStates.value.activeUsers.error = '加载活跃用户失败'
+      panelStates.value.activeUsers.error = locale.value.errors.activeUsers
       activeUsers.value = []
     } finally {
       panelStates.value.activeUsers.loading = false
@@ -968,7 +1020,7 @@ const loadChartData = async () => {
       panelStates.value.userEngagement.error = null
     } catch (err) {
       console.warn('获取用户参与度数据失败:', err)
-      panelStates.value.userEngagement.error = '加载用户参与度失败'
+      panelStates.value.userEngagement.error = locale.value.errors.userEngagement
       userEngagement.value = {}
     } finally {
       panelStates.value.userEngagement.loading = false
@@ -985,7 +1037,7 @@ const loadChartData = async () => {
       panelStates.value.semesterComparison.error = null
     } catch (err) {
       console.warn('获取学期对比数据失败:', err)
-      panelStates.value.semesterComparison.error = '加载学期对比失败'
+      panelStates.value.semesterComparison.error = locale.value.errors.semesterComparison
       semesterComparison.value = []
     } finally {
       panelStates.value.semesterComparison.loading = false
@@ -1025,9 +1077,9 @@ onMounted(async () => {
     }, 30000)
   } catch (err) {
     console.error('初始化数据分析面板失败:', err)
-    error.value = '初始化失败，请刷新页面重试'
+    error.value = locale.value.errors.init
     if (window.$showNotification) {
-      window.$showNotification('数据初始化失败', 'error')
+      window.$showNotification(locale.value.errors.initNotify, 'error')
     }
   }
 })
@@ -1039,7 +1091,7 @@ const refreshAllData = async () => {
   await Promise.all([loadAnalysisData(), loadChartData(), loadRealtimeStats()])
 
   if (window.$showNotification) {
-    window.$showNotification('数据刷新成功', 'success')
+    window.$showNotification(locale.value.messages.refreshSuccess, 'success')
   }
 }
 
@@ -1064,10 +1116,10 @@ const loadActiveUsers = async () => {
     panelStates.value.activeUsers.error = null
   } catch (err) {
     console.warn('重新获取活跃用户数据失败:', err)
-    panelStates.value.activeUsers.error = '加载活跃用户失败'
+    panelStates.value.activeUsers.error = locale.value.errors.activeUsers
     activeUsers.value = []
     if (window.$showNotification) {
-      window.$showNotification('重试失败', 'error')
+      window.$showNotification(locale.value.errors.retry, 'error')
     }
   } finally {
     panelStates.value.activeUsers.loading = false
@@ -1084,9 +1136,9 @@ const loadSemesterComparison = async () => {
     semesterComparison.value = comparison || []
   } catch (err) {
     console.warn('获取学期对比数据失败:', err)
-    panelStates.value.semesterComparison.error = '加载学期对比失败'
+    panelStates.value.semesterComparison.error = locale.value.errors.semesterComparison
     if (window.$showNotification) {
-      window.$showNotification('重试失败', 'error')
+      window.$showNotification(locale.value.errors.retry, 'error')
     }
   } finally {
     panelStates.value.semesterComparison.loading = false
@@ -1118,15 +1170,15 @@ const formatDateShort = (dateStr) => {
   width: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--overlay-5);
   border-radius: 3px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(79, 70, 229, 0.3);
+  background: var(--data-analysis-scroll-thumb);
   border-radius: 3px;
   transition: background 0.3s ease;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(79, 70, 229, 0.5);
+  background: var(--data-analysis-scroll-thumb-hover);
 }
 </style>

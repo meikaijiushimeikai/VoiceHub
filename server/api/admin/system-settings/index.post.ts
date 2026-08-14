@@ -2,7 +2,89 @@ import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
 import { SMTP_PASSWORD_MASK, SECRET_FIELD_MASK, maskSystemSettingsSecrets } from './secretMask'
-import { SYSTEM_SETTINGS_DEFAULTS } from '../../../utils/system-settings-defaults'
+import { SYSTEM_SETTINGS_DEFAULTS } from '~~/server/utils/system-settings-defaults'
+import {
+  getAggregateOAuthLoginTypesOrDefault,
+  isSafeAggregateOAuthUrl,
+  normalizeAggregateOAuthLoginTypes
+} from '~~/server/utils/oauth-providers'
+import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES, MUSIC_SOURCE_PLATFORMS } from '~~/server/config/constants'
+
+/**
+ * 解析数据库中存储的平台数组（历史脏数据/异常写入时回退默认值）
+ */
+const parsePlatformStored = (value: unknown): string[] => {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    return Array.isArray(parsed) && parsed.length > 0 ? (parsed as string[]) : [...MUSIC_SOURCE_PLATFORMS]
+  } catch {
+    return [...MUSIC_SOURCE_PLATFORMS]
+  }
+}
+
+/**
+ * 校验平台数组 JSON 字符串
+ * @param fieldName 字段名（用于错误消息）
+ * @param value 原始值（应为 JSON 字符串）
+ * @param requireUnique 是否要求无重复（仅 platformOrder 需要）
+ * @returns 校验后的数组
+ */
+const validatePlatformArray = (fieldName: string, value: unknown, requireUnique = false): string[] => {
+  if (typeof value !== 'string') {
+    throw createApiError(
+      400,
+      SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+      `${fieldName} 必须是 JSON 字符串`
+    )
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(value)
+  } catch {
+    throw createApiError(
+      400,
+      SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+      `${fieldName} 格式无效，应为合法 JSON 数组`
+    )
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw createApiError(
+      400,
+      SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+      `${fieldName} 必须是数组`
+    )
+  }
+
+  const invalid = parsed.filter((p: unknown) => !(MUSIC_SOURCE_PLATFORMS as readonly string[]).includes(p as string))
+  if (invalid.length > 0) {
+    throw createApiError(
+      400,
+      SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+      `${fieldName} 包含无效的平台: ${(invalid as string[]).join(', ')}`
+    )
+  }
+
+  if (parsed.length === 0) {
+    throw createApiError(
+      400,
+      SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+      `${fieldName} 至少保留一个平台`
+    )
+  }
+
+  if (requireUnique && parsed.length !== new Set(parsed as string[]).size) {
+    throw createApiError(
+      400,
+      SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+      `${fieldName} 中不能包含重复的平台`
+    )
+  }
+
+  return parsed as string[]
+}
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证和权限
@@ -135,6 +217,16 @@ export default defineEventHandler(async (event) => {
       updateData.requireCardCodeForRequests = body.requireCardCodeForRequests
     }
 
+    if (body.enableCardCodeLimitBypass !== undefined) {
+      if (typeof body.enableCardCodeLimitBypass !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'enableCardCodeLimitBypass 必须是布尔值'
+        })
+      }
+      updateData.enableCardCodeLimitBypass = body.enableCardCodeLimitBypass
+    }
+
     if (body.dailySubmissionLimit !== undefined) {
       if (
         body.dailySubmissionLimit !== null &&
@@ -242,10 +334,17 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      const nextTurnstileSiteKey = body.turnstileSiteKey !== undefined ? body.turnstileSiteKey : settings?.turnstileSiteKey
-      const nextTurnstileSecretKey = body.turnstileSecretKey !== undefined && body.turnstileSecretKey !== SECRET_FIELD_MASK ? body.turnstileSecretKey : settings?.turnstileSecretKey
+      const nextTurnstileSiteKey =
+        body.turnstileSiteKey !== undefined ? body.turnstileSiteKey : settings?.turnstileSiteKey
+      const nextTurnstileSecretKey =
+        body.turnstileSecretKey !== undefined && body.turnstileSecretKey !== SECRET_FIELD_MASK
+          ? body.turnstileSecretKey
+          : settings?.turnstileSecretKey
 
-      if (body.captchaProvider === 'turnstile' && (!nextTurnstileSiteKey || !nextTurnstileSecretKey)) {
+      if (
+        body.captchaProvider === 'turnstile' &&
+        (!nextTurnstileSiteKey || !nextTurnstileSecretKey)
+      ) {
         throw createError({
           statusCode: 400,
           message: '启用 Turnstile 验证前，请先配置 Site Key 和 Secret Key'
@@ -281,6 +380,42 @@ export default defineEventHandler(async (event) => {
         })
       }
       updateData.forceBlockAllRequests = body.forceBlockAllRequests
+    }
+
+    if (body.forcePasswordChangeOnFirstLogin !== undefined) {
+      if (typeof body.forcePasswordChangeOnFirstLogin !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'forcePasswordChangeOnFirstLogin 必须是布尔值'
+        })
+      }
+      updateData.forcePasswordChangeOnFirstLogin = body.forcePasswordChangeOnFirstLogin
+    }
+
+    // 平台管理配置
+    if (body.enabledPlatforms !== undefined || body.platformOrder !== undefined) {
+      const enabled = body.enabledPlatforms !== undefined
+        ? validatePlatformArray('enabledPlatforms', body.enabledPlatforms, true)
+        : parsePlatformStored(settings?.enabledPlatforms)
+      const order = body.platformOrder !== undefined
+        ? validatePlatformArray('platformOrder', body.platformOrder, true)
+        : parsePlatformStored(settings?.platformOrder)
+
+      // 交叉一致性：排序中必须至少包含一个已启用的平台，避免“无可用平台”死锁
+      if (!order.some((p) => enabled.includes(p))) {
+        throw createApiError(
+          400,
+          SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+          'platformOrder 必须包含至少一个已启用的平台'
+        )
+      }
+
+      if (body.enabledPlatforms !== undefined) {
+        updateData.enabledPlatforms = body.enabledPlatforms
+      }
+      if (body.platformOrder !== undefined) {
+        updateData.platformOrder = body.platformOrder
+      }
     }
 
     // SMTP配置字段
@@ -350,7 +485,9 @@ export default defineEventHandler(async (event) => {
 
     if (body.oauthRedirectUri !== undefined) {
       const normalizedOauthRedirectUri =
-        typeof body.oauthRedirectUri === 'string' ? body.oauthRedirectUri.trim() : body.oauthRedirectUri
+        typeof body.oauthRedirectUri === 'string'
+          ? body.oauthRedirectUri.trim()
+          : body.oauthRedirectUri
 
       if (normalizedOauthRedirectUri !== null && normalizedOauthRedirectUri !== '') {
         try {
@@ -360,18 +497,21 @@ export default defineEventHandler(async (event) => {
           if (!validPathPattern.test(uri.pathname)) {
             throw createError({
               statusCode: 400,
-              message: 'oauthRedirectUri 必须是回调地址，例如 https://yourdomain.com/api/auth/[provider]/callback'
+              message:
+                'oauthRedirectUri 必须是回调地址，例如 https://yourdomain.com/api/auth/[provider]/callback'
             })
           }
         } catch (error: any) {
           if (error?.statusCode === 400) throw error
           throw createError({
             statusCode: 400,
-            message: 'oauthRedirectUri 不是合法URL，示例：https://yourdomain.com/api/auth/[provider]/callback'
+            message:
+              'oauthRedirectUri 不是合法URL，示例：https://yourdomain.com/api/auth/[provider]/callback'
           })
         }
       }
-      updateData.oauthRedirectUri = normalizedOauthRedirectUri === '' ? null : normalizedOauthRedirectUri
+      updateData.oauthRedirectUri =
+        normalizedOauthRedirectUri === '' ? null : normalizedOauthRedirectUri
     }
 
     if (body.oauthStateSecret !== undefined && body.oauthStateSecret !== SECRET_FIELD_MASK) {
@@ -385,26 +525,38 @@ export default defineEventHandler(async (event) => {
         ? body.oauthStateSecret
         : settings?.oauthStateSecret
     const nextGithubOAuthEnabled =
-      body.githubOAuthEnabled !== undefined ? body.githubOAuthEnabled : settings?.githubOAuthEnabled ?? false
+      body.githubOAuthEnabled !== undefined
+        ? body.githubOAuthEnabled
+        : (settings?.githubOAuthEnabled ?? false)
     const nextCasdoorOAuthEnabled =
       body.casdoorOAuthEnabled !== undefined
         ? body.casdoorOAuthEnabled
-        : settings?.casdoorOAuthEnabled ?? false
+        : (settings?.casdoorOAuthEnabled ?? false)
     const nextGoogleOAuthEnabled =
-      body.googleOAuthEnabled !== undefined ? body.googleOAuthEnabled : settings?.googleOAuthEnabled ?? false
+      body.googleOAuthEnabled !== undefined
+        ? body.googleOAuthEnabled
+        : (settings?.googleOAuthEnabled ?? false)
+    const nextAggregateOAuthEnabled =
+      body.aggregateOAuthEnabled !== undefined
+        ? body.aggregateOAuthEnabled
+        : (settings?.aggregateOAuthEnabled ?? false)
     const nextCustomOAuthEnabled =
-      body.customOAuthEnabled !== undefined ? body.customOAuthEnabled : settings?.customOAuthEnabled ?? false
+      body.customOAuthEnabled !== undefined
+        ? body.customOAuthEnabled
+        : (settings?.customOAuthEnabled ?? false)
 
     if (
       nextGithubOAuthEnabled ||
       nextCasdoorOAuthEnabled ||
       nextGoogleOAuthEnabled ||
+      nextAggregateOAuthEnabled ||
       nextCustomOAuthEnabled
     ) {
       if (!nextOauthRedirectUri || !nextOauthStateSecret) {
         throw createError({
           statusCode: 400,
-          message: '启用 OAuth 登录方式前，请先在管理员后台配置 OAuth 重定向 URI 和 OAuth State 密钥'
+          message:
+            '启用 OAuth 登录方式前，请先在管理员后台配置 OAuth 重定向 URI 和 OAuth State 密钥'
         })
       }
     }
@@ -417,10 +569,10 @@ export default defineEventHandler(async (event) => {
           message: 'githubOAuthEnabled 必须是布尔值'
         })
       }
-      if (body.githubOAuthEnabled && (!body.githubClientId && !settings?.githubClientId)) {
+      if (body.githubOAuthEnabled && !body.githubClientId && !settings?.githubClientId) {
         throw createError({ statusCode: 400, message: '启用 GitHub 登录时必须提供 Client ID' })
       }
-      if (body.githubOAuthEnabled && (!body.githubClientSecret && !settings?.githubClientSecret)) {
+      if (body.githubOAuthEnabled && !body.githubClientSecret && !settings?.githubClientSecret) {
         throw createError({ statusCode: 400, message: '启用 GitHub 登录时必须提供 Client Secret' })
       }
       updateData.githubOAuthEnabled = body.githubOAuthEnabled
@@ -442,16 +594,20 @@ export default defineEventHandler(async (event) => {
           message: 'casdoorOAuthEnabled 必须是布尔值'
         })
       }
-      if (body.casdoorOAuthEnabled && (!body.casdoorServerUrl && !settings?.casdoorServerUrl)) {
+      if (body.casdoorOAuthEnabled && !body.casdoorServerUrl && !settings?.casdoorServerUrl) {
         throw createError({ statusCode: 400, message: '启用 Casdoor 登录时必须提供服务器 URL' })
       }
-      if (body.casdoorOAuthEnabled && (!body.casdoorClientId && !settings?.casdoorClientId)) {
+      if (body.casdoorOAuthEnabled && !body.casdoorClientId && !settings?.casdoorClientId) {
         throw createError({ statusCode: 400, message: '启用 Casdoor 登录时必须提供 Client ID' })
       }
-      if (body.casdoorOAuthEnabled && (!body.casdoorClientSecret && !settings?.casdoorClientSecret)) {
+      if (body.casdoorOAuthEnabled && !body.casdoorClientSecret && !settings?.casdoorClientSecret) {
         throw createError({ statusCode: 400, message: '启用 Casdoor 登录时必须提供 Client Secret' })
       }
-      if (body.casdoorOAuthEnabled && (!body.casdoorOrganizationName && !settings?.casdoorOrganizationName)) {
+      if (
+        body.casdoorOAuthEnabled &&
+        !body.casdoorOrganizationName &&
+        !settings?.casdoorOrganizationName
+      ) {
         throw createError({ statusCode: 400, message: '启用 Casdoor 登录时必须提供组织名称' })
       }
       updateData.casdoorOAuthEnabled = body.casdoorOAuthEnabled
@@ -481,10 +637,10 @@ export default defineEventHandler(async (event) => {
           message: 'googleOAuthEnabled 必须是布尔值'
         })
       }
-      if (body.googleOAuthEnabled && (!body.googleClientId && !settings?.googleClientId)) {
+      if (body.googleOAuthEnabled && !body.googleClientId && !settings?.googleClientId) {
         throw createError({ statusCode: 400, message: '启用 Google 登录时必须提供 Client ID' })
       }
-      if (body.googleOAuthEnabled && (!body.googleClientSecret && !settings?.googleClientSecret)) {
+      if (body.googleOAuthEnabled && !body.googleClientSecret && !settings?.googleClientSecret) {
         throw createError({ statusCode: 400, message: '启用 Google 登录时必须提供 Client Secret' })
       }
       updateData.googleOAuthEnabled = body.googleOAuthEnabled
@@ -496,6 +652,78 @@ export default defineEventHandler(async (event) => {
 
     if (body.googleClientSecret !== undefined && body.googleClientSecret !== SECRET_FIELD_MASK) {
       updateData.googleClientSecret = body.googleClientSecret
+    }
+
+    // 聚合登陆
+    const normalizeOptionalText = (value: any) => (typeof value === 'string' ? value.trim() : value)
+    const storedAggregateLoginTypes = getAggregateOAuthLoginTypesOrDefault(
+      settings?.aggregateOAuthLoginType
+    )
+    const nextAggregateLoginTypes =
+      body.aggregateOAuthLoginType !== undefined
+        ? normalizeAggregateOAuthLoginTypes(body.aggregateOAuthLoginType)
+        : storedAggregateLoginTypes
+    const nextAggregateAppId =
+      body.aggregateOAuthAppId !== undefined
+        ? normalizeOptionalText(body.aggregateOAuthAppId)
+        : settings?.aggregateOAuthAppId
+    const nextAggregateAppKey =
+      body.aggregateOAuthAppKey !== undefined && body.aggregateOAuthAppKey !== SECRET_FIELD_MASK
+        ? normalizeOptionalText(body.aggregateOAuthAppKey)
+        : settings?.aggregateOAuthAppKey
+    const nextAggregateEndpoint =
+      body.aggregateOAuthEndpoint !== undefined
+        ? normalizeOptionalText(body.aggregateOAuthEndpoint)
+        : settings?.aggregateOAuthEndpoint || 'https://a.idcfx.net/connect.php'
+
+    if (body.aggregateOAuthEnabled !== undefined) {
+      if (typeof body.aggregateOAuthEnabled !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'aggregateOAuthEnabled 必须是布尔值'
+        })
+      }
+      updateData.aggregateOAuthEnabled = body.aggregateOAuthEnabled
+    }
+
+    if (nextAggregateOAuthEnabled && !nextAggregateAppId) {
+      throw createError({ statusCode: 400, message: '启用聚合登陆时必须提供 AppID' })
+    }
+    if (nextAggregateOAuthEnabled && !nextAggregateAppKey) {
+      throw createError({ statusCode: 400, message: '启用聚合登陆时必须提供 AppKey' })
+    }
+    if (nextAggregateOAuthEnabled && !nextAggregateEndpoint) {
+      throw createError({ statusCode: 400, message: '启用聚合登陆时必须提供接口地址' })
+    }
+    if (nextAggregateOAuthEnabled && nextAggregateLoginTypes.length === 0) {
+      throw createError({ statusCode: 400, message: '启用聚合登陆时至少选择一种登录方式' })
+    }
+
+    if (body.aggregateOAuthAppId !== undefined) {
+      updateData.aggregateOAuthAppId = nextAggregateAppId || null
+    }
+
+    if (
+      body.aggregateOAuthAppKey !== undefined &&
+      body.aggregateOAuthAppKey !== SECRET_FIELD_MASK
+    ) {
+      updateData.aggregateOAuthAppKey = nextAggregateAppKey || null
+    }
+
+    if (body.aggregateOAuthLoginType !== undefined) {
+      updateData.aggregateOAuthLoginType = JSON.stringify(nextAggregateLoginTypes)
+    }
+
+    if (body.aggregateOAuthEndpoint !== undefined) {
+      if (nextAggregateEndpoint) {
+        if (!isSafeAggregateOAuthUrl(nextAggregateEndpoint)) {
+          throw createError({
+            statusCode: 400,
+            message: 'aggregateOAuthEndpoint 公网地址必须使用 HTTPS，内网地址可使用 HTTP'
+          })
+        }
+      }
+      updateData.aggregateOAuthEndpoint = nextAggregateEndpoint || 'https://a.idcfx.net/connect.php'
     }
 
     // Custom OAuth2
@@ -517,7 +745,10 @@ export default defineEventHandler(async (event) => {
         ]
         for (const field of requiredCustomFields) {
           if (!body[field.key] && !settings?.[field.key]) {
-            throw createError({ statusCode: 400, message: `启用自定义 OAuth2 登录时必须提供 ${field.label}` })
+            throw createError({
+              statusCode: 400,
+              message: `启用自定义 OAuth2 登录时必须提供 ${field.label}`
+            })
           }
         }
       }
@@ -570,8 +801,8 @@ export default defineEventHandler(async (event) => {
     }
 
     if (
-      body.customOAuthClientSecret !== undefined
-      && body.customOAuthClientSecret !== SECRET_FIELD_MASK
+      body.customOAuthClientSecret !== undefined &&
+      body.customOAuthClientSecret !== SECRET_FIELD_MASK
     ) {
       updateData.customOAuthClientSecret = body.customOAuthClientSecret
     }
@@ -626,15 +857,6 @@ export default defineEventHandler(async (event) => {
       settings = updatedSettingsResult[0]
     }
 
-    // 清除系统设置缓存
-    try {
-      const { CacheService } = await import('~~/server/services/cacheService')
-      await CacheService.getInstance().clearSystemSettingsCache()
-      console.log('[Cache] 系统设置缓存已清除（更新系统设置）')
-    } catch (cacheError) {
-      console.warn('清除系统设置缓存失败:', cacheError)
-    }
-
     if (updateData.telemetryEnabled !== undefined) {
       try {
         const { setTelemetryEnabledCache } = await import('~~/server/utils/telemetry')
@@ -666,4 +888,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-

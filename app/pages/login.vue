@@ -4,14 +4,14 @@
       <div class="form-section">
         <div class="form-header">
           <div class="logo-row">
-            <img :src="brandLogoSrc" alt="Brand Logo" class="brand-logo-center" >
-            <div v-if="schoolLogoHomeUrl && schoolLogoHomeUrl.trim()" class="logo-divider" />
+            <img :src="brandLogoSrc" alt="Brand Logo" class="brand-logo-center" />
+            <div v-if="schoolLogoHomeDisplayUrl" class="logo-divider" />
             <img
-              v-if="schoolLogoHomeUrl && schoolLogoHomeUrl.trim()"
-              :src="schoolLogoHomeUrl"
-              alt="学校Logo"
+              v-if="schoolLogoHomeDisplayUrl"
+              :src="schoolLogoHomeDisplayUrl"
+              :alt="locale.schoolLogoAlt"
               class="school-logo"
-            >
+            />
           </div>
           <h1 class="form-title">{{ siteTitle ? siteTitle + ' | VoiceHub' : 'VoiceHub' }}</h1>
           <div class="header-divider" />
@@ -29,15 +29,25 @@
 <script setup>
 import { onMounted, computed, ref } from 'vue'
 import LoginForm from '~/components/Auth/LoginForm.vue'
-import logo from '~~/public/images/logo.svg'
+import { useLocale } from '~/utils/locale'
+import { useThemeImage } from '~/composables/useThemeImage'
 
 // 使用站点配置
-const { siteTitle, initSiteConfig, logoUrl, schoolLogoHomeUrl, icp: icpNumber } = useSiteConfig()
+const {
+  siteTitle,
+  initSiteConfig,
+  logoUrl,
+  schoolLogoHomeDisplayUrl,
+  icp: icpNumber
+} = useSiteConfig()
+const { pages } = useLocale()
+const locale = computed(() => pages.value?.login || {})
 // 主品牌Logo优先使用SVG，其次使用站点配置中非ICO的地址
+const { getLogo } = useThemeImage()
 const brandLogoSrc = computed(() => {
   const url = logoUrl.value
   if (url && !url.endsWith('.ico')) return url
-  return logo
+  return getLogo()
 })
 
 // 在组件挂载后初始化站点配置
@@ -47,7 +57,7 @@ onMounted(async () => {
 
   // 设置页面标题
   if (typeof document !== 'undefined' && siteTitle.value) {
-    document.title = `登录 | ${siteTitle.value}`
+    document.title = `${locale.value.title} | ${siteTitle.value}`
   }
 })
 </script>
@@ -62,7 +72,7 @@ onMounted(async () => {
   justify-content: flex-start;
   padding: 20px;
   /* 响应式尺寸变量 */
-  --brand-logo-size: clamp(48px, 8vw, 96px);
+  --color-brand-logo-size: clamp(48px, 8vw, 96px);
   --school-logo-size: clamp(96px, 16vw, 160px);
   --logo-gap: clamp(12px, 2vw, 24px);
   --divider-height: clamp(32px, 10vw, 96px);
@@ -99,7 +109,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="%23666" stroke-width="0.5"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
   opacity: 0.3;
 }
 
@@ -126,7 +136,7 @@ onMounted(async () => {
 
 .brand-logo:hover {
   transform: translateY(-3px) scale(1.02);
-  filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 10px 20px var(--mask-25));
 }
 
 .brand-title {
@@ -214,13 +224,13 @@ onMounted(async () => {
 }
 
 .brand-logo-center {
-  width: var(--brand-logo-size);
-  height: var(--brand-logo-size);
+  width: var(--color-brand-logo-size);
+  height: var(--color-brand-logo-size);
   margin: 0;
   object-fit: contain;
   max-width: 100%;
   max-height: 100%;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+  filter: drop-shadow(0 2px 8px var(--mask-15));
 }
 
 .school-logo {
@@ -230,7 +240,7 @@ onMounted(async () => {
   object-fit: contain;
   max-width: 100%;
   max-height: 100%;
-  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.15));
+  filter: drop-shadow(0 2px 8px var(--mask-15));
 }
 
 .form-title {
@@ -300,7 +310,7 @@ onMounted(async () => {
 
 .icp-link:hover,
 .voicehub-link:hover {
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--overlay-80);
 }
 
 @media (max-width: 768px) {
