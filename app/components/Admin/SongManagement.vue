@@ -285,7 +285,13 @@
                   }}
                 </span>
               </h4>
-              <p class="text-xs text-text-tertiary font-medium truncate mt-0.5">{{ song.artist }}</p>
+              <p class="text-xs text-text-tertiary font-medium truncate mt-0.5 flex items-center gap-1.5">
+                <span>{{ song.artist }}</span>
+                <span
+                  v-if="song.durationSeconds"
+                  class="text-text-disabled shrink-0"
+                >{{ formatDuration(song.durationSeconds) }}</span>
+              </p>
               <span
                 class="lg:hidden text-[9px] font-black text-text-secondary uppercase tracking-wider mt-1 inline-block"
                 >{{ formatDate(song.createdAt) }}</span
@@ -458,8 +464,11 @@
       :content="submissionRemarkDialog.content"
       :is-public="submissionRemarkDialog.isPublic"
       :is-updating-public="submissionRemarkDialog.isUpdatingPublic"
+      :note-status="submissionRemarkDialog.status"
       @close="submissionRemarkDialog.show = false"
       @update:is-public="updateSubmissionNotePublic"
+      @approve="updateSubmissionNotePublicStatus('approved')"
+      @reject="updateSubmissionNotePublicStatus('rejected')"
     />
 
     <!-- 驳回歌曲对话框 -->
@@ -950,6 +959,50 @@
 
             <div class="space-y-2">
               <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
+                >{{ locale.editModal.duration }}</label
+              >
+              <div class="flex gap-2">
+                <input
+                  v-if="showEditModal"
+                  v-model="editForm.durationSeconds"
+                  type="number"
+                  min="0"
+                  max="7200"
+                  :placeholder="locale.editModal.durationPlaceholder"
+                  class="w-full bg-bg-primary border border-border-secondary rounded-lg px-4 py-3 text-sm text-text-primary focus:outline-none transition-all"
+                />
+                <input
+                  v-else
+                  v-model="addForm.durationSeconds"
+                  type="number"
+                  min="0"
+                  max="7200"
+                  :placeholder="locale.editModal.durationPlaceholder"
+                  class="w-full bg-bg-primary border border-border-secondary rounded-lg px-4 py-3 text-sm text-text-primary focus:outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  :disabled="
+                    refreshDurationLoading ||
+                    (showEditModal
+                      ? !editForm.musicPlatform || !editForm.musicId
+                      : !addForm.musicPlatform || !addForm.musicId)
+                  "
+                  class="px-4 py-3 bg-bg-tertiary-50 hover:bg-bg-quaternary text-text-secondary text-xs font-bold rounded-lg transition-all border border-border-tertiary-30 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5"
+                  :title="locale.editModal.refreshDuration"
+                  @click="refreshDurationInModal"
+                >
+                  <RotateCcw :size="14" :class="{ 'animate-spin': refreshDurationLoading }" />
+                  {{ locale.editModal.refreshDuration }}
+                </button>
+              </div>
+              <p class="text-[10px] text-text-disabled font-medium px-1">
+                {{ locale.editModal.durationHint }}
+              </p>
+            </div>
+
+            <div class="space-y-2">
+              <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
                 >{{ locale.editModal.coverUrl }}</label
               >
               <input
@@ -1093,6 +1146,7 @@ import { useSongPlayer } from '~/composables/useSongPlayer'
 import { useLocale } from '~/utils/locale'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
 import { validateUrl, convertToHttps } from '~/utils/url'
+import { formatDuration } from '~/utils/timeUtils'
 import dayjs from 'dayjs'
 import customParseFormat from 'dayjs/plugin/customParseFormat'
 
@@ -1192,7 +1246,8 @@ const submissionRemarkDialog = ref({
   songTitle: '',
   content: '',
   isPublic: false,
-  isUpdatingPublic: false
+  isUpdatingPublic: false,
+  status: null
 })
 
 // 驳回歌曲相关
@@ -1210,6 +1265,7 @@ const rejectSongInfo = ref({
 // 编辑歌曲相关
 const showEditModal = ref(false)
 const editLoading = ref(false)
+const refreshDurationLoading = ref(false)
 const editForm = ref({
   id: null,
   title: '',
@@ -1222,7 +1278,8 @@ const editForm = ref({
   musicPlatform: '',
   musicId: '',
   cover: '',
-  playUrl: ''
+  playUrl: '',
+  durationSeconds: ''
 })
 const originalEditSubmissionNote = ref('')
 const submissionNoteClearRequested = ref(false)
@@ -1242,7 +1299,8 @@ const addForm = ref({
   musicPlatform: '',
   musicId: '',
   cover: '',
-  playUrl: ''
+  playUrl: '',
+  durationSeconds: ''
 })
 
 // URL验证状态
@@ -1460,6 +1518,73 @@ const getStatusText = (song) => {
   return getNestedMessage('options', 'pending')
 }
 
+const updateSubmissionNotePublicStatus = async (status) => {
+  const dialogData = submissionRemarkDialog.value
+  if (!dialogData.songId || dialogData.isUpdatingPublic) return
+
+  // 兜底文案：避免异步回调里 getNestedMessage 因代码分割/作用域问题抛 ReferenceError
+  // 完全不调用 getNestedMessage 也能正常显示通知（避免任何作用域/死代码消除风险）
+  const fallbackText = {
+    success: status === 'approved' ? '已通过审核' : '已拒绝审核',
+    failure: '更新审核状态失败'
+  }
+  const safeMessage = (section, key, fallback) => {
+    try {
+      const text = getNestedMessage(section, key)
+      return text || fallback
+    } catch {
+      return fallback
+    }
+  }
+
+  dialogData.isUpdatingPublic = true
+
+  try {
+    const updatePayload = {
+      title: dialogData.title,
+      artist: dialogData.artist,
+      submissionNotePublicStatus: status
+    }
+    if (dialogData.replayRequestId) {
+      updatePayload.replayRequestId = dialogData.replayRequestId
+    }
+
+    await adminService.updateSong(dialogData.songId, updatePayload)
+
+    const songIndex = songs.value.findIndex((s) => s.id === dialogData.songId)
+    if (songIndex !== -1) {
+      songs.value[songIndex].submissionNotePublicStatus = status
+      if (status === 'approved') {
+        songs.value[songIndex].submissionNotePublic = true
+      }
+    }
+    dialogData.status = status
+    if (status === 'approved') {
+      dialogData.isPublic = true
+    }
+
+    if (window.$showNotification) {
+      try {
+        const successKey = status === 'rejected' ? 'remarkRejected' : 'remarkApproved'
+        window.$showNotification(safeMessage('messages', successKey, fallbackText.success), 'success')
+      } catch (notifyErr) {
+        // 静默失败，不影响主流程
+      }
+    }
+  } catch (error) {
+    console.error('更新备注审核状态失败:', error)
+    if (window.$showNotification) {
+      try {
+        window.$showNotification(safeMessage('errors', 'remarkUpdateFailed', fallbackText.failure), 'error')
+      } catch (notifyErr) {
+        // 静默失败
+      }
+    }
+  } finally {
+    dialogData.isUpdatingPublic = false
+  }
+}
+
 const getCollaboratorDisplayName = (user) => {
   return user?.displayName || user?.name || user?.username || getLocaleMessage('unknownUser')
 }
@@ -1469,12 +1594,14 @@ const openSubmissionRemark = (song) => {
   submissionRemarkDialog.value = {
     show: true,
     songId: song.id,
-    replayRequestId: song.replayRequestId || null,
+    // 歌曲列表审核针对歌曲自身备注；重播备注审核从排期/重播列表发起（避免被 replayRequestId 劫持）
+    replayRequestId: null,
     title: song.title,
     artist: song.artist,
     songTitle: `${song.title} - ${song.artist}`,
     content: song.submissionNote,
-    isPublic: song.submissionNotePublic === true
+    isPublic: song.submissionNotePublic === true,
+    status: song.submissionNotePublicStatus || null
   }
 }
 
@@ -1501,15 +1628,25 @@ const updateSubmissionNotePublic = async (isPublic) => {
     const songIndex = songs.value.findIndex((s) => s.id === dialogData.songId)
     if (songIndex !== -1) {
       songs.value[songIndex].submissionNotePublic = isPublic
+      songs.value[songIndex].submissionNotePublicStatus = isPublic ? 'approved' : null
     }
+    dialogData.status = isPublic ? 'approved' : null
 
     if (window.$showNotification) {
-      window.$showNotification(getNestedMessage('messages', 'remarkVisibilityUpdated'), 'success')
+      try {
+        window.$showNotification(safeMessage('messages', 'remarkVisibilityUpdated', '备注留言可见性已更新'), 'success')
+      } catch (notifyErr) {
+        // 静默失败，不影响主流程
+      }
     }
   } catch (error) {
     console.error('更新备注可见性失败:', error)
     if (window.$showNotification) {
-      window.$showNotification(getNestedMessage('errors', 'remarkVisibilityUpdateFailed'), 'error')
+      try {
+        window.$showNotification(safeMessage('errors', 'remarkVisibilityUpdateFailed', '备注留言可见性更新失败'), 'error')
+      } catch (notifyErr) {
+        // 静默失败，不影响主流程
+      }
     }
     dialogData.isPublic = !isPublic
   } finally {
@@ -1751,7 +1888,8 @@ const editSong = (song) => {
     musicPlatform: song.musicPlatform || '',
     musicId: song.musicId || '',
     cover: song.cover || '',
-    playUrl: song.playUrl || ''
+    playUrl: song.playUrl || '',
+    durationSeconds: song.durationSeconds || ''
   }
   originalEditSubmissionNote.value = song.submissionNote || ''
   submissionNoteClearRequested.value = false
@@ -1799,6 +1937,16 @@ const saveEditSong = async () => {
     return
   }
 
+  // 校验时长范围（30秒~1小时）
+  const editDuration = editForm.value.durationSeconds
+  if (editDuration !== '' && editDuration != null) {
+    const d = Number(editDuration)
+    if (!Number.isFinite(d) || d < 30 || d > 3600) {
+      showNotification(getNestedMessage('errors', 'durationInvalidRange'), 'error')
+      return
+    }
+  }
+
   editLoading.value = true
   try {
     const { updateSong } = adminService
@@ -1823,7 +1971,11 @@ const saveEditSong = async () => {
       musicPlatform: editForm.value.musicPlatform || null,
       musicId: editForm.value.musicId || null,
       cover: editForm.value.cover || null,
-      playUrl: editForm.value.playUrl || null
+      playUrl: editForm.value.playUrl || null,
+      durationSeconds:
+        editForm.value.durationSeconds === '' || editForm.value.durationSeconds == null
+          ? null
+          : Number(editForm.value.durationSeconds)
     })
 
     await refreshSongs()
@@ -1837,6 +1989,42 @@ const saveEditSong = async () => {
     showNotification(errorMessage, 'error')
   } finally {
     editLoading.value = false
+  }
+}
+
+// 弹窗内刷新歌曲时长（编辑模式按 songId，新增模式按平台+音乐ID）
+const refreshDurationInModal = async () => {
+  const isEdit = showEditModal.value
+  const form = isEdit ? editForm.value : addForm.value
+  if (!form.musicPlatform || !form.musicId) {
+    showNotification(getNestedMessage('errors', 'durationPlatformRequired'), 'warning')
+    return
+  }
+
+  refreshDurationLoading.value = true
+  try {
+    const body = isEdit
+      ? { songId: editForm.value.id }
+      : { platform: addForm.value.musicPlatform, musicId: addForm.value.musicId }
+    const result = await $fetch('/api/admin/songs/duration', {
+      method: 'POST',
+      body
+    })
+    if (result.success && result.durationSeconds) {
+      if (isEdit) {
+        editForm.value.durationSeconds = result.durationSeconds
+      } else {
+        addForm.value.durationSeconds = result.durationSeconds
+      }
+      showNotification(getNestedMessage('messages', 'durationRefreshed'), 'success')
+    } else {
+      showNotification(getNestedMessage('errors', 'durationRefreshFailed', result?.message), 'error')
+    }
+  } catch (error) {
+    console.error('刷新歌曲时长失败:', error)
+    showNotification(getNestedMessage('errors', 'durationRefreshFailed', getErrorMessage(error)), 'error')
+  } finally {
+    refreshDurationLoading.value = false
   }
 }
 
@@ -1854,7 +2042,8 @@ const cancelEditSong = () => {
     musicPlatform: '',
     musicId: '',
     cover: '',
-    playUrl: ''
+    playUrl: '',
+    durationSeconds: ''
   }
   originalEditSubmissionNote.value = ''
   submissionNoteClearRequested.value = false
@@ -1892,7 +2081,9 @@ const openAddSongModal = () => {
     preferredPlayTimeId: selectedPlayTime.value !== 'all' && selectedPlayTime.value !== 'none' ? selectedPlayTime.value : 'none',
     musicPlatform: '',
     musicId: '',
-    cover: ''
+    cover: '',
+    playUrl: '',
+    durationSeconds: ''
   }
   showAddSongModal.value = true
 }
@@ -1935,6 +2126,16 @@ const saveAddSong = async () => {
     }
   }
 
+  // 校验时长范围（30秒~1小时）
+  const addDuration = addForm.value.durationSeconds
+  if (addDuration !== '' && addDuration != null) {
+    const d = Number(addDuration)
+    if (!Number.isFinite(d) || d < 30 || d > 3600) {
+      showNotification(getNestedMessage('errors', 'durationInvalidRange'), 'error')
+      return
+    }
+  }
+
   addLoading.value = true
   try {
     const { addSong } = adminService
@@ -1950,7 +2151,11 @@ const saveAddSong = async () => {
       musicPlatform: addForm.value.musicPlatform || null,
       musicId: addForm.value.musicId || null,
       cover: addForm.value.cover || null,
-      playUrl: addForm.value.playUrl || null
+      playUrl: addForm.value.playUrl || null,
+      durationSeconds:
+        addForm.value.durationSeconds === '' || addForm.value.durationSeconds == null
+          ? null
+          : Number(addForm.value.durationSeconds)
     })
 
     await refreshSongs()
@@ -1965,7 +2170,8 @@ const saveAddSong = async () => {
       musicPlatform: '',
       musicId: '',
       cover: '',
-      playUrl: ''
+      playUrl: '',
+      durationSeconds: ''
     }
     clearSelectedUser()
 
@@ -1991,7 +2197,8 @@ const cancelAddSong = () => {
     musicPlatform: '',
     musicId: '',
     cover: '',
-    playUrl: ''
+    playUrl: '',
+    durationSeconds: ''
   }
   addCoverValidation.value = { valid: true, error: '', validating: false }
   addPlayUrlValidation.value = { valid: true, error: '', validating: false }

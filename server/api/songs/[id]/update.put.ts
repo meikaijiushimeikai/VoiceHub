@@ -9,6 +9,9 @@ import {
 import { eq, or, and } from 'drizzle-orm'
 import { createSubmissionNoteClearedNotification } from '~~/server/services/notificationService'
 import { createApiError } from '~~/server/utils/apiError'
+import { SERVER_ERROR_CODES, SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
+import { getServerDate } from '~~/server/utils/serverTime'
+import { getClientIP } from '~~/server/utils/ip-utils'
 
 export default defineEventHandler(async (event) => {
   try {
@@ -31,7 +34,7 @@ export default defineEventHandler(async (event) => {
     // 获取歌曲ID
     const songId = parseInt(getRouterParam(event, 'id'))
     if (!songId) {
-      throw createApiError(400, 'SONG_INVALID_ID', 'Invalid song ID')
+      throw createApiError(400, SERVER_ERROR_CODES.SONG_INVALID_ID, 'Invalid song ID')
     }
 
     // 获取请求体
@@ -45,14 +48,22 @@ export default defineEventHandler(async (event) => {
       musicId,
       cover,
       playUrl,
-      preferredPlayTimeId
+      preferredPlayTimeId,
+      durationSeconds
     } = body
-    const ipAddress =
-      (event.node.req.headers['x-forwarded-for'] as string) || event.node.req.socket.remoteAddress
+    const ipAddress = getClientIP(event)
 
     // 验证必填字段
     if (!title || !artist) {
-      throw createApiError(400, 'SONG_TITLE_ARTIST_REQUIRED', 'Title and artist are required')
+      throw createApiError(400, SERVER_ERROR_CODES.SONG_TITLE_ARTIST_REQUIRED, 'Title and artist are required')
+    }
+
+    // 校验时长范围（0秒~2小时，允许管理员输入任意合理值，后台会二次校验）
+    if (durationSeconds !== null && durationSeconds !== undefined) {
+      const d = Number(durationSeconds)
+      if (!Number.isFinite(d) || d < 0 || d > 7200) {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, 'Invalid song duration (0s–2h)')
+      }
     }
 
     const existingSongResult = await db.select().from(songs).where(eq(songs.id, songId)).limit(1)
@@ -74,6 +85,7 @@ export default defineEventHandler(async (event) => {
     if (body.musicId !== undefined) updateData.musicId = body.musicId || null
     if (body.cover !== undefined) updateData.cover = body.cover || null
     if (body.playUrl !== undefined) updateData.playUrl = body.playUrl || null
+    if (durationSeconds !== undefined) updateData.durationSeconds = durationSeconds ?? null
 
     // 处理投稿人
     if ('requester' in body) {
@@ -116,6 +128,9 @@ export default defineEventHandler(async (event) => {
 
     if (shouldClearSubmissionNote) {
       updateData.submissionNote = null
+      // 清空备注时同步撤销公开与审核状态
+      updateData.submissionNotePublic = false
+      updateData.submissionNotePublicStatus = null
     } else if ('submissionNote' in body) {
       updateData.submissionNote =
         typeof body.submissionNote === 'string' && body.submissionNote.trim()
@@ -123,32 +138,88 @@ export default defineEventHandler(async (event) => {
           : null
     }
 
-    if ('submissionNotePublic' in body) {
-      updateData.submissionNotePublic = body.submissionNotePublic === true
+    if ('submissionNotePublicStatus' in body) {
+      // 公开留言审核动作：approved=通过并公开；rejected=拒绝；null=撤销公开；其他值返回 400
+      const st = body.submissionNotePublicStatus
+      if (st === 'approved') {
+        updateData.submissionNotePublic = true
+        updateData.submissionNotePublicStatus = SUBMISSION_NOTE_STATUS.APPROVED
+      } else if (st === 'rejected') {
+        updateData.submissionNotePublic = false
+        updateData.submissionNotePublicStatus = SUBMISSION_NOTE_STATUS.REJECTED
+      } else if (st === null || st === undefined) {
+        updateData.submissionNotePublic = false
+        updateData.submissionNotePublicStatus = null
+      } else {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '无效的公开留言审核状态')
+      }
+    } else if ('submissionNotePublic' in body) {
+      // 兼容旧语义：置 true 视为通过审核，置 false 视为撤销公开
+      const notePublic = body.submissionNotePublic === true
+      updateData.submissionNotePublic = notePublic
+      updateData.submissionNotePublicStatus = notePublic ? SUBMISSION_NOTE_STATUS.APPROVED : null
     }
 
     const currentRequesterId = updateData.requesterId || existingSong.requesterId
 
-    // 如果指定了 replayRequestId，则更新对应重播申请的备注可见性，且不再改动歌曲本身的备注可见性
+    // 如果指定了 replayRequestId 且本次携带备注可见性变更，则更新对应重播申请（条件更新，避免隐性重置）
+    let replaySet: Record<string, unknown> | null = null
     if ('replayRequestId' in body) {
       const replayRequestId = body.replayRequestId ? Number(body.replayRequestId) : null
-      if (replayRequestId) {
-        await db
-          .update(songReplayRequests)
-          .set({ submissionNotePublic: body.submissionNotePublic === true, updatedAt: new Date() })
-          .where(
-            and(eq(songReplayRequests.id, replayRequestId), eq(songReplayRequests.songId, songId))
-          )
+      const hasNoteVisibilityChange =
+        'submissionNotePublicStatus' in body || 'submissionNotePublic' in body
+      if (body.replayRequestId !== null && body.replayRequestId !== undefined &&
+        (!Number.isInteger(replayRequestId) || replayRequestId <= 0)) {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '重播申请 ID 无效')
+      }
+      if (replayRequestId && hasNoteVisibilityChange) {
+        replaySet = { updatedAt: getServerDate() }
+        if ('submissionNotePublicStatus' in body) {
+          const st = body.submissionNotePublicStatus
+          if (st === 'approved') {
+            replaySet.submissionNotePublic = true
+            replaySet.submissionNotePublicStatus = SUBMISSION_NOTE_STATUS.APPROVED
+          } else if (st === 'rejected') {
+            replaySet.submissionNotePublic = false
+            replaySet.submissionNotePublicStatus = SUBMISSION_NOTE_STATUS.REJECTED
+          } else if (st === null || st === undefined) {
+            replaySet.submissionNotePublic = false
+            replaySet.submissionNotePublicStatus = null
+          } else {
+            throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '无效的公开留言审核状态')
+          }
+        } else {
+          const notePublic = body.submissionNotePublic === true
+          replaySet.submissionNotePublic = notePublic
+          replaySet.submissionNotePublicStatus = notePublic ? SUBMISSION_NOTE_STATUS.APPROVED : null
+        }
         delete updateData.submissionNotePublic
+        delete updateData.submissionNotePublicStatus
       }
     }
 
-    // 更新歌曲
-    const updatedSongResult = await db
-      .update(songs)
-      .set(updateData)
-      .where(eq(songs.id, songId))
-      .returning()
+    // 歌曲更新与重播申请更新放入同一事务，保证一致性
+    const updatedSongResult = await db.transaction(async (tx) => {
+      if (replaySet) {
+        const replayRequestId = body.replayRequestId ? Number(body.replayRequestId) : null
+        const replayResult = await tx
+          .update(songReplayRequests)
+          .set(replaySet)
+          .where(
+            and(eq(songReplayRequests.id, replayRequestId), eq(songReplayRequests.songId, songId))
+          )
+          .returning({ id: songReplayRequests.id })
+        if (replayResult.length === 0) {
+          throw createApiError(404, SERVER_ERROR_CODES.COMMON_TARGET_NOT_FOUND, '重播申请不存在')
+        }
+      }
+      const result = await tx
+        .update(songs)
+        .set(updateData)
+        .where(eq(songs.id, songId))
+        .returning()
+      return result[0]
+    })
 
     // 处理联合投稿人
     if ('collaborators' in body && Array.isArray(body.collaborators)) {
@@ -231,7 +302,7 @@ export default defineEventHandler(async (event) => {
 
       createSubmissionNoteClearedNotification(
         notifyUserIds,
-        { title: updatedSongResult[0].title, artist: updatedSongResult[0].artist },
+        { title: updatedSongResult.title, artist: updatedSongResult.artist },
         submissionNoteClearReason
       ).catch((error) => {
         console.error('发送歌曲备注清空通知失败:', error)
@@ -249,6 +320,7 @@ export default defineEventHandler(async (event) => {
         musicId: songs.musicId,
         cover: songs.cover,
         playUrl: songs.playUrl,
+        durationSeconds: songs.durationSeconds,
         submissionNote: songs.submissionNote,
         submissionNotePublic: songs.submissionNotePublic,
         requesterId: songs.requesterId,
@@ -272,13 +344,16 @@ export default defineEventHandler(async (event) => {
   } catch (error) {
     console.error('Update song error:', error)
 
-    if (error.statusCode) {
+    // 业务错误（带 statusCode）直接透传
+    if (error?.statusCode) {
       throw error
     }
 
-    throw createError({
-      statusCode: 500,
-      message: error.message || 'Internal server error'
-    })
+    // 非业务错误（数据库连接等）包装为统一的 500 错误码
+    throw createApiError(
+      500,
+      SERVER_ERROR_CODES.AUTH_SYSTEM_ERROR,
+      error?.message || 'Internal server error'
+    )
   }
 })

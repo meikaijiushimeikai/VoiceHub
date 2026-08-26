@@ -13,6 +13,7 @@ import {
   playTimes,
   requestTimes,
   schedules,
+  scheduleSongPool,
   semesters,
   songBlacklists,
   songCollaborators,
@@ -22,8 +23,10 @@ import {
   users,
   userIdentities,
   userStatusLogs,
+  gradeClass,
   votes
 } from '~/drizzle/schema'
+import { inArray } from 'drizzle-orm'
 import { promises as fs } from 'fs'
 import path from 'path'
 
@@ -177,6 +180,24 @@ export default defineEventHandler(async (event) => {
         },
         description: '投票数据'
       },
+      scheduleSongPool: {
+        query: async () => {
+          const poolData = await db.select().from(scheduleSongPool)
+          if (poolData.length === 0) return []
+          const poolSongIds = poolData.map((row) => row.songId)
+          const songsData = await db.select({
+            id: songs.id,
+            title: songs.title,
+            artist: songs.artist
+          }).from(songs).where(inArray(songs.id, poolSongIds))
+          const songsMap = new Map(songsData.map((s) => [s.id, s]))
+          return poolData.map((row) => ({
+            ...row,
+            song: songsMap.get(row.songId) || null
+          }))
+        },
+        description: '排期备选池'
+      },
       schedules: {
         query: async () => {
           const schedulesData = await db.select().from(schedules)
@@ -272,6 +293,10 @@ export default defineEventHandler(async (event) => {
           }))
         },
         description: '用户状态变更日志'
+      },
+      gradeClass: {
+        query: () => db.select().from(gradeClass),
+        description: '年级班级配置'
       },
       userIdentities: {
         query: async () => {
@@ -401,7 +426,10 @@ export default defineEventHandler(async (event) => {
     // 如果包含系统数据，添加系统设置表
     if (includeSystemData) {
       tablesToBackup.systemSettings = {
-        query: () => db.select().from(systemSettings),
+        query: async () => {
+          const settings = await db.select().from(systemSettings)
+          return settings
+        },
         description: '系统设置'
       }
     }

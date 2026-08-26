@@ -43,6 +43,7 @@ export default defineEventHandler(async (event) => {
         playUrl: songs.playUrl,
         musicPlatform: songs.musicPlatform,
         musicId: songs.musicId,
+        durationSeconds: songs.durationSeconds,
         submissionNote: songs.submissionNote,
         submissionNotePublic: songs.submissionNotePublic,
         hitRequestId: songs.hitRequestId
@@ -110,7 +111,8 @@ export default defineEventHandler(async (event) => {
       status: songReplayRequests.status,
       preferredPlayTimeId: songReplayRequests.preferredPlayTimeId,
       submissionNote: songReplayRequests.submissionNote,
-      submissionNotePublic: songReplayRequests.submissionNotePublic
+      submissionNotePublic: songReplayRequests.submissionNotePublic,
+      submissionNotePublicStatus: songReplayRequests.submissionNotePublicStatus
     })
     .from(songReplayRequests)
     .innerJoin(users, eq(songReplayRequests.userId, users.id))
@@ -158,6 +160,7 @@ export default defineEventHandler(async (event) => {
       preferredPlayTimeId: latestRequest?.preferredPlayTimeId || null,
       submissionNote: latestRequest?.submissionNote || null,
       submissionNotePublic: latestRequest?.submissionNotePublic === true,
+      submissionNotePublicStatus: latestRequest?.submissionNotePublicStatus || null,
       hasSubmissionNote: !!latestRequest?.submissionNote,
       requester: latestRequest?.name || '未知用户',
       requesterGrade: latestRequest?.grade || null,

@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getQuery } from 'h3'
 import { client } from '~/drizzle/db'
 import { formatDateTime } from '~/utils/timeUtils'
 import { getServerTimestamp } from '~~/server/utils/serverTime'
+import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 import {
   maskSongsInfo,
   stripAnonymousSongIdentifiers,
@@ -27,6 +28,7 @@ interface SongResponse extends MaskableSong {
   musicPlatform: string | null
   musicId: string | null
   cardCodeId?: number | null
+  durationSeconds?: number | null
   playUrl: string | null
   requesterGrade: string | null
   requesterClass: string | null
@@ -45,6 +47,8 @@ interface SongResponse extends MaskableSong {
   hasSubmissionNote?: boolean
   submissionNote?: string | null
   submissionNotePublic?: boolean
+  submissionNotePublicStatus?: string | null
+  replayRequestId?: number | null
 }
 
 const formatDisplayName = (
@@ -63,6 +67,74 @@ const calculateReplayCooldown = (status?: string | null, updatedAt?: Date | stri
   const cooldownMs = 24 * 60 * 60 * 1000
   const remainingMs = cooldownMs - (getServerTimestamp() - new Date(updatedAt).getTime())
   return remainingMs > 0 ? Math.ceil(remainingMs / (60 * 60 * 1000)) : 0
+}
+
+const isSchemaCompatibilityError = (error: unknown) => {
+  const value = error as { code?: string; cause?: { code?: string } } | null
+  const code = String(value?.code || value?.cause?.code || '')
+  return ['42P01', '42703'].includes(code)
+}
+
+const loadBasicSongs = async (
+  client: any,
+  semester: string,
+  grade: string,
+  search: string,
+  user: any,
+  isAdmin: boolean,
+  options: { scope?: string; sortBy?: string; sortOrder?: string } = {}
+) => {
+  const conditions: string[] = []
+  const params: any[] = []
+  const addParam = (value: any) => {
+    params.push(value)
+    return `$${params.length}`
+  }
+  if (search) {
+    const value = addParam(`%${search}%`)
+    conditions.push(`(s.title ILIKE ${value} OR s.artist ILIKE ${value})`)
+  }
+  if (semester) conditions.push(`s.semester = ${addParam(semester)}`)
+  if (grade) conditions.push(`u.grade = ${addParam(grade)}`)
+  if (options.scope === 'mine' && user) conditions.push(`s."requesterId" = ${addParam(user.id)}`)
+  const orderColumn =
+    options.sortBy === 'title'
+      ? 's.title'
+      : options.sortBy === 'artist'
+        ? 's.artist'
+        : 's."createdAt"'
+  const orderDirection = options.sortOrder === 'asc' ? 'ASC' : 'DESC'
+  // 兜底查询只依赖初始版本就存在的 Song/User 字段。
+  // 可选迁移（排期、卡密、重播等）缺失时，歌曲列表仍应可用。
+  const rows = await client.unsafe(`
+    SELECT s.id, s.title, s.artist, s.played, s."playedAt", s.semester,
+      s."createdAt", s."updatedAt", s.cover, s."musicPlatform", s."musicId",
+      u.id AS "requesterId", u.name AS "requesterName", u.grade AS "requesterGrade", u.class AS "requesterClass",
+      COUNT(*) OVER()::int AS total
+    FROM "Song" s
+    LEFT JOIN "User" u ON u.id = s."requesterId"
+    ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+    ORDER BY ${orderColumn} ${orderDirection}
+  `, params)
+  const hideStudentInfo = true
+  const songs = rows.map((row: any) => ({
+    id: Number(row.id), title: row.title, artist: row.artist,
+    requester: formatDisplayName({ name: row.requesterName, grade: row.requesterGrade, class: row.requesterClass }),
+    requesterId: row.requesterId ? Number(row.requesterId) : undefined,
+    requesterGrade: row.requesterGrade || null, requesterClass: row.requesterClass || null,
+    collaborators: [], voteCount: 0, played: row.played === true, playedAt: row.playedAt || null,
+    semester: row.semester || null, createdAt: row.createdAt, updatedAt: row.updatedAt,
+    requestedAt: formatDateTime(row.createdAt), scheduled: false,
+    cover: row.cover || null, musicPlatform: row.musicPlatform || null, musicId: row.musicId || null,
+    cardCodeId: null,
+    durationSeconds: null, playUrl: null,
+    replayRequested: false, replayRequestCount: 0, isReplay: false, replayRequesters: [],
+    hasSubmissionNote: false, submissionNote: null, submissionNotePublic: false,
+    preferredPlayTimeId: null,
+  })) as SongResponse[]
+  if (hideStudentInfo && !isAdmin) maskSongsInfo(songs)
+  if (!user) songs.forEach(stripAnonymousSongIdentifiers)
+  return { success: true, data: { songs, total: Number(rows[0]?.total || 0) } }
 }
 
 export default defineEventHandler(async (event) => {
@@ -149,6 +221,12 @@ export default defineEventHandler(async (event) => {
         WHERE $1::int IS NOT NULL AND user_id = $1
         ORDER BY song_id, created_at DESC
       ),
+      latest_replay AS (
+        SELECT DISTINCT ON (song_id) song_id, id
+        FROM song_replay_requests
+        WHERE status IN ('PENDING', 'FULFILLED')
+        ORDER BY song_id, created_at DESC
+      ),
       accepted_collaborators AS (
         SELECT
           sc.song_id,
@@ -220,9 +298,11 @@ export default defineEventHandler(async (event) => {
         s."musicPlatform",
         s."musicId",
         s."cardCodeId",
+        s."durationSeconds",
         s."playUrl",
         s."submissionNote",
         s."submissionNotePublic",
+        s."submissionNotePublicStatus",
         s."preferredPlayTimeId",
         u.id AS "requesterId",
         u.name AS "requesterName",
@@ -244,6 +324,7 @@ export default defineEventHandler(async (event) => {
         cur.status AS "replayRequestStatus",
         cur.updated_at AS "replayRequestUpdatedAt",
         (cur.song_id IS NOT NULL) AS "replayRequested",
+        lr.id AS "replayRequestId",
         COALESCE(ac.collaborators, '[]'::jsonb) AS collaborators,
         COALESCE(rr.requesters, '[]'::jsonb) AS "replayRequesters",
         COALESCE(
@@ -262,6 +343,7 @@ export default defineEventHandler(async (event) => {
       LEFT JOIN published_schedule ps ON ps."songId" = s.id
       LEFT JOIN replay_counts rc ON rc.song_id = s.id
       LEFT JOIN current_user_replay cur ON cur.song_id = s.id
+      LEFT JOIN latest_replay lr ON lr.song_id = s.id
       LEFT JOIN accepted_collaborators ac ON ac.song_id = s.id
       LEFT JOIN replay_requesters rr ON rr.song_id = s.id
       ${whereSql}
@@ -300,9 +382,13 @@ export default defineEventHandler(async (event) => {
           }))
         : []
       const isRequester = Boolean(user && Number(row.requesterId) === user.id)
+      // 公开留言审核：待审/已拒绝的不对普通用户公开（管理员与投稿人始终可见完整备注与状态）
+      const notePublic = 
+        row.submissionNotePublic === true &&
+        row.submissionNotePublicStatus !== SUBMISSION_NOTE_STATUS.PENDING &&
+        row.submissionNotePublicStatus !== SUBMISSION_NOTE_STATUS.REJECTED
       const canViewSubmissionNote =
-        Boolean(row.submissionNote) &&
-        (row.submissionNotePublic === true || Boolean(user && (isAdmin || isRequester)))
+        Boolean(row.submissionNote) && (notePublic || Boolean(user && (isAdmin || isRequester)))
       const replayRequestCount = Number(row.replayRequestCount || 0)
       const song: SongResponse = {
         id: Number(row.id),
@@ -333,6 +419,7 @@ export default defineEventHandler(async (event) => {
         musicPlatform: row.musicPlatform || null,
         musicId: row.musicId || null,
         cardCodeId: row.cardCodeId ? Number(row.cardCodeId) : null,
+        durationSeconds: row.durationSeconds ? Number(row.durationSeconds) : null,
         playUrl: row.playUrl || null,
         replayRequested: user ? row.replayRequested === true : false,
         replayRequestCount,
@@ -341,6 +428,8 @@ export default defineEventHandler(async (event) => {
         hasSubmissionNote: canViewSubmissionNote,
         submissionNote: canViewSubmissionNote ? row.submissionNote : null,
         submissionNotePublic: canViewSubmissionNote ? row.submissionNotePublic === true : false,
+        submissionNotePublicStatus: canViewSubmissionNote ? (row.submissionNotePublicStatus || null) : null,
+        replayRequestId: row.replayRequestId ? Number(row.replayRequestId) : null,
         preferredPlayTimeId: row.preferredPlayTimeId ? Number(row.preferredPlayTimeId) : null
       }
 
@@ -389,6 +478,27 @@ export default defineEventHandler(async (event) => {
   } catch (error: any) {
     console.error('[Songs API] 获取歌曲列表失败:', error)
     if (error.statusCode) throw error
+
+    if (isSchemaCompatibilityError(error)) {
+      try {
+        const fallbackQuery = getQuery(event)
+        const fallbackSearch = String(fallbackQuery.search || '').trim()
+        const fallbackSemester = String(fallbackQuery.semester || '').trim()
+        const fallbackGrade = String(fallbackQuery.grade || '').trim()
+        const fallbackScope = String(fallbackQuery.scope || '').trim()
+        const fallbackSortBy = String(fallbackQuery.sortBy || 'createdAt')
+        const fallbackSortOrder = String(fallbackQuery.sortOrder || 'desc')
+        const fallbackUser = event.context.user || null
+        const fallbackIsAdmin = Boolean(fallbackUser && ['ADMIN', 'SUPER_ADMIN', 'SONG_ADMIN'].includes(fallbackUser.role))
+        return await loadBasicSongs(client, fallbackSemester, fallbackGrade, fallbackSearch, fallbackUser, fallbackIsAdmin, {
+          scope: fallbackScope,
+          sortBy: fallbackSortBy,
+          sortOrder: fallbackSortOrder
+        })
+      } catch (fallbackError) {
+        console.error('[Songs API] 基础歌曲查询也失败:', fallbackError)
+      }
+    }
 
     const isDbError = ['ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT'].some((code) =>
       String(error?.code || error?.message || '').includes(code)

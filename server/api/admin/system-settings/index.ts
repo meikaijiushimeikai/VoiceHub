@@ -2,6 +2,7 @@ import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
 import { maskSystemSettingsSecrets } from './secretMask'
 import { MUSIC_SOURCE_PLATFORMS } from '~~/server/config/constants'
+import { SYSTEM_SETTINGS_DEFAULTS } from '~~/server/utils/system-settings-defaults'
 
 export default defineEventHandler(async (event) => {
   // 检查用户认证和权限
@@ -30,6 +31,7 @@ export default defineEventHandler(async (event) => {
       const newSettingsResult = await db
         .insert(systemSettings)
         .values({
+          ...SYSTEM_SETTINGS_DEFAULTS,
           telemetryEnabled: true,
           enablePlayTimeSelection: false,
           siteTitle: process.env.NUXT_PUBLIC_SITE_TITLE || 'VoiceHub',
@@ -49,8 +51,14 @@ export default defineEventHandler(async (event) => {
           showBlacklistKeywords: false,
           enableCollaborativeSubmission: true,
           enableSubmissionRemarks: false,
+          enableSubmissionRestriction: false,
+          submissionRestrictionScope: 'all',
+          sameSongRestrictionHours: null,
+          sameArtistRestrictionHours: null,
           enabledPlatforms: JSON.stringify([...MUSIC_SOURCE_PLATFORMS]),
-          platformOrder: JSON.stringify([...MUSIC_SOURCE_PLATFORMS])
+          platformOrder: JSON.stringify([...MUSIC_SOURCE_PLATFORMS]),
+          defaultTheme: 'System',
+          enabledThemes: JSON.stringify(['System', 'ClassicDark', 'ClassicLight', 'ModernLight'])
         })
         .returning()
       settings = newSettingsResult[0]

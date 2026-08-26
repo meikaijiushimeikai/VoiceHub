@@ -1,5 +1,32 @@
 import { computed, ref, readonly } from 'vue'
 import { getAggregateOAuthLoginTypesOrDefault, getProviderDisplayName } from '~/utils/oauth'
+import { applyThemeConfig, useTheme } from '~/composables/useTheme'
+
+const THEME_LOGO_SEPARATOR = '||'
+
+// 兼容旧配置：没有分隔符时，地址只归入深色；浅色运行时回退到深色。
+export const splitThemeLogoUrl = (value) => {
+  const normalized = typeof value === 'string' ? value.trim() : ''
+  if (!normalized) return { dark: '', light: '' }
+
+  const separatorIndex = normalized.indexOf(THEME_LOGO_SEPARATOR)
+  if (separatorIndex < 0) return { dark: normalized, light: '' }
+
+  const dark = normalized.slice(0, separatorIndex).trim()
+  const light = normalized.slice(separatorIndex + THEME_LOGO_SEPARATOR.length).trim()
+  return {
+    dark: dark || light,
+    light: light || dark
+  }
+}
+
+export const joinThemeLogoUrl = (dark, light) => {
+  const normalizedDark = typeof dark === 'string' ? dark.trim() : ''
+  const normalizedLight = typeof light === 'string' ? light.trim() : ''
+  if (!normalizedDark && !normalizedLight) return ''
+  if (!normalizedLight || normalizedLight === normalizedDark) return normalizedDark || normalizedLight
+  return `${normalizedDark}||${normalizedLight}`
+}
 
 const defaultSubmissionGuidelines = `1. 投稿时无需加入书名号
 2. 除DJ外，其他类型歌曲均接收（包括小语种）
@@ -33,7 +60,12 @@ const siteConfig = ref({
   aggregateOAuthEnabled: false,
   aggregateOAuthLoginType: 'qq',
   customOAuthEnabled: false,
-  customOAuthDisplayName: ''
+  customOAuthDisplayName: '',
+  allowRegister: false,
+  submissionNoteRequiresApproval: false,
+  registerEmailRequired: false,
+  defaultTheme: 'System',
+  enabledThemes: JSON.stringify(['System', 'ClassicDark', 'ClassicLight', 'ModernLight'])
 })
 
 const isLoaded = ref(false)
@@ -52,6 +84,7 @@ const getImageDisplayUrl = (url) => {
 }
 
 export const useSiteConfig = () => {
+  const { isDark } = useTheme()
   // 获取站点配置
   const fetchSiteConfig = async () => {
     if (isLoading.value) return
@@ -66,6 +99,14 @@ export const useSiteConfig = () => {
 
       const data = await response.json()
       siteConfig.value = data
+      try {
+        applyThemeConfig(
+          data.defaultTheme,
+          typeof data.enabledThemes === 'string' ? JSON.parse(data.enabledThemes) : data.enabledThemes
+        )
+      } catch {
+        applyThemeConfig('System', null)
+      }
       isLoaded.value = true
     } catch (error) {
       console.error('获取站点配置失败:', error)
@@ -97,7 +138,12 @@ export const useSiteConfig = () => {
         aggregateOAuthEnabled: false,
         aggregateOAuthLoginType: 'qq',
         customOAuthEnabled: false,
-        customOAuthDisplayName: ''
+        customOAuthDisplayName: '',
+        allowRegister: false,
+        submissionNoteRequiresApproval: false,
+        registerEmailRequired: false,
+        defaultTheme: 'System',
+        enabledThemes: JSON.stringify(['System', 'ClassicDark', 'ClassicLight', 'ModernLight'])
       }
       isLoaded.value = true
     } finally {
@@ -108,7 +154,10 @@ export const useSiteConfig = () => {
   // 计算属性
   const siteTitle = computed(() => siteConfig.value.siteTitle || '校园广播站点歌系统')
   const logoUrl = computed(() => siteConfig.value.siteLogoUrl || '/favicon.ico')
-  const schoolLogoHomeUrl = computed(() => siteConfig.value.schoolLogoHomeUrl || '')
+  const schoolLogoHomeUrl = computed(() => {
+    const logos = splitThemeLogoUrl(siteConfig.value.schoolLogoHomeUrl)
+    return (isDark.value ? logos.dark : logos.light) || logos.dark || logos.light || ''
+  })
   const schoolLogoPrintUrl = computed(() => siteConfig.value.schoolLogoPrintUrl || '')
   const schoolLogoHomeDisplayUrl = computed(() => getImageDisplayUrl(schoolLogoHomeUrl.value))
   const schoolLogoPrintDisplayUrl = computed(() => getImageDisplayUrl(schoolLogoPrintUrl.value))
@@ -129,12 +178,18 @@ export const useSiteConfig = () => {
   const enableSubmissionLimit = computed(() => siteConfig.value.enableSubmissionLimit === true)
   const enableCardCodeRequests = computed(() => siteConfig.value.enableCardCodeRequests === true)
   const requireCardCodeForRequests = computed(
-    () => siteConfig.value.requireCardCodeForRequests === true
+    () =>
+      enableCardCodeRequests.value && siteConfig.value.requireCardCodeForRequests === true
   )
   const enableCardCodeLimitBypass = computed(
     () => siteConfig.value.enableCardCodeLimitBypass === true
   )
   const allowOAuthRegistration = computed(() => siteConfig.value.allowOAuthRegistration === true)
+  const allowRegister = computed(() => siteConfig.value.allowRegister === true)
+  const registerEmailRequired = computed(() => siteConfig.value.registerEmailRequired === true)
+  const submissionNoteRequiresApproval = computed(
+    () => siteConfig.value.submissionNoteRequiresApproval === true
+  )
   const captchaEnabled = computed(() => siteConfig.value.captchaEnabled === true)
   const captchaProvider = computed(() => siteConfig.value.captchaProvider || 'graphic')
   const turnstileSiteKey = computed(() => siteConfig.value.turnstileSiteKey || '')
@@ -216,6 +271,9 @@ export const useSiteConfig = () => {
     requireCardCodeForRequests,
     enableCardCodeLimitBypass,
     allowOAuthRegistration,
+    allowRegister,
+    submissionNoteRequiresApproval,
+    registerEmailRequired,
     captchaEnabled,
     captchaProvider,
     turnstileSiteKey,

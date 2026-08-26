@@ -14,6 +14,13 @@ import {
 } from '../utils/auth-route-policy'
 import { getPasswordSetupState } from '../utils/initial-password-policy'
 import { createApiError } from '../utils/apiError'
+import { SERVER_ERROR_CODES } from '../config/constants'
+import {
+  ensureAuthSession,
+  isAuthSessionStorageError,
+  sessionExpiryIsActive,
+  touchAuthSession
+} from '../utils/auth-session'
 
 function clearAuthCookie(event: H3Event) {
   setCookie(event, 'auth-token', '', {
@@ -70,6 +77,7 @@ export default defineEventHandler(async (event) => {
   // 公共接口只有匿名访问时才绕过认证；携带登录态必须继续检查强制改密状态。
   // OAuth 路由只有匿名启动/回调时公开；携带登录态时仍必须经过强制改密门控。
   const isPublicApi = isPublicApiPath(pathname, method)
+
   if (
     shouldBypassPublicApiAuthentication(pathname, method, Boolean(token)) ||
     (isOAuthProviderRoute && !token)
@@ -95,6 +103,7 @@ export default defineEventHandler(async (event) => {
       clearAuthCookie(event)
     }
     delete event.context.user
+    event.context.authRejected = true
     return true
   }
 
@@ -155,13 +164,25 @@ export default defineEventHandler(async (event) => {
           ? '该账号已退学，限制访问'
           : user.status === 'graduate'
             ? '该账号已毕业，限制访问'
-            : '该账号已被禁用'
+            : user.status === 'pending'
+              ? '账号待管理员审核，请耐心等待'
+              : '该账号已被禁用'
 
       return sendError(
         event,
         createError({
           statusCode: 401,
-          message: errorMessage
+          message: errorMessage,
+          data: {
+            code:
+              user?.status === 'pending'
+                ? SERVER_ERROR_CODES.AUTH_USER_PENDING_APPROVAL
+                : user?.status === 'withdrawn'
+                  ? SERVER_ERROR_CODES.AUTH_ACCOUNT_WITHDRAWN
+                  : user?.status === 'graduate'
+                    ? SERVER_ERROR_CODES.AUTH_ACCOUNT_GRADUATED
+                    : SERVER_ERROR_CODES.AUTH_ACCOUNT_DISABLED_OR_RESTRICTED
+          }
         })
       )
     }
@@ -173,12 +194,54 @@ export default defineEventHandler(async (event) => {
 
       return sendError(
         event,
-        createApiError(401, 'AUTH_SESSION_EXPIRED', '登录状态已失效，请重新登录', {
+        createApiError(401, SERVER_ERROR_CODES.AUTH_SESSION_EXPIRED, '登录状态已失效，请重新登录', {
           invalidToken: true,
           passwordChanged: true
         })
       )
     }
+
+    // 会话表支持单设备撤销；会话存储不可用时不接受无法撤销的登录态。
+    let authSession
+    try {
+      authSession = await ensureAuthSession(event, decoded)
+      if (authSession) {
+        await touchAuthSession(authSession.id, Boolean(newToken))
+      }
+    } catch (sessionError) {
+      console.error('[Auth] 会话存储处理失败:', sessionError)
+      if (isAuthSessionStorageError(sessionError)) {
+        // 登出必须允许清除 Cookie，即使会话表当前不可用。
+        if (pathname === '/api/auth/logout' && method === 'POST') {
+          clearAuthCookie(event)
+          delete event.context.user
+          return
+        }
+        if (isPublicApi || isOAuthProviderRoute) {
+          clearAuthCookie(event)
+          delete event.context.user
+          event.context.authRejected = true
+          return
+        }
+        return sendError(
+          event,
+          createApiError(503, SERVER_ERROR_CODES.AUTH_DATABASE_UNAVAILABLE, '登录会话存储暂时不可用，请稍后重试')
+        )
+      } else {
+        if (isPublicApi || isOAuthProviderRoute) {
+          delete event.context.user
+          event.context.authRejected = true
+          return
+        }
+        throw sessionError
+      }
+    }
+    if (!authSession || authSession.userId !== user.id || authSession.revokedAt || !sessionExpiryIsActive(authSession.expiresAt)) {
+      const invalidSessionError = new Error('登录会话已失效') as Error & { invalidToken?: boolean }
+      invalidSessionError.invalidToken = true
+      throw invalidSessionError
+    }
+    event.context.authSessionId = authSession?.id
 
     // 仅兼容迁移前签发的无版本号令牌；新体系令牌由 tokenVersion 撤销，避免 NTP 校准时钟与 iat 本机时钟偏差误杀。
     if (decoded.tokenVersion === undefined && user.passwordChangedAt && decoded.iat) {
@@ -231,6 +294,7 @@ export default defineEventHandler(async (event) => {
       passwordChangedAt: user.passwordChangedAt,
       forcePasswordChange: user.forcePasswordChange,
       tokenVersion: user.tokenVersion,
+      sessionId: authSession?.id,
       email: user.email,
       emailVerified: user.emailVerified,
       requirePasswordChange,
@@ -241,7 +305,7 @@ export default defineEventHandler(async (event) => {
     if (shouldBlockDuringPasswordChange(pathname, method, requirePasswordChange)) {
       return sendError(
         event,
-        createApiError(403, 'AUTH_PASSWORD_CHANGE_REQUIRED', '请先完成密码修改后再访问其他功能', {
+        createApiError(403, SERVER_ERROR_CODES.AUTH_PASSWORD_CHANGE_REQUIRED, '请先完成密码修改后再访问其他功能', {
           requirePasswordChange: true
         })
       )
@@ -283,6 +347,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // 处理JWT验证错误
+    clearAuthCookie(event)
     return sendError(
       event,
       createError({

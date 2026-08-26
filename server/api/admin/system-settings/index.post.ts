@@ -9,7 +9,8 @@ import {
   normalizeAggregateOAuthLoginTypes
 } from '~~/server/utils/oauth-providers'
 import { createApiError } from '~~/server/utils/apiError'
-import { SERVER_ERROR_CODES, MUSIC_SOURCE_PLATFORMS } from '~~/server/config/constants'
+import { SERVER_ERROR_CODES, MUSIC_SOURCE_PLATFORMS, DEFAULT_THEMES } from '~~/server/config/constants'
+import { parseThemeArray, validateThemeConfig } from '~~/server/utils/theme-config'
 
 /**
  * 解析数据库中存储的平台数组（历史脏数据/异常写入时回退默认值）
@@ -113,6 +114,22 @@ export default defineEventHandler(async (event) => {
     // 获取当前设置，用于验证依赖配置的完整性
     const settingsResult = await db.select().from(systemSettings).limit(1)
     let settings = settingsResult[0]
+
+    if (body.defaultTheme !== undefined || body.enabledThemes !== undefined) {
+      if (user.role !== 'SUPER_ADMIN') {
+        // 主题设置仅超级管理员可修改：普通管理员请求剥离主题字段，其余配置照常处理
+        delete body.defaultTheme
+        delete body.enabledThemes
+      } else {
+        const enabledThemes = body.enabledThemes !== undefined
+          ? validateThemeConfig(body.defaultTheme ?? settings?.defaultTheme ?? 'System', body.enabledThemes)
+          : parseThemeArray(settings?.enabledThemes, DEFAULT_THEMES)
+        const defaultTheme = body.defaultTheme !== undefined ? body.defaultTheme : settings?.defaultTheme || 'System'
+        validateThemeConfig(defaultTheme, JSON.stringify(enabledThemes))
+        if (body.defaultTheme !== undefined) updateData.defaultTheme = defaultTheme
+        updateData.enabledThemes = JSON.stringify(enabledThemes)
+      }
+    }
 
     if (body.telemetryEnabled !== undefined) {
       if (typeof body.telemetryEnabled !== 'boolean') {
@@ -227,6 +244,57 @@ export default defineEventHandler(async (event) => {
       updateData.enableCardCodeLimitBypass = body.enableCardCodeLimitBypass
     }
 
+    // 重复投稿限制
+    if (body.enableSubmissionRestriction !== undefined) {
+      if (typeof body.enableSubmissionRestriction !== 'boolean') {
+        throw createApiError(
+          400,
+          SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+          'enableSubmissionRestriction 必须是布尔值'
+        )
+      }
+      updateData.enableSubmissionRestriction = body.enableSubmissionRestriction
+    }
+
+    if (body.submissionRestrictionScope !== undefined) {
+      if (body.submissionRestrictionScope !== 'self' && body.submissionRestrictionScope !== 'all') {
+        throw createApiError(
+          400,
+          SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+          'submissionRestrictionScope 必须是 self 或 all'
+        )
+      }
+      updateData.submissionRestrictionScope = body.submissionRestrictionScope
+    }
+
+    if (body.sameSongRestrictionHours !== undefined) {
+      if (
+        body.sameSongRestrictionHours !== null &&
+        (!Number.isInteger(body.sameSongRestrictionHours) || body.sameSongRestrictionHours < 1 || body.sameSongRestrictionHours > 720)
+      ) {
+        throw createApiError(
+          400,
+          SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+          'sameSongRestrictionHours 必须是 1-720 的正整数或 null'
+        )
+      }
+      updateData.sameSongRestrictionHours = body.sameSongRestrictionHours
+    }
+
+    if (body.sameArtistRestrictionHours !== undefined) {
+      if (
+        body.sameArtistRestrictionHours !== null &&
+        (!Number.isInteger(body.sameArtistRestrictionHours) || body.sameArtistRestrictionHours < 1 || body.sameArtistRestrictionHours > 720)
+      ) {
+        throw createApiError(
+          400,
+          SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+          'sameArtistRestrictionHours 必须是 1-720 的正整数或 null'
+        )
+      }
+      updateData.sameArtistRestrictionHours = body.sameArtistRestrictionHours
+    }
+
     if (body.dailySubmissionLimit !== undefined) {
       if (
         body.dailySubmissionLimit !== null &&
@@ -264,6 +332,48 @@ export default defineEventHandler(async (event) => {
         })
       }
       updateData.monthlySubmissionLimit = body.monthlySubmissionLimit
+    }
+
+    if (body.scheduleDaysBeforeEnabled !== undefined) {
+      if (typeof body.scheduleDaysBeforeEnabled !== 'boolean') {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, 'scheduleDaysBeforeEnabled 必须是布尔值')
+      }
+      updateData.scheduleDaysBeforeEnabled = body.scheduleDaysBeforeEnabled
+    }
+
+    if (body.scheduleDaysAfterEnabled !== undefined) {
+      if (typeof body.scheduleDaysAfterEnabled !== 'boolean') {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, 'scheduleDaysAfterEnabled 必须是布尔值')
+      }
+      updateData.scheduleDaysAfterEnabled = body.scheduleDaysAfterEnabled
+    }
+
+    const nextScheduleDaysBeforeEnabled = body.scheduleDaysBeforeEnabled !== undefined
+      ? body.scheduleDaysBeforeEnabled
+      : (settings?.scheduleDaysBeforeEnabled ?? false)
+    const nextScheduleDaysAfterEnabled = body.scheduleDaysAfterEnabled !== undefined
+      ? body.scheduleDaysAfterEnabled
+      : (settings?.scheduleDaysAfterEnabled ?? false)
+
+    if (body.scheduleDaysBefore !== undefined) {
+      if (!Number.isInteger(body.scheduleDaysBefore) || body.scheduleDaysBefore < 1 || body.scheduleDaysBefore > 730) {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, 'scheduleDaysBefore 必须是 1-730 的正整数')
+      }
+      updateData.scheduleDaysBefore = body.scheduleDaysBefore
+    }
+
+    if (body.scheduleDaysAfter !== undefined) {
+      if (!Number.isInteger(body.scheduleDaysAfter) || body.scheduleDaysAfter < 1 || body.scheduleDaysAfter > 730) {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, 'scheduleDaysAfter 必须是 1-730 的正整数')
+      }
+      updateData.scheduleDaysAfter = body.scheduleDaysAfter
+    }
+
+    if (nextScheduleDaysBeforeEnabled && body.scheduleDaysBefore === undefined && !(settings?.scheduleDaysBefore >= 1)) {
+      throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '启用前方排期限制时，必须填写正整数天数')
+    }
+    if (nextScheduleDaysAfterEnabled && body.scheduleDaysAfter === undefined && !(settings?.scheduleDaysAfter >= 1)) {
+      throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '启用后方排期限制时，必须填写正整数天数')
     }
 
     if (body.showBlacklistKeywords !== undefined) {
@@ -483,6 +593,68 @@ export default defineEventHandler(async (event) => {
       updateData.allowOAuthRegistration = body.allowOAuthRegistration
     }
 
+    // 注册配置字段
+    if (body.allowRegister !== undefined) {
+      if (typeof body.allowRegister !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'allowRegister 必须是布尔值'
+        })
+      }
+      updateData.allowRegister = body.allowRegister
+    }
+
+    if (body.registerRequiresApproval !== undefined) {
+      if (typeof body.registerRequiresApproval !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'registerRequiresApproval 必须是布尔值'
+        })
+      }
+      updateData.registerRequiresApproval = body.registerRequiresApproval
+    }
+
+    if (body.oauthRegisterRequiresApproval !== undefined) {
+      if (typeof body.oauthRegisterRequiresApproval !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'oauthRegisterRequiresApproval 必须是布尔值'
+        })
+      }
+      updateData.oauthRegisterRequiresApproval = body.oauthRegisterRequiresApproval
+    }
+
+    if (body.submissionNoteRequiresApproval !== undefined) {
+      if (typeof body.submissionNoteRequiresApproval !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'submissionNoteRequiresApproval 必须是布尔值'
+        })
+      }
+      updateData.submissionNoteRequiresApproval = body.submissionNoteRequiresApproval
+    }
+
+    if (body.registerEmailRequired !== undefined) {
+      if (typeof body.registerEmailRequired !== 'boolean') {
+        throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, 'registerEmailRequired 必须是布尔值')
+      }
+      // 开启注册邮箱必填需前置：允许注册（或三方注册）+ SMTP 邮件服务已配置（合并提交值校验）
+      if (body.registerEmailRequired) {
+        const allowRegisterOrOAuth = Boolean(
+          body.allowRegister ?? settings?.allowRegister
+        ) || Boolean(body.allowOAuthRegistration ?? settings?.allowOAuthRegistration)
+        if (!allowRegisterOrOAuth) {
+          throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '请先开启允许用户注册，再启用注册邮箱必填')
+        }
+        const smtpEnabled = body.smtpEnabled ?? settings?.smtpEnabled
+        const smtpHost = body.smtpHost ?? settings?.smtpHost
+        if (!smtpEnabled || !smtpHost) {
+          throw createApiError(400, SERVER_ERROR_CODES.COMMON_INVALID_PARAMS, '请先配置并开启 SMTP 邮件服务，再启用注册邮箱必填')
+        }
+      }
+      updateData.registerEmailRequired = body.registerEmailRequired
+    }
+
     if (body.oauthRedirectUri !== undefined) {
       const normalizedOauthRedirectUri =
         typeof body.oauthRedirectUri === 'string'
@@ -674,7 +846,7 @@ export default defineEventHandler(async (event) => {
     const nextAggregateEndpoint =
       body.aggregateOAuthEndpoint !== undefined
         ? normalizeOptionalText(body.aggregateOAuthEndpoint)
-        : settings?.aggregateOAuthEndpoint || 'https://a.idcfx.net/connect.php'
+        : settings?.aggregateOAuthEndpoint || ''
 
     if (body.aggregateOAuthEnabled !== undefined) {
       if (typeof body.aggregateOAuthEnabled !== 'boolean') {
@@ -723,7 +895,7 @@ export default defineEventHandler(async (event) => {
           })
         }
       }
-      updateData.aggregateOAuthEndpoint = nextAggregateEndpoint || 'https://a.idcfx.net/connect.php'
+      updateData.aggregateOAuthEndpoint = nextAggregateEndpoint || null
     }
 
     // Custom OAuth2
@@ -841,10 +1013,42 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // 重复投稿限制交叉校验：未设置时长时保留本学期同一首歌不可重复投稿的旧规则。
+    const nextSameSongHours = body.sameSongRestrictionHours !== undefined
+      ? body.sameSongRestrictionHours
+      : settings?.sameSongRestrictionHours ?? null
+    const nextSameArtistHours = body.sameArtistRestrictionHours !== undefined
+      ? body.sameArtistRestrictionHours
+      : settings?.sameArtistRestrictionHours ?? null
+
+    const anyRestrictionHoursPositive =
+      (typeof nextSameSongHours === 'number' && nextSameSongHours >= 1) ||
+      (typeof nextSameArtistHours === 'number' && nextSameArtistHours >= 1)
+
+    // 显式关闭但仍有有效时长：拒绝，提示用户先清除时长
+    if (body.enableSubmissionRestriction === false && anyRestrictionHoursPositive) {
+      throw createApiError(
+        400,
+        SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+        '关闭重复投稿限制时，同一首歌和同一歌手的限制时间必须同时清空'
+      )
+    }
+    // 时长>0 且 enable 未显式提交 ⇒ 自动开启，维持"时长与开关自洽"不变量
+    if (anyRestrictionHoursPositive && body.enableSubmissionRestriction === undefined) {
+      updateData.enableSubmissionRestriction = true
+    }
+
     if (!settings) {
       const newSettingsResult = await db
         .insert(systemSettings)
-        .values({ ...SYSTEM_SETTINGS_DEFAULTS, ...updateData })
+        .values({
+          ...SYSTEM_SETTINGS_DEFAULTS,
+          scheduleDaysBeforeEnabled: SYSTEM_SETTINGS_DEFAULTS.scheduleDaysBeforeEnabled,
+          scheduleDaysBefore: SYSTEM_SETTINGS_DEFAULTS.scheduleDaysBefore,
+          scheduleDaysAfterEnabled: SYSTEM_SETTINGS_DEFAULTS.scheduleDaysAfterEnabled,
+          scheduleDaysAfter: SYSTEM_SETTINGS_DEFAULTS.scheduleDaysAfter,
+          ...updateData
+        })
         .returning()
       settings = newSettingsResult[0]
     } else {

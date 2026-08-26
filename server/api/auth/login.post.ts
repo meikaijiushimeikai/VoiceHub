@@ -23,6 +23,7 @@ import { getPasswordSetupState } from '~~/server/utils/initial-password-policy'
 import { verifyAndConsumeCaptcha } from '~~/server/utils/captcha'
 import type { SystemSettings } from '~/drizzle/schema'
 import { createApiError } from '~~/server/utils/apiError'
+import { createAuthSession } from '~~/server/utils/auth-session'
 
 export default defineEventHandler(async (event) => {
   const startTime = Date.now()
@@ -195,7 +196,14 @@ export default defineEventHandler(async (event) => {
       throw createApiError(403, 'AUTH_ACCOUNT_GRADUATED', '该账号已毕业，限制访问')
     } else if (user.status === 'banned') {
       throw createApiError(403, 'AUTH_ACCOUNT_BANNED', '该账号已被封禁')
+    } else if (user.status === 'pending') {
+      throw createApiError(403, 'AUTH_USER_PENDING_APPROVAL', '账号待管理员审核，请耐心等待')
+    } else if (user.status === 'rejected') {
+      throw createApiError(403, 'AUTH_ACCOUNT_CURRENTLY_UNAVAILABLE', '该账号当前不可用')
     }
+
+    // 普通登录不延续绑定流程，避免残留绑定令牌被后续 2FA 校验意外消费
+    deleteCookie(event, 'binding-token')
 
     // 检查是否开启2FA
     const totpIdentity = await db.query.userIdentities.findFirst({
@@ -254,7 +262,7 @@ export default defineEventHandler(async (event) => {
       .catch((err) => console.error('Error updating user login info:', err))
 
     // 生成JWT
-    const token = JWTEnhanced.generateToken(user.id, user.role, user.tokenVersion)
+    const { token } = await createAuthSession(event, user, 'password')
 
     // 自动判断是否需要secure
     const isSecure =

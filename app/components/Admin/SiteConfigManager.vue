@@ -119,10 +119,20 @@
           <div>
             <label :class="labelClass">{{ locale.schoolLogoHome }}</label>
             <input
-              v-model="formData.schoolLogoHomeUrl"
+              v-model="formData.schoolLogoHomeDarkUrl"
               type="text"
               :placeholder="locale.schoolLogoHomePlaceholder"
               :class="inputClass"
+            />
+          </div>
+          <div>
+            <label :class="labelClass">{{ locale.schoolLogoHomeLight }}</label>
+            <input
+              v-model="formData.schoolLogoHomeLightUrl"
+              type="text"
+              :disabled="!String(formData.schoolLogoHomeDarkUrl || '').trim()"
+              :placeholder="locale.schoolLogoHomeLightPlaceholder"
+              :class="[inputClass, 'disabled:cursor-not-allowed disabled:opacity-50']"
             />
           </div>
           <div>
@@ -134,6 +144,55 @@
               :class="inputClass"
             />
           </div>
+        </div>
+      </section>
+
+      <!-- 主题设置 -->
+      <section v-if="isSuperAdmin" :class="cardClass">
+        <h3 class="text-sm font-black text-text-primary uppercase tracking-widest flex items-center gap-2 border-b border-border-secondary pb-4">
+          <Palette :size="16" class="text-primary" /> {{ locale.themeSettings }}
+        </h3>
+        <div class="space-y-3">
+          <p class="text-[10px] text-text-tertiary">{{ locale.themeSettingsDesc }}</p>
+          <div
+            v-for="option in themeOptions"
+            :key="option.value"
+            class="flex items-center gap-3 rounded-xl border border-border-secondary bg-bg-primary-50 p-3"
+          >
+            <div class="min-w-0 flex-1">
+              <p class="truncate text-xs font-bold text-text-primary">{{ option.label }}</p>
+              <p v-if="option.value === 'System'" class="mt-0.5 text-[10px] text-text-tertiary">
+                {{ locale.systemThemeHint }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors"
+              :class="formData.defaultTheme === option.value
+                ? 'border-warning bg-warning-10 text-warning'
+                : 'border-border-secondary text-text-disabled hover:border-warning-30 hover:text-warning'"
+              :aria-label="locale.setDefaultTheme"
+              :aria-pressed="formData.defaultTheme === option.value"
+              @click="setDefaultTheme(option.value)"
+            >
+              <Star :size="15" :fill="formData.defaultTheme === option.value ? 'currentColor' : 'none'" />
+            </button>
+            <button
+              type="button"
+              class="relative h-6 w-12 shrink-0 rounded-full transition-colors"
+              :class="themeToggleClass(option.value)"
+              :aria-label="formData.enabledThemes.includes(option.value) ? locale.disableTheme : locale.enableTheme"
+              :aria-pressed="formData.enabledThemes.includes(option.value)"
+              :disabled="isThemeToggleLocked(option.value)"
+              @click="toggleTheme(option.value)"
+            >
+              <span
+                class="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                :class="formData.enabledThemes.includes(option.value) ? 'translate-x-6' : 'translate-x-0'"
+              />
+            </button>
+          </div>
+          <p class="text-[10px] text-text-tertiary">{{ locale.defaultThemeDesc }}</p>
         </div>
       </section>
 
@@ -159,72 +218,90 @@
             />
           </div>
 
-          <div
-            class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl"
-          >
-            <div>
-              <p class="text-xs font-bold text-text-primary">{{ locale.enableRemarks }}</p>
-              <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.enableRemarksDesc }}</p>
+          <div class="rounded-xl border border-border-secondary bg-bg-primary-50">
+            <div class="flex items-center justify-between p-3">
+              <div class="pr-4">
+                <p class="text-xs font-bold text-text-primary">{{ locale.enableRemarks }}</p>
+                <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.enableRemarksDesc }}</p>
+              </div>
+              <input
+                v-model="formData.enableSubmissionRemarks"
+                type="checkbox"
+                class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+              />
             </div>
-            <input
-              v-model="formData.enableSubmissionRemarks"
-              type="checkbox"
-              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-            />
+
+            <div
+              v-if="formData.enableSubmissionRemarks"
+              class="ml-4 mr-2 mb-2 pl-4 border-l border-border-secondary space-y-2 transition-opacity"
+            >
+              <div
+                class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-xl"
+              >
+                <div class="pr-4">
+                  <p class="text-xs font-bold text-text-primary">{{ locale.submissionNoteRequiresApproval }}</p>
+                  <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.submissionNoteRequiresApprovalDesc }}</p>
+                </div>
+                <input
+                  v-model="formData.submissionNoteRequiresApproval"
+                  type="checkbox"
+                  :disabled="!formData.enableSubmissionRemarks"
+                  class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
           </div>
 
-          <div
-            class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl"
-          >
-            <div>
-              <p class="text-xs font-bold text-text-primary">{{ locale.enableCardCodeRequests }}</p>
-              <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.enableCardCodeRequestsDesc }}</p>
+          <div class="rounded-xl border border-border-secondary bg-bg-primary-50">
+            <div class="flex items-center justify-between p-3">
+              <div class="pr-4">
+                <p class="text-xs font-bold text-text-primary">{{ locale.enableCardCodeRequests }}</p>
+                <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.enableCardCodeRequestsDesc }}</p>
+              </div>
+              <input
+                v-model="formData.enableCardCodeRequests"
+                type="checkbox"
+                class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+              />
             </div>
-            <input
-              v-model="formData.enableCardCodeRequests"
-              type="checkbox"
-              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-            />
-          </div>
 
-          <div
-            class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl"
-          >
-            <div>
-              <p class="text-xs font-bold text-text-primary">{{ locale.requireCardCodeForRequests }}</p>
-              <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.requireCardCodeForRequestsDesc }}</p>
-            </div>
-            <input
-              v-model="formData.requireCardCodeForRequests"
-              type="checkbox"
-              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-            />
-          </div>
+            <div
+              v-if="formData.enableCardCodeRequests"
+              class="ml-4 mr-2 mb-2 pl-4 border-l border-border-secondary space-y-2 transition-opacity"
+            >
+              <div
+                class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-xl"
+              >
+                <div class="pr-4">
+                  <p class="text-xs font-bold text-text-primary">{{ locale.requireCardCodeForRequests }}</p>
+                  <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.requireCardCodeForRequestsDesc }}</p>
+                </div>
+                <input
+                  v-model="formData.requireCardCodeForRequests"
+                  type="checkbox"
+                  :disabled="!formData.enableCardCodeRequests"
+                  class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
 
-          <div
-            :class="[
-              'flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl transition-opacity',
-              !formData.enableSubmissionLimit ||
-              (!formData.enableCardCodeRequests && !formData.requireCardCodeForRequests)
-                ? 'opacity-50'
-                : ''
-            ]"
-          >
-            <div class="pr-4">
-              <p class="text-xs font-bold text-text-primary">{{ locale.enableCardCodeLimitBypass }}</p>
-              <p class="text-[10px] text-text-tertiary mt-0.5">
-                {{ locale.enableCardCodeLimitBypassDesc }}
-              </p>
+              <div
+                v-if="formData.enableSubmissionLimit"
+                class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-xl transition-opacity"
+              >
+                <div class="pr-4">
+                  <p class="text-xs font-bold text-text-primary">{{ locale.enableCardCodeLimitBypass }}</p>
+                  <p class="text-[10px] text-text-tertiary mt-0.5">
+                    {{ locale.enableCardCodeLimitBypassDesc }}
+                  </p>
+                </div>
+                <input
+                  v-model="formData.enableCardCodeLimitBypass"
+                  type="checkbox"
+                  :disabled="!formData.enableCardCodeRequests || !formData.enableSubmissionLimit"
+                  class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
-            <input
-              v-model="formData.enableCardCodeLimitBypass"
-              type="checkbox"
-              :disabled="
-                !formData.enableSubmissionLimit ||
-                (!formData.enableCardCodeRequests && !formData.requireCardCodeForRequests)
-              "
-              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
-            />
           </div>
 
           <div
@@ -241,11 +318,11 @@
             />
           </div>
 
-          <div class="space-y-4">
+          <div class="rounded-xl border border-border-secondary bg-bg-primary-50">
             <div
-              class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl"
+              class="flex items-center justify-between p-3"
             >
-              <div>
+              <div class="pr-4">
                 <p class="text-xs font-bold text-text-primary">{{ locale.enableLimit }}</p>
                 <p class="text-[10px] text-text-tertiary mt-0.5">{{ locale.enableLimitDesc }}</p>
               </div>
@@ -256,7 +333,10 @@
               />
             </div>
 
-            <div v-if="formData.enableSubmissionLimit" class="space-y-4">
+            <div
+              v-if="formData.enableSubmissionLimit"
+              class="ml-4 mr-2 mb-2 pl-4 border-l border-border-secondary space-y-2 transition-opacity"
+            >
               <div class="grid grid-cols-3 gap-2 p-1 bg-bg-primary border border-border-secondary rounded-xl">
                 <button
                   :class="[
@@ -265,6 +345,7 @@
                       ? 'bg-bg-tertiary text-primary shadow-sm'
                       : 'text-text-disabled hover:text-text-tertiary'
                   ]"
+                  :disabled="!formData.enableSubmissionLimit"
                   @click="handleLimitTypeChange('daily')"
                 >
                   {{ locale.dailyLimit }}
@@ -276,6 +357,7 @@
                       ? 'bg-bg-tertiary text-primary shadow-sm'
                       : 'text-text-disabled hover:text-text-tertiary'
                   ]"
+                  :disabled="!formData.enableSubmissionLimit"
                   @click="handleLimitTypeChange('weekly')"
                 >
                   {{ locale.weeklyLimit }}
@@ -287,6 +369,7 @@
                       ? 'bg-bg-tertiary text-primary shadow-sm'
                       : 'text-text-disabled hover:text-text-tertiary'
                   ]"
+                  :disabled="!formData.enableSubmissionLimit"
                   @click="handleLimitTypeChange('monthly')"
                 >
                   {{ locale.monthlyLimit }}
@@ -300,7 +383,8 @@
                     v-model.number="currentLimitValue"
                     type="number"
                     min="0"
-                    :class="inputClass"
+                    :disabled="!formData.enableSubmissionLimit"
+                    :class="[inputClass, 'disabled:cursor-not-allowed disabled:opacity-50']"
                   />
                   <span
                     class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-text-secondary uppercase"
@@ -308,6 +392,88 @@
                   >
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 排期可见范围设置 -->
+      <section :class="cardClass">
+        <h3
+          class="text-sm font-black text-text-primary uppercase tracking-widest flex items-center gap-2 border-b border-border-secondary pb-4"
+        >
+          <CalendarRange :size="16" class="text-warning" /> {{ locale.scheduleVisibility }}
+        </h3>
+        <div class="space-y-4">
+          <div class="p-4 bg-bg-primary-50 border border-border-secondary rounded-xl space-y-4">
+            <p class="text-[10px] text-text-tertiary leading-relaxed">
+              {{ locale.scheduleVisibilityDesc }}
+            </p>
+
+            <div class="space-y-3">
+              <div class="flex items-center gap-3 p-3 bg-bg-primary border border-border-secondary rounded-xl">
+                <label class="flex items-center gap-2 shrink-0 cursor-pointer">
+                  <span class="text-xs font-bold text-text-primary">{{ locale.daysBeforeEnabled }}</span>
+                  <span
+                    :class="[
+                      'relative inline-flex h-5 w-10 items-center rounded-full transition-colors',
+                      formData.scheduleDaysBeforeEnabled ? 'bg-primary' : 'bg-bg-tertiary'
+                    ]"
+                  >
+                    <input v-model="formData.scheduleDaysBeforeEnabled" type="checkbox" class="sr-only" />
+                    <span
+                      :class="[
+                        'absolute top-1 h-3 w-3 rounded-full bg-bg-secondary transition-all',
+                        formData.scheduleDaysBeforeEnabled ? 'left-6' : 'left-1'
+                      ]"
+                    />
+                  </span>
+                </label>
+                <div class="relative flex-1">
+                  <input
+                    v-model.number="formData.scheduleDaysBefore"
+                    :disabled="!formData.scheduleDaysBeforeEnabled"
+                    type="number"
+                    min="1"
+                    max="730"
+                    :class="inputClass"
+                  />
+                  <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-text-secondary uppercase">{{ locale.daysUnit }}</span>
+                </div>
+              </div>
+              <p class="text-[10px] text-text-tertiary px-1">{{ locale.daysBeforeEnabledDesc }}</p>
+
+              <div class="flex items-center gap-3 p-3 bg-bg-primary border border-border-secondary rounded-xl">
+                <label class="flex items-center gap-2 shrink-0 cursor-pointer">
+                  <span class="text-xs font-bold text-text-primary">{{ locale.daysAfterEnabled }}</span>
+                  <span
+                    :class="[
+                      'relative inline-flex h-5 w-10 items-center rounded-full transition-colors',
+                      formData.scheduleDaysAfterEnabled ? 'bg-primary' : 'bg-bg-tertiary'
+                    ]"
+                  >
+                    <input v-model="formData.scheduleDaysAfterEnabled" type="checkbox" class="sr-only" />
+                    <span
+                      :class="[
+                        'absolute top-1 h-3 w-3 rounded-full bg-bg-secondary transition-all',
+                        formData.scheduleDaysAfterEnabled ? 'left-6' : 'left-1'
+                      ]"
+                    />
+                  </span>
+                </label>
+                <div class="relative flex-1">
+                  <input
+                    v-model.number="formData.scheduleDaysAfter"
+                    :disabled="!formData.scheduleDaysAfterEnabled"
+                    type="number"
+                    min="1"
+                    max="730"
+                    :class="inputClass"
+                  />
+                  <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-text-secondary uppercase">{{ locale.daysUnit }}</span>
+                </div>
+              </div>
+              <p class="text-[10px] text-text-tertiary px-1">{{ locale.daysAfterEnabledDesc }}</p>
             </div>
           </div>
         </div>
@@ -321,170 +487,203 @@
           <Shield :size="16" class="text-error" /> {{ locale.securityPrivacy }}
         </h3>
         <div class="space-y-4">
-          <div class="p-4 bg-bg-primary-50 border border-border-secondary rounded-xl space-y-4">
-            <div class="flex items-start gap-4">
-              <div class="shrink-0 pt-0.5">
-                <input
-                  id="captcha-enabled"
-                  v-model="formData.captchaEnabled"
-                  type="checkbox"
-                  class="w-4 h-4 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-                />
+          <div class="rounded-xl border border-border-secondary bg-bg-primary-50">
+            <div class="flex items-center justify-between p-3">
+              <div class="pr-4">
+                <p class="text-xs font-bold text-text-primary">{{ locale.captchaEnabled }}</p>
+                <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.captchaEnabledDesc }}</p>
               </div>
-              <div class="flex-1 space-y-4">
-                <label for="captcha-enabled" class="cursor-pointer block">
-                  <p class="text-xs font-bold text-text-primary">{{ locale.captchaEnabled }}</p>
-                  <p class="text-[10px] text-text-tertiary mt-1 leading-relaxed">
-                    {{ locale.captchaEnabledDesc }}
-                  </p>
-                </label>
+              <input
+                id="captcha-enabled"
+                v-model="formData.captchaEnabled"
+                type="checkbox"
+                class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+              />
+            </div>
 
-                <div v-if="formData.captchaEnabled" class="pt-2 border-t border-border-secondary space-y-4">
-                  <!-- 验证码类型选择 -->
-                  <div>
-                    <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.captchaType }}</label>
-                    <div class="flex gap-4">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input
-                          v-model="formData.captchaProvider"
-                          type="radio"
-                          value="graphic"
-                          class="w-4 h-4 rounded-full border-border-secondary bg-bg-secondary cursor-pointer"
-                        />
-                        <span class="text-sm text-text-secondary">{{ locale.captchaGraphic }}</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input
-                          v-model="formData.captchaProvider"
-                          type="radio"
-                          value="turnstile"
-                          class="w-4 h-4 rounded-full border-border-secondary bg-bg-secondary cursor-pointer"
-                        />
-                        <span class="text-sm text-text-secondary">{{ locale.captchaTurnstile }}</span>
-                      </label>
-                    </div>
+            <div
+              v-if="formData.captchaEnabled"
+              class="ml-4 mr-2 mb-2 pl-4 border-l border-border-secondary space-y-2 transition-opacity"
+            >
+              <div class="p-3 bg-bg-primary border border-border-secondary rounded-xl space-y-3">
+                <!-- 验证码类型选择 -->
+                <div>
+                  <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.captchaType }}</label>
+                  <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        v-model="formData.captchaProvider"
+                        type="radio"
+                        value="graphic"
+                        :disabled="!formData.captchaEnabled"
+                        class="w-4 h-4 rounded-full border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
+                      />
+                      <span class="text-sm text-text-secondary">{{ locale.captchaGraphic }}</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input
+                        v-model="formData.captchaProvider"
+                        type="radio"
+                        value="turnstile"
+                        :disabled="!formData.captchaEnabled"
+                        class="w-4 h-4 rounded-full border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
+                      />
+                      <span class="text-sm text-text-secondary">{{ locale.captchaTurnstile }}</span>
+                    </label>
                   </div>
+                </div>
 
-                  <!-- 图形验证码配置 -->
-                  <div v-if="formData.captchaProvider === 'graphic'">
-                    <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.captchaMaxFailures }}</label>
+                <!-- 图形验证码配置 -->
+                <div v-if="formData.captchaProvider === 'graphic'">
+                  <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.captchaMaxFailures }}</label>
+                  <input
+                    v-model.number="formData.captchaMaxFailures"
+                    type="number"
+                    min="1"
+                    :disabled="!formData.captchaEnabled"
+                    :placeholder="locale.captchaMaxFailuresPlaceholder"
+                    class="w-full max-w-[200px] bg-bg-secondary border border-border-secondary rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <p class="text-[10px] text-text-tertiary mt-1">
+                    {{ locale.captchaMaxFailuresDesc }}
+                  </p>
+                </div>
+
+                <!-- Turnstile 配置 -->
+                <div v-if="formData.captchaProvider === 'turnstile'" class="space-y-3">
+                  <div>
+                    <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.turnstileSiteKey }}</label>
                     <input
-                      v-model.number="formData.captchaMaxFailures"
-                      type="number"
-                      min="1"
-                      :placeholder="locale.captchaMaxFailuresPlaceholder"
-                      class="w-full max-w-[200px] bg-bg-secondary border border-border-secondary rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                      v-model="formData.turnstileSiteKey"
+                      type="text"
+                      :disabled="!formData.captchaEnabled"
+                      :placeholder="locale.turnstileSiteKeyPlaceholder"
+                      class="w-full bg-bg-secondary border border-border-secondary rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.turnstileSecretKey }}</label>
+                    <input
+                      v-model="formData.turnstileSecretKey"
+                      type="password"
+                      :disabled="!formData.captchaEnabled"
+                      :placeholder="locale.turnstileSecretKeyPlaceholder"
+                      class="w-full bg-bg-secondary border border-border-secondary rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     <p class="text-[10px] text-text-tertiary mt-1">
-                      {{ locale.captchaMaxFailuresDesc }}
+                      {{ locale.turnstileSecretKeyDesc }}
                     </p>
-                  </div>
-
-                  <!-- Turnstile 配置 -->
-                  <div v-if="formData.captchaProvider === 'turnstile'" class="space-y-4">
-                    <div>
-                      <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.turnstileSiteKey }}</label>
-                      <input
-                        v-model="formData.turnstileSiteKey"
-                        type="text"
-                        :placeholder="locale.turnstileSiteKeyPlaceholder"
-                        class="w-full bg-bg-secondary border border-border-secondary rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs font-bold text-text-tertiary mb-2">{{ locale.turnstileSecretKey }}</label>
-                      <input
-                        v-model="formData.turnstileSecretKey"
-                        type="password"
-                        :placeholder="locale.turnstileSecretKeyPlaceholder"
-                        class="w-full bg-bg-secondary border border-border-secondary rounded-lg px-3 py-2 text-sm text-text-primary placeholder-text-disabled focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-                      />
-                      <p class="text-[10px] text-text-tertiary mt-1">
-                        {{ locale.turnstileSecretKeyDesc }}
-                      </p>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="p-4 bg-bg-primary-50 border border-border-secondary rounded-xl space-y-4">
-            <div class="flex items-start gap-4">
-              <div class="shrink-0 pt-0.5">
+          <div class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl">
+            <div class="pr-4">
+              <p class="text-xs font-bold text-text-primary">{{ locale.forcePasswordChangeOnFirstLogin }}</p>
+              <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.forcePasswordChangeOnFirstLoginDesc }}</p>
+            </div>
+            <input
+              id="force-password-change-first-login"
+              v-model="formData.forcePasswordChangeOnFirstLogin"
+              type="checkbox"
+              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+            />
+          </div>
+
+          <!-- 允许注册开关 -->
+          <div class="rounded-xl border border-border-secondary bg-bg-primary-50">
+            <div class="flex items-center justify-between p-3">
+              <div class="pr-4">
+                <p class="text-xs font-bold text-text-primary">{{ locale.allowRegister }}</p>
+                <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.allowRegisterDesc }}</p>
+              </div>
+              <input
+                id="allow-register"
+                v-model="formData.allowRegister"
+                type="checkbox"
+                class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+              />
+            </div>
+
+            <div
+              v-if="formData.allowRegister || formData.allowOAuthRegistration"
+              class="ml-4 mr-2 mb-2 pl-4 border-l border-border-secondary space-y-2 transition-opacity"
+            >
+              <div
+                v-if="formData.allowRegister"
+                class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-xl"
+              >
+                <div class="pr-4">
+                  <p class="text-xs font-bold text-text-primary">{{ locale.registerRequiresApproval }}</p>
+                  <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.registerRequiresApprovalDesc }}</p>
+                </div>
                 <input
-                  id="force-password-change-first-login"
-                  v-model="formData.forcePasswordChangeOnFirstLogin"
+                  id="register-requires-approval"
+                  v-model="formData.registerRequiresApproval"
                   type="checkbox"
-                  class="w-4 h-4 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+                  :disabled="!formData.allowRegister"
+                  class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
                 />
               </div>
-              <label for="force-password-change-first-login" class="cursor-pointer">
-                <p class="text-xs font-bold text-text-primary">
-                  {{ locale.forcePasswordChangeOnFirstLogin }}
-                </p>
-                <p class="text-[10px] text-text-tertiary mt-1 leading-relaxed">
-                  {{ locale.forcePasswordChangeOnFirstLoginDesc }}
-                </p>
-              </label>
+
+              <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-secondary rounded-xl">
+                <div class="pr-4">
+                  <p class="text-xs font-bold text-text-primary">{{ locale.registerEmailRequired }}</p>
+                  <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.registerEmailRequiredDesc }}</p>
+                  <p v-if="!formData.smtpEnabled" class="text-[10px] text-warning mt-1 leading-relaxed">{{ locale.registerEmailSmtpRequired }}</p>
+                </div>
+                <input
+                  id="register-email-required"
+                  v-model="formData.registerEmailRequired"
+                  type="checkbox"
+                  :disabled="(!formData.allowRegister && !formData.allowOAuthRegistration) || !formData.smtpEnabled"
+                  class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer disabled:cursor-not-allowed"
+                />
+              </div>
             </div>
           </div>
 
-          <div class="p-4 bg-bg-primary-50 border border-border-secondary rounded-xl space-y-4">
-            <div class="flex items-start gap-4">
-              <div class="shrink-0 pt-0.5">
-                <input
-                  id="show-keywords"
-                  v-model="formData.showBlacklistKeywords"
-                  type="checkbox"
-                  class="w-4 h-4 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-                />
-              </div>
-              <label for="show-keywords" class="cursor-pointer">
-                <p class="text-xs font-bold text-text-primary">{{ locale.showBlacklistKeywords }}</p>
-                <p class="text-[10px] text-text-tertiary mt-1 leading-relaxed">
-                  {{ locale.showBlacklistKeywordsDesc }}
-                </p>
-              </label>
+          <div class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl">
+            <div class="pr-4">
+              <p class="text-xs font-bold text-text-primary">{{ locale.showBlacklistKeywords }}</p>
+              <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.showBlacklistKeywordsDesc }}</p>
             </div>
+            <input
+              id="show-keywords"
+              v-model="formData.showBlacklistKeywords"
+              type="checkbox"
+              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+            />
           </div>
 
-          <div class="p-4 bg-bg-primary-50 border border-border-secondary rounded-xl space-y-4">
-            <div class="flex items-start gap-4">
-              <div class="shrink-0 pt-0.5">
-                <input
-                  id="hide-students"
-                  v-model="formData.hideStudentInfo"
-                  type="checkbox"
-                  class="w-4 h-4 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-                />
-              </div>
-              <label for="hide-students" class="cursor-pointer">
-                <p class="text-xs font-bold text-text-primary">{{ locale.hideStudentInfo }}</p>
-                <p class="text-[10px] text-text-tertiary mt-1 leading-relaxed">
-                  {{ locale.hideStudentInfoDesc }}
-                </p>
-              </label>
+          <div class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl">
+            <div class="pr-4">
+              <p class="text-xs font-bold text-text-primary">{{ locale.hideStudentInfo }}</p>
+              <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">{{ locale.hideStudentInfoDesc }}</p>
             </div>
+            <input
+              id="hide-students"
+              v-model="formData.hideStudentInfo"
+              type="checkbox"
+              class="w-5 h-5 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+            />
           </div>
 
-          <div class="p-4 bg-bg-primary-50 border border-border-secondary rounded-xl space-y-4">
-            <div class="flex items-start gap-4">
-              <div class="shrink-0 pt-0.5">
-                <input
-                  id="telemetry-enabled"
-                  v-model="formData.telemetryEnabled"
-                  type="checkbox"
-                  class="w-4 h-4 rounded border-border-secondary bg-bg-secondary cursor-pointer"
-                />
-              </div>
-              <label for="telemetry-enabled" class="cursor-pointer">
-                <p class="text-xs font-bold text-text-primary">{{ locale.telemetryEnabled }}</p>
-                <p class="text-[10px] text-text-tertiary mt-1 leading-relaxed">
-                  {{ locale.telemetryEnabledDesc }} <strong class="text-text-tertiary">{{ locale.telemetryPrivacy }}</strong>
-                </p>
-              </label>
+          <div class="flex items-center justify-between p-3 bg-bg-primary-50 border border-border-secondary rounded-xl">
+            <div class="pr-4">
+              <p class="text-xs font-bold text-text-primary">{{ locale.telemetryEnabled }}</p>
+              <p class="text-[10px] text-text-tertiary mt-0.5 leading-relaxed">
+                {{ locale.telemetryEnabledDesc }} <strong class="text-text-tertiary">{{ locale.telemetryPrivacy }}</strong>
+              </p>
             </div>
+            <input
+              id="telemetry-enabled"
+              v-model="formData.telemetryEnabled"
+              type="checkbox"
+              class="w-5 h-5 shrink-0 rounded border-border-secondary bg-bg-secondary cursor-pointer"
+            />
           </div>
 
           <div
@@ -564,19 +763,86 @@ import {
   Save,
   RotateCcw,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Palette,
+  Star,
+  CalendarRange
 } from '@lucide/vue'
 import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import { useToast } from '~/composables/useToast'
-import { useSiteConfig } from '~/composables/useSiteConfig'
+import { joinThemeLogoUrl, splitThemeLogoUrl, useSiteConfig } from '~/composables/useSiteConfig'
 import { useLocale } from '~/utils/locale'
+import { useServerErrors } from '~/composables/useLocaleText'
 import { renderMarkdown } from '~/utils/markdown'
 import { getAggregateOAuthLoginTypesOrDefault } from '~/utils/oauth'
+import { usePermissions } from '~/composables/usePermissions'
+import { THEMES } from '~/composables/useTheme'
 import OAuthConfigManager from './OAuthConfigManager.vue'
 
 const { showToast: showNotification } = useToast()
 const { refreshSiteConfig } = useSiteConfig()
-const { siteConfig: locale } = useLocale()
+const { siteConfig: locale, theme: themeLocale } = useLocale()
+const { isSuperAdmin } = usePermissions()
+const { localize: localizeServerError } = useServerErrors()
+const themeOptions = computed(() => THEMES.map((value) => ({ value, label: themeLocale.value?.[value] || value })))
+
+const setDefaultTheme = (theme) => {
+  formData.value.defaultTheme = theme
+  const enabled = new Set(formData.value.enabledThemes)
+  enabled.add(theme)
+  formData.value.enabledThemes = THEMES.filter((item) => enabled.has(item))
+  if (theme === 'System') {
+    const enabled = new Set(formData.value.enabledThemes)
+    enabled.add('System')
+    enabled.add('ClassicDark')
+    enabled.add('ClassicLight')
+    formData.value.enabledThemes = THEMES.filter((item) => enabled.has(item))
+    showNotification(locale.value?.systemThemeAutoEnabled || '跟随系统需要经典深色和经典浅色，已自动启用', 'info')
+  }
+}
+
+const isThemeToggleLocked = (theme) => {
+  if (formData.value.defaultTheme === theme) return true
+  if (formData.value.enabledThemes.length <= 1 && formData.value.enabledThemes.includes(theme)) return true
+  return (theme === 'ClassicDark' || theme === 'ClassicLight') && formData.value.enabledThemes.includes('System')
+}
+
+const themeToggleClass = (theme) => {
+  if (isThemeToggleLocked(theme)) return 'bg-primary-80 opacity-50 cursor-not-allowed'
+  return formData.value.enabledThemes.includes(theme) ? 'bg-primary' : 'bg-bg-quaternary'
+}
+
+const toggleTheme = (theme) => {
+  if (isThemeToggleLocked(theme)) return
+  const enabled = new Set(formData.value.enabledThemes)
+  if (enabled.has(theme)) {
+    if (enabled.size <= 1 || formData.value.defaultTheme === theme) return
+    if (theme === 'ClassicDark' || theme === 'ClassicLight') {
+      if (enabled.has('System')) {
+        showNotification(locale.value?.systemThemeRequiresBothClassic || '启用跟随系统时，经典深色和经典浅色必须同时启用', 'info')
+        return
+      }
+    }
+    enabled.delete(theme)
+  } else {
+    enabled.add(theme)
+  }
+  formData.value.enabledThemes = THEMES.filter((item) => enabled.has(item))
+}
+const parseJsonArray = (value, fallback) => {
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+    let themes = parsed.filter((item) => THEMES.includes(item))
+    // 脏数据防御：跟随系统依赖经典深色/浅色同时启用，缺失时剔除 System
+    if (themes.includes('System') && (!themes.includes('ClassicDark') || !themes.includes('ClassicLight'))) {
+      themes = themes.filter((item) => item !== 'System')
+    }
+    return themes.length > 0 ? themes : fallback
+  } catch {
+    return fallback
+  }
+}
 
 const loading = ref(true)
 const saving = ref(false)
@@ -597,7 +863,8 @@ const defaultSubmissionGuidelines = computed(() => locale.value?.defaultSubmissi
 const formData = ref({
   siteTitle: '',
   siteLogoUrl: '',
-  schoolLogoHomeUrl: '',
+  schoolLogoHomeDarkUrl: '',
+  schoolLogoHomeLightUrl: '',
   schoolLogoPrintUrl: '',
   siteDescription: '',
   submissionGuidelines: '',
@@ -606,6 +873,7 @@ const formData = ref({
   showBeianIcon: false,
   enableCollaborativeSubmission: true,
   enableSubmissionRemarks: false,
+  submissionNoteRequiresApproval: false,
   enableReplayRequests: false,
   enableSubmissionLimit: false,
   // 点歌券点歌设置
@@ -615,6 +883,10 @@ const formData = ref({
   dailySubmissionLimit: 5,
   weeklySubmissionLimit: null,
   monthlySubmissionLimit: null,
+  scheduleDaysBeforeEnabled: false,
+  scheduleDaysBefore: 1,
+  scheduleDaysAfterEnabled: false,
+  scheduleDaysAfter: 1,
   showBlacklistKeywords: false,
   hideStudentInfo: true,
   forcePasswordChangeOnFirstLogin: false,
@@ -624,6 +896,11 @@ const formData = ref({
   turnstileSiteKey: '',
   turnstileSecretKey: '',
   captchaMaxFailures: 3,
+  allowRegister: false,
+  registerRequiresApproval: true,
+  oauthRegisterRequiresApproval: true,
+  registerEmailRequired: false,
+  smtpEnabled: false,
   allowOAuthRegistration: false,
   oauthRedirectUri: '',
   oauthStateSecret: '',
@@ -642,7 +919,7 @@ const formData = ref({
   aggregateOAuthAppId: '',
   aggregateOAuthAppKey: '',
   aggregateOAuthLoginType: ['qq'],
-  aggregateOAuthEndpoint: 'https://a.idcfx.net/connect.php',
+  aggregateOAuthEndpoint: '',
   customOAuthEnabled: false,
   customOAuthDisplayName: '',
   customOAuthAuthorizeUrl: '',
@@ -655,7 +932,9 @@ const formData = ref({
   customOAuthUsernameField: '',
   customOAuthNameField: '',
   customOAuthEmailField: '',
-  customOAuthAvatarField: ''
+  customOAuthAvatarField: '',
+  defaultTheme: 'System',
+  enabledThemes: [...THEMES]
 })
 
 const originalData = ref({})
@@ -703,106 +982,6 @@ const currentLimitLabel = computed(() => {
   return `${locale.value?.limitLabelPrefix || '当前启用：'}${limitTypeLabel || '未设置限额'}${locale.value?.limitLabelSuffix || '投稿限制'}`
 })
 
-const getLocalizedServerMessage = (message) => {
-  if (!message) return locale.value?.saveFailed || '系统设置保存失败'
-  if (typeof message !== 'string') return String(message)
-
-  const serverMessages = locale.value?.serverMessages
-  if (!serverMessages) return message
-  const rawMessages = serverMessages.raw
-  if (!rawMessages) return message
-  const exactMessageMap = {
-    [rawMessages.oauthRedirectCallbackInvalid]: serverMessages.oauthRedirectCallbackInvalid,
-    [rawMessages.oauthRedirectUrlInvalid]: serverMessages.oauthRedirectUrlInvalid,
-    [rawMessages.unauthorized]: serverMessages.unauthorized,
-    [rawMessages.adminOnly]: serverMessages.adminOnly,
-    [rawMessages.captchaProviderInvalid]: serverMessages.captchaProviderInvalid,
-    [rawMessages.turnstileRequired]: serverMessages.turnstileRequired,
-    [rawMessages.smtpPortInvalid]: serverMessages.smtpPortInvalid,
-    [rawMessages.oauthBaseRequired]: serverMessages.oauthBaseRequired,
-    [rawMessages.githubClientIdRequired]: serverMessages.githubClientIdRequired,
-    [rawMessages.githubClientSecretRequired]: serverMessages.githubClientSecretRequired,
-    [rawMessages.casdoorServerUrlRequired]: serverMessages.casdoorServerUrlRequired,
-    [rawMessages.casdoorClientIdRequired]: serverMessages.casdoorClientIdRequired,
-    [rawMessages.casdoorClientSecretRequired]: serverMessages.casdoorClientSecretRequired,
-    [rawMessages.casdoorOrganizationRequired]: serverMessages.casdoorOrganizationRequired,
-    [rawMessages.googleClientIdRequired]: serverMessages.googleClientIdRequired,
-    [rawMessages.googleClientSecretRequired]: serverMessages.googleClientSecretRequired,
-    [rawMessages.onlyOneLimit]: serverMessages.onlyOneLimit,
-    [rawMessages.updateFailed]: serverMessages.updateFailed
-  }
-
-  if (exactMessageMap[message]) return exactMessageMap[message]
-
-  const fields = serverMessages.fields || {}
-  const fieldLabelMap = {
-    [rawMessages.customOAuthAuthorizeUrlLabel]: fields.customOAuthAuthorizeUrl,
-    [rawMessages.customOAuthTokenUrlLabel]: fields.customOAuthTokenUrl,
-    [rawMessages.customOAuthUserInfoUrlLabel]: fields.customOAuthUserInfoUrl,
-    [rawMessages.customOAuthClientIdLabel]: fields.customOAuthClientId,
-    [rawMessages.customOAuthClientSecretLabel]: fields.customOAuthClientSecret,
-    [rawMessages.customOAuthUserIdFieldLabel]: fields.customOAuthUserIdField,
-    customOAuthAuthorizeUrl: fields.customOAuthAuthorizeUrl,
-    customOAuthTokenUrl: fields.customOAuthTokenUrl,
-    customOAuthUserInfoUrl: fields.customOAuthUserInfoUrl,
-    customOAuthClientId: fields.customOAuthClientId,
-    customOAuthClientSecret: fields.customOAuthClientSecret,
-    customOAuthUserIdField: fields.customOAuthUserIdField
-  }
-
-  if (
-    typeof rawMessages.booleanSuffix === 'string' &&
-    rawMessages.booleanSuffix.length > 0 &&
-    typeof serverMessages.mustBeBoolean === 'function' &&
-    message.endsWith(rawMessages.booleanSuffix)
-  ) {
-    return serverMessages.mustBeBoolean(message.slice(0, -rawMessages.booleanSuffix.length))
-  }
-
-  if (
-    typeof rawMessages.positiveIntegerSuffix === 'string' &&
-    rawMessages.positiveIntegerSuffix.length > 0 &&
-    typeof serverMessages.mustBePositiveInteger === 'function' &&
-    message.endsWith(rawMessages.positiveIntegerSuffix)
-  ) {
-    return serverMessages.mustBePositiveInteger(message.slice(0, -rawMessages.positiveIntegerSuffix.length))
-  }
-
-  if (
-    typeof rawMessages.nonNegativeIntegerOrNullSuffix === 'string' &&
-    rawMessages.nonNegativeIntegerOrNullSuffix.length > 0 &&
-    typeof serverMessages.mustBeNonNegativeIntegerOrNull === 'function' &&
-    message.endsWith(rawMessages.nonNegativeIntegerOrNullSuffix)
-  ) {
-    return serverMessages.mustBeNonNegativeIntegerOrNull(
-      message.slice(0, -rawMessages.nonNegativeIntegerOrNullSuffix.length)
-    )
-  }
-
-  if (
-    typeof rawMessages.customOAuthRequiredPrefix === 'string' &&
-    rawMessages.customOAuthRequiredPrefix.length > 0 &&
-    typeof serverMessages.customOAuthFieldRequired === 'function' &&
-    message.startsWith(rawMessages.customOAuthRequiredPrefix)
-  ) {
-    const rawField = message.slice(rawMessages.customOAuthRequiredPrefix.length)
-    const fieldLabel = fieldLabelMap[rawField] || rawField
-    return serverMessages.customOAuthFieldRequired(fieldLabel)
-  }
-
-  if (
-    typeof rawMessages.invalidUrlSuffix === 'string' &&
-    rawMessages.invalidUrlSuffix.length > 0 &&
-    typeof serverMessages.invalidUrl === 'function' &&
-    message.endsWith(rawMessages.invalidUrlSuffix)
-  ) {
-    const rawField = message.slice(0, -rawMessages.invalidUrlSuffix.length)
-    return serverMessages.invalidUrl(fieldLabelMap[rawField] || rawField)
-  }
-
-  return message
-}
-
 // 加载配置
 const loadConfig = async () => {
   try {
@@ -817,10 +996,12 @@ const loadConfig = async () => {
 
     syncActiveLimitTab(data)
 
+    const schoolLogoHome = splitThemeLogoUrl(data.schoolLogoHomeUrl)
     formData.value = {
       siteTitle: data.siteTitle || '',
       siteLogoUrl: data.siteLogoUrl || '',
-      schoolLogoHomeUrl: data.schoolLogoHomeUrl || '',
+      schoolLogoHomeDarkUrl: schoolLogoHome.dark,
+      schoolLogoHomeLightUrl: schoolLogoHome.light,
       schoolLogoPrintUrl: data.schoolLogoPrintUrl || '',
       siteDescription: data.siteDescription || '',
       submissionGuidelines: data.submissionGuidelines || defaultSubmissionGuidelines.value,
@@ -829,6 +1010,7 @@ const loadConfig = async () => {
       showBeianIcon: !!data.showBeianIcon,
       enableCollaborativeSubmission: data.enableCollaborativeSubmission !== false,
       enableSubmissionRemarks: !!data.enableSubmissionRemarks,
+      submissionNoteRequiresApproval: !!data.submissionNoteRequiresApproval,
       enableReplayRequests: !!data.enableReplayRequests,
       enableSubmissionLimit: !!data.enableSubmissionLimit,
       // 点歌券点歌设置
@@ -838,6 +1020,10 @@ const loadConfig = async () => {
       dailySubmissionLimit: data.dailySubmissionLimit ?? 5,
       weeklySubmissionLimit: data.weeklySubmissionLimit ?? null,
       monthlySubmissionLimit: data.monthlySubmissionLimit ?? null,
+      scheduleDaysBeforeEnabled: data.scheduleDaysBeforeEnabled === true,
+      scheduleDaysBefore: data.scheduleDaysBefore ?? 1,
+      scheduleDaysAfterEnabled: data.scheduleDaysAfterEnabled === true,
+      scheduleDaysAfter: data.scheduleDaysAfter ?? 1,
       showBlacklistKeywords: !!data.showBlacklistKeywords,
       hideStudentInfo: data.hideStudentInfo ?? true,
       forcePasswordChangeOnFirstLogin: data.forcePasswordChangeOnFirstLogin === true,
@@ -848,6 +1034,11 @@ const loadConfig = async () => {
       turnstileSecretKey: undefined,
       captchaMaxFailures: data.captchaMaxFailures ?? 3,
       allowOAuthRegistration: !!data.allowOAuthRegistration,
+      allowRegister: !!data.allowRegister,
+      registerRequiresApproval: data.registerRequiresApproval !== false,
+      oauthRegisterRequiresApproval: data.oauthRegisterRequiresApproval !== false,
+      registerEmailRequired: data.registerEmailRequired === true,
+      smtpEnabled: !!data.smtpEnabled,
       oauthRedirectUri: data.oauthRedirectUri || '',
       oauthStateSecret: data.oauthStateSecret || '',
       githubOAuthEnabled: !!data.githubOAuthEnabled,
@@ -878,7 +1069,9 @@ const loadConfig = async () => {
       customOAuthUsernameField: data.customOAuthUsernameField || '',
       customOAuthNameField: data.customOAuthNameField || '',
       customOAuthEmailField: data.customOAuthEmailField || '',
-      customOAuthAvatarField: data.customOAuthAvatarField || ''
+      customOAuthAvatarField: data.customOAuthAvatarField || '',
+      defaultTheme: data.defaultTheme || 'System',
+      enabledThemes: parseJsonArray(data.enabledThemes, [...THEMES])
     }
 
     originalData.value = JSON.parse(JSON.stringify(formData.value))
@@ -893,9 +1086,27 @@ const loadConfig = async () => {
 // 保存配置
 const saveConfig = async () => {
   try {
+    if (isSuperAdmin.value) {
+      if (!formData.value.enabledThemes.includes(formData.value.defaultTheme)) {
+        showNotification(locale.value?.defaultThemeMustBeEnabled || '默认主题必须处于启用状态', 'error')
+        return
+      }
+      if (formData.value.enabledThemes.includes('System') && (!formData.value.enabledThemes.includes('ClassicDark') || !formData.value.enabledThemes.includes('ClassicLight'))) {
+        showNotification(locale.value?.systemThemeRequiresBothClassic || '启用跟随系统时，经典深色和经典浅色必须同时启用', 'error')
+        return
+      }
+    }
     saving.value = true
+    const schoolLogoHomeDarkUrl = (formData.value.schoolLogoHomeDarkUrl || '').trim()
+    const schoolLogoHomeLightUrl = schoolLogoHomeDarkUrl
+      ? (formData.value.schoolLogoHomeLightUrl || '').trim()
+      : ''
     const configToSave = {
       ...formData.value,
+      schoolLogoHomeUrl: joinThemeLogoUrl(
+        schoolLogoHomeDarkUrl,
+        schoolLogoHomeLightUrl
+      ),
       siteTitle: (formData.value.siteTitle || '').trim() || locale.value?.defaultSiteTitle || 'VoiceHub',
       siteLogoUrl: (formData.value.siteLogoUrl || '').trim() || '/favicon.ico',
       submissionGuidelines:
@@ -906,8 +1117,20 @@ const saveConfig = async () => {
       weeklySubmissionLimit:
         activeLimitTab.value === 'weekly' ? formData.value.weeklySubmissionLimit : null,
       monthlySubmissionLimit:
-        activeLimitTab.value === 'monthly' ? formData.value.monthlySubmissionLimit : null
+        activeLimitTab.value === 'monthly' ? formData.value.monthlySubmissionLimit : null,
+      ...(isSuperAdmin.value
+        ? {
+            defaultTheme: formData.value.defaultTheme,
+            enabledThemes: JSON.stringify(formData.value.enabledThemes)
+          }
+        : {})
     }
+    if (!isSuperAdmin.value) {
+      delete configToSave.defaultTheme
+      delete configToSave.enabledThemes
+    }
+    delete configToSave.schoolLogoHomeDarkUrl
+    delete configToSave.schoolLogoHomeLightUrl
 
     const response = await fetch('/api/admin/system-settings', {
       method: 'POST',
@@ -922,16 +1145,7 @@ const saveConfig = async () => {
         const errorData = await response.json()
         console.error('Site config API error response:', errorData)
 
-        const getErrorMessage = (err) => {
-          if (err?.data?.error) return err.data.error
-          if (err?.message) return err.message
-          if (err?.statusMessage && err.statusMessage !== 'Error') return err.statusMessage
-          if (err?.data?.message) return err.data.message
-          if (err?.error) return err.error
-          return null
-        }
-
-        message = getLocalizedServerMessage(getErrorMessage(errorData) || locale.value?.saveFailed || '系统设置保存失败')
+        message = localizeServerError(errorData, locale.value?.saveFailed || '系统设置保存失败')
       } catch (parseError) {
         console.error('Failed to parse site config API error:', parseError)
       }
@@ -939,7 +1153,11 @@ const saveConfig = async () => {
     }
 
     saveSuccess.value = true
-    formData.value = { ...configToSave }
+    formData.value = {
+      ...formData.value,
+      siteTitle: configToSave.siteTitle,
+      siteLogoUrl: configToSave.siteLogoUrl
+    }
     originalData.value = JSON.parse(JSON.stringify(formData.value))
     localStorage.setItem('voicehub.telemetryEnabled', configToSave.telemetryEnabled ? 'true' : 'false')
     // 刷新前端模块级缓存，避免首页等页面继续使用旧配置
@@ -953,7 +1171,7 @@ const saveConfig = async () => {
     console.error('Failed to save site config:', error)
     let message = locale.value?.saveFailedRetry || '系统设置保存失败，请稍后重试'
     if (error?.message) {
-      message = getLocalizedServerMessage(error.message)
+      message = localizeServerError(error, error.message)
     }
     showNotification(message, 'error')
   } finally {
