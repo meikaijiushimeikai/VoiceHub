@@ -12,6 +12,7 @@ import {
 import { and, eq, gte, inArray } from 'drizzle-orm'
 import { sendBatchMeowNotifications, sendMeowNotificationToUser } from './meowNotificationService'
 import { sendBatchEmailNotifications, sendEmailNotificationToUser } from './smtpService'
+import { sendAstrbotNotificationToUser, sendBatchAstrbotNotifications } from './astrbotNotificationService'
 import { formatDateTime, getBeijingTime } from '~/utils/timeUtils'
 import { getSystemSettingsCached } from '~~/server/utils/system-settings-helper'
 import {
@@ -21,6 +22,15 @@ import {
   type NotificationSenderInput
 } from '~~/server/utils/important-notification-policy'
 import { randomUUID } from 'node:crypto'
+
+/** AstrBot 私聊投递失败不阻断业务流程：统一吞异常并记日志。 */
+async function sendAstrbotToUserSafely(userId: number, title: string, content: string) {
+  try {
+    await sendAstrbotNotificationToUser(userId, title, content)
+  } catch (error) {
+    console.error(`发送 AstrBot 通知失败 (User: ${userId}):`, error)
+  }
+}
 
 /**
  * 创建联合投稿邀请通知
@@ -75,6 +85,8 @@ export async function createCollaborationInvitationNotification(
       console.error('发送邮件通知失败:', error)
     }
 
+    await sendAstrbotToUserSafely(inviteeId, '收到联合投稿邀请', message)
+
     return notificationResult[0]
   } catch (error) {
     console.error('创建联合投稿邀请通知失败:', error)
@@ -112,6 +124,8 @@ export async function createCollaborationResponseNotification(
       })
       .returning()
 
+    await sendAstrbotToUserSafely(inviterId, '联合投稿邀请回复', message)
+
     return notificationResult[0]
   } catch (error) {
     console.error('创建联合投稿回复通知失败:', error)
@@ -119,30 +133,106 @@ export async function createCollaborationResponseNotification(
   }
 }
 
+type SongSelectedKind = 'submission' | 'replay'
+
 /**
- * 创建歌曲被选中的通知
+ * 入选通知条目：一条通知可包含同一用户同一天入选的多首歌曲
  */
-export async function createSongSelectedNotification(
-  userId: number,
-  songId: number,
+export interface SongSelectedEntry {
+  userId: number
+  songId: number
   songInfo: {
     title: string
     artist: string
     playDate: Date
   }
+  scheduleId?: number | null
+}
+
+const SONG_SELECTED_TEXT: Record<
+  SongSelectedKind,
+  {
+    meowTitle: string
+    emailTitle: string
+    emailTemplateKey: string
+    buildMessage: (mergedSongTitle: string, playDate: string) => string
+  }
+> = {
+  submission: {
+    meowTitle: '收到新选中',
+    emailTitle: '歌曲被选中',
+    emailTemplateKey: 'notification.songSelected',
+    buildMessage: (mergedSongTitle, playDate) =>
+      `您投稿的歌曲《${mergedSongTitle}》已被安排播放，播放日期：${playDate}。`
+  },
+  replay: {
+    meowTitle: '重播已安排',
+    emailTitle: '重播申请已安排',
+    emailTemplateKey: 'notification.replaySongSelected',
+    buildMessage: (mergedSongTitle, playDate) =>
+      `您申请重播的歌曲《${mergedSongTitle}》已安排播放，播放日期：${playDate}。`
+  }
+}
+
+interface SongSelectedGroup {
+  userId: number
+  playDate: Date
+  songIds: number[]
+  songTitles: string[]
+  scheduleIds: number[]
+}
+
+/**
+ * 按用户 + 播放日期分组，同一天多首歌曲只发一条通知
+ */
+function groupSongSelectedEntries(entries: SongSelectedEntry[]): SongSelectedGroup[] {
+  const groups = new Map<string, SongSelectedGroup>()
+  for (const entry of entries) {
+    const key = `${entry.userId}|${formatDate(entry.songInfo.playDate)}`
+    let group = groups.get(key)
+    if (!group) {
+      group = {
+        userId: entry.userId,
+        playDate: entry.songInfo.playDate,
+        songIds: [],
+        songTitles: [],
+        scheduleIds: []
+      }
+      groups.set(key, group)
+    }
+    group.songIds.push(entry.songId)
+    group.songTitles.push(entry.songInfo.title)
+    if (entry.scheduleId) {
+      group.scheduleIds.push(entry.scheduleId)
+    }
+  }
+  return [...groups.values()]
+}
+
+/**
+ * 发送一条入选通知（站内 + MeoW + 邮件），多首歌曲时歌曲名以《A、B、C》合并
+ */
+async function sendSongSelectedNotification(
+  kind: SongSelectedKind,
+  group: SongSelectedGroup
 ) {
   try {
+    const text = SONG_SELECTED_TEXT[kind]
+    const { userId, playDate, songIds, songTitles, scheduleIds } = group
+
     // 获取系统设置，检查是否启用播出时段功能
     const systemConfig = await getSystemSettingsCached()
     const isPlayTimeEnabled = systemConfig?.enablePlayTimeSelection || false
 
+    // 优先按排期 ID 取播出时段，避免同日同歌多排期时取错时段
+    const whereClause =
+      scheduleIds.length === songIds.length
+        ? inArray(schedules.id, scheduleIds)
+        : and(inArray(schedules.songId, songIds), eq(schedules.playDate, playDate))
+
     // 获取排期对应的播出时段
     const scheduleResult = await db
       .select({
-        id: schedules.id,
-        songId: schedules.songId,
-        playDate: schedules.playDate,
-        playTimeId: schedules.playTimeId,
         playTime: {
           id: playTimes.id,
           name: playTimes.name,
@@ -152,9 +242,9 @@ export async function createSongSelectedNotification(
       })
       .from(schedules)
       .leftJoin(playTimes, eq(schedules.playTimeId, playTimes.id))
-      .where(and(eq(schedules.songId, songId), eq(schedules.playDate, songInfo.playDate)))
+      .where(whereClause)
       .limit(1)
-    const schedule = scheduleResult[0]
+    const playTime = scheduleResult[0]?.playTime
 
     // 获取用户通知设置
     const settingsResult = await db
@@ -169,44 +259,42 @@ export async function createSongSelectedNotification(
       return null
     }
 
+    const songTitleText = songTitles.join('、')
+    const playDateText = formatDate(playDate)
+
     // 创建通知，根据播出时段功能启用状态决定显示内容
-    let message = `您投稿的歌曲《${songInfo.title}》已被安排播放，播放日期：${formatDate(songInfo.playDate)}。`
+    let message = text.buildMessage(songTitleText, playDateText)
 
     // 只有在启用播出时段功能且有播出时段信息时，才添加播出时段详情
-    if (isPlayTimeEnabled && schedule?.playTime) {
+    if (isPlayTimeEnabled && playTime) {
       let timeInfo = ''
 
       // 根据开始和结束时间的情况，格式化显示
-      if (schedule.playTime.startTime && schedule.playTime.endTime) {
-        timeInfo = `(${schedule.playTime.startTime}-${schedule.playTime.endTime})`
-      } else if (schedule.playTime.startTime) {
-        timeInfo = `(开始时间：${schedule.playTime.startTime})`
-      } else if (schedule.playTime.endTime) {
-        timeInfo = `(结束时间：${schedule.playTime.endTime})`
+      if (playTime.startTime && playTime.endTime) {
+        timeInfo = `(${playTime.startTime}-${playTime.endTime})`
+      } else if (playTime.startTime) {
+        timeInfo = `(开始时间：${playTime.startTime})`
+      } else if (playTime.endTime) {
+        timeInfo = `(结束时间：${playTime.endTime})`
       }
 
-      message += `播出时段：${schedule.playTime.name}${timeInfo ? ' ' + timeInfo : ''}。`
+      message += `播出时段：${playTime.name}${timeInfo ? ' ' + timeInfo : ''}。`
     }
 
-    let notification
-    try {
-      const notificationResult = await db
-        .insert(notifications)
-        .values({
-          userId,
-          type: 'SONG_SELECTED',
-          message,
-          songId
-        })
-        .returning()
-      notification = notificationResult[0]
-    } catch (error) {
-      throw error
-    }
+    const notificationResult = await db
+      .insert(notifications)
+      .values({
+        userId,
+        type: 'SONG_SELECTED',
+        message,
+        // 合并多首歌曲时不再指向单首歌曲
+        songId: songIds.length === 1 ? songIds[0]! : null
+      })
+      .returning()
 
     // 同步发送 MeoW 通知
     try {
-      await sendMeowNotificationToUser(userId, '收到新选中', message)
+      await sendMeowNotificationToUser(userId, text.meowTitle, message)
     } catch (error) {
       console.error('发送 MeoW 通知失败:', error)
     }
@@ -215,19 +303,17 @@ export async function createSongSelectedNotification(
     try {
       await sendEmailNotificationToUser(
         userId,
-        '歌曲被选中',
+        text.emailTitle,
         message,
         undefined,
-        'notification.songSelected',
+        text.emailTemplateKey,
         {
-          songTitle: songInfo.title,
-          playDate: formatDate(songInfo.playDate),
-          playTimeName: isPlayTimeEnabled && schedule?.playTime ? schedule.playTime.name : '',
+          songTitle: songTitleText,
+          playDate: playDateText,
+          playTimeName: isPlayTimeEnabled && playTime ? playTime.name : '',
           playTimeRange:
-            isPlayTimeEnabled &&
-            schedule?.playTime &&
-            (schedule.playTime.startTime || schedule.playTime.endTime)
-              ? `${schedule.playTime.startTime || ''}${schedule.playTime.startTime && schedule.playTime.endTime ? '-' : ''}${schedule.playTime.endTime || ''}`
+            isPlayTimeEnabled && playTime && (playTime.startTime || playTime.endTime)
+              ? `${playTime.startTime || ''}${playTime.startTime && playTime.endTime ? '-' : ''}${playTime.endTime || ''}`
               : ''
         }
       )
@@ -235,10 +321,52 @@ export async function createSongSelectedNotification(
       console.error('发送邮件通知失败:', error)
     }
 
-    return notification
+    await sendAstrbotToUserSafely(userId, text.meowTitle, message)
+
+    return notificationResult[0]
   } catch (err) {
     return null
   }
+}
+
+/**
+ * 创建歌曲被选中的通知（同一用户同一天多首歌曲合并为一条）
+ */
+export async function createSongSelectedNotifications(entries: SongSelectedEntry[]) {
+  const results = await Promise.allSettled(
+    groupSongSelectedEntries(entries).map((group) =>
+      sendSongSelectedNotification('submission', group)
+    )
+  )
+  return results.flatMap((r) => (r.status === 'fulfilled' && r.value ? [r.value] : []))
+}
+
+/**
+ * 创建歌曲被选中的通知
+ */
+export async function createSongSelectedNotification(
+  userId: number,
+  songId: number,
+  songInfo: {
+    title: string
+    artist: string
+    playDate: Date
+  }
+) {
+  const created = await createSongSelectedNotifications([{ userId, songId, songInfo }])
+  return created[0] || null
+}
+
+/**
+ * 创建重播申请已安排排期的通知（发送给重播申请人，同一用户同一天多首歌曲合并为一条）
+ */
+export async function createReplaySongSelectedNotifications(entries: SongSelectedEntry[]) {
+  const results = await Promise.allSettled(
+    groupSongSelectedEntries(entries).map((group) =>
+      sendSongSelectedNotification('replay', group)
+    )
+  )
+  return results.flatMap((r) => (r.status === 'fulfilled' && r.value ? [r.value] : []))
 }
 
 /**
@@ -254,101 +382,10 @@ export async function createReplaySongSelectedNotification(
   },
   scheduleId?: number
 ) {
-  try {
-    // 获取系统设置，检查是否启用播出时段功能
-    const systemConfig = await getSystemSettingsCached()
-    const isPlayTimeEnabled = systemConfig?.enablePlayTimeSelection || false
-
-    // 优先按排期 ID 精确查询，避免同日同歌多排期时取错时段
-    const scheduleResult = await db
-      .select({
-        id: schedules.id,
-        playTime: {
-          id: playTimes.id,
-          name: playTimes.name,
-          startTime: playTimes.startTime,
-          endTime: playTimes.endTime
-        }
-      })
-      .from(schedules)
-      .leftJoin(playTimes, eq(schedules.playTimeId, playTimes.id))
-      .where(
-        scheduleId
-          ? eq(schedules.id, scheduleId)
-          : and(eq(schedules.songId, songId), eq(schedules.playDate, songInfo.playDate))
-      )
-      .limit(1)
-    const schedule = scheduleResult[0]
-
-    // 获取用户通知设置
-    const settingsResult = await db
-      .select()
-      .from(notificationSettings)
-      .where(eq(notificationSettings.userId, userId))
-      .limit(1)
-    const settings = settingsResult[0]
-
-    if (settings && !settings.enabled) {
-      return null
-    }
-
-    let message = `您申请重播的歌曲《${songInfo.title}》已安排播放，播放日期：${formatDate(songInfo.playDate)}。`
-
-    if (isPlayTimeEnabled && schedule?.playTime) {
-      let timeInfo = ''
-      if (schedule.playTime.startTime && schedule.playTime.endTime) {
-        timeInfo = `(${schedule.playTime.startTime}-${schedule.playTime.endTime})`
-      } else if (schedule.playTime.startTime) {
-        timeInfo = `(开始时间：${schedule.playTime.startTime})`
-      } else if (schedule.playTime.endTime) {
-        timeInfo = `(结束时间：${schedule.playTime.endTime})`
-      }
-      message += `播出时段：${schedule.playTime.name}${timeInfo ? ' ' + timeInfo : ''}。`
-    }
-
-    let notification
-    try {
-      const notificationResult = await db
-        .insert(notifications)
-        .values({
-          userId,
-          type: 'SONG_SELECTED',
-          message,
-          songId
-        })
-        .returning()
-      notification = notificationResult[0]
-    } catch (error) {
-      throw error
-    }
-
-    try {
-      await sendMeowNotificationToUser(userId, '重播已安排', message)
-    } catch (error) {
-      console.error('发送 MeoW 通知失败:', error)
-    }
-
-    try {
-      await sendEmailNotificationToUser(
-        userId,
-        '重播申请已安排',
-        message,
-        undefined,
-        'notification.replaySongSelected',
-        {
-          songTitle: songInfo.title,
-          playDate: formatDate(songInfo.playDate),
-          playTimeName: isPlayTimeEnabled && schedule?.playTime ? schedule.playTime.name : ''
-        }
-      )
-    } catch (error) {
-      console.error('发送邮件通知失败:', error)
-    }
-
-    return notification
-  } catch (err) {
-    return null
-  }
+  const created = await createReplaySongSelectedNotifications([
+    { userId, songId, songInfo, scheduleId }
+  ])
+  return created[0] || null
 }
 
 // 格式化日期为 yyyy-MM-dd 格式（北京时间）
@@ -357,52 +394,67 @@ function formatDate(date: Date): string {
 }
 
 /**
- * 创建歌曲已播放的通知
+ * 创建歌曲已播放的通知（同一用户多首歌曲合并为一条）
  */
-export async function createSongPlayedNotification(songId: number) {
+export async function createSongPlayedNotifications(songIds: number[]) {
   try {
+    if (songIds.length === 0) {
+      return []
+    }
+
     // 获取歌曲信息
-    const songResult = await db.select().from(songs).where(eq(songs.id, songId)).limit(1)
-    const song = songResult[0]
+    const songList = await db.select().from(songs).where(inArray(songs.id, songIds))
 
-    if (!song) {
-      return null
+    if (songList.length === 0) {
+      return []
     }
 
-    // 获取用户通知设置
-    const settingsResult = await db
-      .select()
-      .from(notificationSettings)
-      .where(eq(notificationSettings.userId, song.requesterId))
-      .limit(1)
-    const settings = settingsResult[0]
-
-    // 如果用户关闭了此类通知，则不发送
-    if (settings && !settings.songPlayedEnabled) {
-      return null
-    }
-
-    // 创建通知
-    const message = `您投稿的歌曲《${song.title}》已播放。`
-
-    // 获取所有关联用户（投稿人 + 联合投稿人）
-    const userIdsToNotify = [song.requesterId]
-
-    // 获取联合投稿人
-    const collaborators = await db
+    // 获取所有歌曲已接受的联合投稿人
+    const collaboratorRows = await db
       .select()
       .from(songCollaborators)
-      .where(and(eq(songCollaborators.songId, songId), eq(songCollaborators.status, 'ACCEPTED')))
+      .where(
+        and(
+          inArray(songCollaborators.songId, songList.map((s) => s.id)),
+          eq(songCollaborators.status, 'ACCEPTED')
+        )
+      )
 
-    collaborators.forEach((c) => {
-      if (!userIdsToNotify.includes(c.userId)) {
-        userIdsToNotify.push(c.userId)
+    // 按用户分组：投稿人取其投稿歌曲，联合投稿人取其参与歌曲
+    interface SongPlayedGroup {
+      requestedTitles: string[]
+      collaboratedTitles: string[]
+      songIds: Set<number>
+    }
+    const groups = new Map<number, SongPlayedGroup>()
+    const ensureGroup = (userId: number): SongPlayedGroup => {
+      let group = groups.get(userId)
+      if (!group) {
+        group = { requestedTitles: [], collaboratedTitles: [], songIds: new Set() }
+        groups.set(userId, group)
       }
-    })
+      return group
+    }
+
+    for (const song of songList) {
+      const group = ensureGroup(song.requesterId)
+      group.requestedTitles.push(song.title)
+      group.songIds.add(song.id)
+    }
+
+    for (const collaborator of collaboratorRows) {
+      const song = songList.find((s) => s.id === collaborator.songId)
+      if (!song) continue
+      // 投稿人不再重复计入联合投稿
+      if (song.requesterId === collaborator.userId) continue
+      const group = ensureGroup(collaborator.userId)
+      group.collaboratedTitles.push(song.title)
+      group.songIds.add(song.id)
+    }
 
     const notificationsCreated = []
 
-    for (const targetUserId of userIdsToNotify) {
+    for (const [targetUserId, group] of groups) {
       try {
         // 获取用户通知设置
         const settingsResult = await db
@@ -417,10 +469,21 @@ export async function createSongPlayedNotification(songId: number) {
           continue
         }
 
-        const userMessage =
-          targetUserId === song.requesterId
-            ? message
-            : `您参与联合投稿的歌曲《${song.title}》已播放。`
+        // 多首歌曲名以《A、B、C》合并，投稿与联合投稿分别成句
+        const messageParts = []
+        if (group.requestedTitles.length > 0) {
+          messageParts.push(`您投稿的歌曲《${group.requestedTitles.join('、')}》已播放。`)
+        }
+        if (group.collaboratedTitles.length > 0) {
+          messageParts.push(
+            `您参与联合投稿的歌曲《${group.collaboratedTitles.join('、')}》已播放。`
+          )
+        }
+        const userMessage = messageParts.join('')
+        const songTitleText = [...group.requestedTitles, ...group.collaboratedTitles].join('、')
+
+        // 合并多首歌曲时不再指向单首歌曲
+        const singleSongId = group.songIds.size === 1 ? [...group.songIds][0]! : null
 
         const notificationResult = await db
           .insert(notifications)
@@ -428,7 +491,7 @@ export async function createSongPlayedNotification(songId: number) {
             userId: targetUserId,
             type: 'SONG_PLAYED',
             message: userMessage,
-            songId: songId
+            songId: singleSongId
           })
           .returning()
         notificationsCreated.push(notificationResult[0])
@@ -449,21 +512,30 @@ export async function createSongPlayedNotification(songId: number) {
             undefined,
             'notification.songPlayed',
             {
-              songTitle: song.title
+              songTitle: songTitleText
             }
           )
         } catch (error) {
           console.error(`发送邮件通知失败 (User: ${targetUserId}):`, error)
         }
+        await sendAstrbotToUserSafely(targetUserId, '歌曲已播放', userMessage)
       } catch (err) {
         console.error(`处理播放通知失败 (User: ${targetUserId}):`, err)
       }
     }
 
-    return notificationsCreated.length > 0 ? notificationsCreated[0] : null
+    return notificationsCreated
   } catch (err) {
-    return null
+    return []
   }
+}
+
+/**
+ * 创建单首歌曲已播放的通知
+ */
+export async function createSongPlayedNotification(songId: number) {
+  const created = await createSongPlayedNotifications([songId])
+  return created[0] || null
 }
 
 /**
@@ -584,6 +656,8 @@ export async function createSongVotedNotification(songId: number, voterId: numbe
       console.error('发送邮件通知失败:', error)
     }
 
+    await sendAstrbotToUserSafely(song.requesterId, '收到新投票', message)
+
     return notification
   } catch (err) {
     return null
@@ -616,20 +690,11 @@ export async function createSongRejectedNotification(
     const message = `您投稿的歌曲《${songInfo.title} - ${songInfo.artist}》已被管理员驳回。驳回原因：${reason}`
 
     // 创建站内通知
-    let notification
-    try {
-      const notificationResult = await db
-        .insert(notifications)
-        .values({
-          userId,
-          type: 'SONG_REJECTED',
-          message
-        })
-        .returning()
-      notification = notificationResult[0]
-    } catch (error) {
-      throw error
-    }
+    const notificationResult = await db
+      .insert(notifications)
+      .values({ userId, type: 'SONG_REJECTED', message })
+      .returning()
+    const notification = notificationResult[0]
 
     // 同步发送 MeoW 通知
     try {
@@ -654,6 +719,8 @@ export async function createSongRejectedNotification(
     } catch (error) {
       console.error('发送邮件通知失败:', error)
     }
+
+    await sendAstrbotToUserSafely(userId, '歌曲被驳回', message)
 
     return notification
   } catch (err) {
@@ -745,6 +812,8 @@ export async function createSystemNotification(
       console.error('发送邮件通知失败:', error)
     }
 
+    await sendAstrbotToUserSafely(userId, title, content)
+
     return notification
   } catch (err) {
     return null
@@ -833,11 +902,21 @@ export async function createBatchSystemNotifications(
       console.error('批量发送邮件通知失败:', error)
     }
 
+    let astrbotResults = { success: 0, failed: 0 }
+    try {
+      astrbotResults = await sendBatchAstrbotNotifications(
+        notificationsToCreate.map((row) => row.userId), title, content
+      )
+    } catch (error) {
+      console.error('批量发送 AstrBot 通知失败:', error)
+    }
+
     return {
       count: notificationCount.count,
       total: userIds.length,
       meowNotifications: meowResults,
-      emailNotifications: emailResults
+      emailNotifications: emailResults,
+      astrbotNotifications: astrbotResults
     }
   } catch (err) {
     return null
@@ -869,20 +948,11 @@ export async function createReplayRequestRejectedNotification(
     const message = `您的重播申请《${songInfo.title}》已被管理员拒绝。`
 
     // 创建站内通知
-    let notification
-    try {
-      const notificationResult = await db
-        .insert(notifications)
-        .values({
-          userId,
-          type: 'REPLAY_REJECTED',
-          message
-        })
-        .returning()
-      notification = notificationResult[0]
-    } catch (error) {
-      throw error
-    }
+    const notificationResult = await db
+      .insert(notifications)
+      .values({ userId, type: 'REPLAY_REJECTED', message })
+      .returning()
+    const notification = notificationResult[0]
 
     // 同步发送 MeoW 通知
     try {
@@ -897,6 +967,8 @@ export async function createReplayRequestRejectedNotification(
     } catch (error) {
       console.error('发送邮件通知失败:', error)
     }
+
+    await sendAstrbotToUserSafely(userId, '重播申请已拒绝', message)
 
     return notification
   } catch (err) {

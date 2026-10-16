@@ -1,4 +1,5 @@
 import { db } from '~/drizzle/db'
+import { pluginBackupTables } from '~~/server/utils/music-source-plugins/backup'
 import {
   backupHistory,
   systemSettings,
@@ -9,6 +10,7 @@ import {
   cardCodes,
   collaborationLogs,
   emailTemplates,
+  gradeClass,
   notifications,
   notificationSettings,
   playTimes,
@@ -28,6 +30,7 @@ import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
 import { uploadToS3 } from '~~/server/utils/s3Client'
 import { desc, eq, lt, sql } from 'drizzle-orm'
+import { enqueueAstrbotGroupEvent } from '~~/server/services/astrbotGroupService'
 
 /** 外部服务调用超时（毫秒） */
 const UPLOAD_TIMEOUT = 120_000
@@ -120,15 +123,17 @@ export async function exportBackupData(): Promise<{ json: string; filename: stri
   }
 
   const tablesToBackup: Record<string, { query: () => Promise<any[]>; description: string }> = {
+    ...Object.fromEntries(Object.entries(pluginBackupTables).map(([name, table]) => [name, { query: () => db.select().from(table), description: '音源插件配置' }])),
     users: { query: () => db.select().from(users), description: '用户数据' },
     songs: { query: () => db.select().from(songs), description: '歌曲数据' },
     schedules: { query: () => db.select().from(schedules), description: '排期数据' },
     playTimes: { query: () => db.select().from(playTimes), description: '播出时段' },
     requestTimes: { query: () => db.select().from(requestTimes), description: '请求时段' },
     semesters: { query: () => db.select().from(semesters), description: '学期数据' },
+    gradeClass: { query: () => db.select().from(gradeClass), description: '年级班级配置' },
     notifications: { query: () => db.select().from(notifications), description: '通知数据' },
     notificationSettings: { query: () => db.select().from(notificationSettings), description: '通知设置' },
-    songBlacklists: { query: () => db.select().from(songBlacklists), description: '歌曲黑名单' },
+    songBlacklist: { query: () => db.select().from(songBlacklists), description: '歌曲黑名单' },
     votes: { query: () => db.select().from(votes), description: '投票数据' },
     cardCodes: { query: () => db.select().from(cardCodes), description: '点歌券数据' },
     cardCodeRedeemLogs: { query: () => db.select().from(cardCodeRedeemLogs), description: '点歌券日志' },
@@ -430,6 +435,14 @@ export async function executeUploads(prepared: {
   const results: Array<{ method: string; success: boolean; error?: string }> = await Promise.all(tasks)
 
   const overallSuccess = results.some(r => r.success)
+
+  // 群聊推送：备份失败需要管理员尽快知道，否则数据在无声中丢保护。
+  // 只报失败的方法，成功的方法不占篇幅；全部成功时不发消息。
+  const failures = results.filter(r => !r.success)
+  if (failures.length) {
+    const detail = failures.map(r => `${r.method}：${r.error || '未知错误'}`).join('；')
+    await enqueueAstrbotGroupEvent('backupFailed', '自动备份失败', `${filename} 备份失败 — ${detail}`)
+  }
 
   // 更新整体成功状态
   await db.update(backupHistory)

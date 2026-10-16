@@ -50,6 +50,7 @@ export interface Song {
   createdAt: string
   voted?: boolean
   scheduled?: boolean
+  inPool?: boolean
   scheduleDate?: string
   schedulePlayed?: boolean
   cardCodeId?: number | null
@@ -77,6 +78,8 @@ export interface Schedule {
     hasSubmissionNote?: boolean
     submissionNote?: string | null
     submissionNotePublic?: boolean
+    originalSubmissionNote?: string | null
+    originalSubmissionNotePublic?: boolean
     cardCodeId?: number | null
     usedCardCode?: boolean
   }

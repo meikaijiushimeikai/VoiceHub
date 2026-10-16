@@ -5,7 +5,6 @@
         v-if="isVisible"
         class="lyrics-modal-overlay"
         tabindex="-1"
-        style="--main-cover-color: 255, 255, 255"
         @click="handleOverlayClick"
       >
         <div
@@ -24,7 +23,7 @@
               v-else
               ref="coverBlurContainer"
               :class="{ visible: showBackgroundFallback }"
-              :style="{ backgroundImage: `url(${currentCoverUrl})` }"
+              :style="{ backgroundImage: `url(${getSizedCoverUrl(currentCoverUrl)})` }"
               class="cover-background"
             />
             <!-- 叠加暗化层，提升白色背景下歌词对比度 -->
@@ -196,7 +195,8 @@
                 </button>
               </div>
 
-              <div v-show="activePanel === 'lyrics'" class="lyrics-display-area">
+              <!-- 必须用 v-if：v-show 隐藏期间歌词播放器被测量为 0 尺寸，切回后排版塌缩 -->
+              <div v-if="activePanel === 'lyrics'" class="lyrics-display-area">
                 <div class="lyrics-container">
                   <!-- 集成 AMLyric 组件 (传入毫秒) -->
                   <AMLyric v-if="lyricSettings.useAMLyrics.value" :current-time="currentTime" />
@@ -243,13 +243,21 @@
                           <button @click="lyricSettings.lyricOffset.value += 100">+</button>
                         </div>
                       </div>
-                      <div v-if="!lyricSettings.useAMLyrics.value" class="setting-item switch">
+                      <div class="setting-item switch">
                         <span class="label">{{ locale.showTranslation }}</span>
                         <input v-model="lyricSettings.showTranslation.value" type="checkbox" />
                       </div>
-                      <div v-if="!lyricSettings.useAMLyrics.value" class="setting-item switch">
+                      <div class="setting-item switch">
                         <span class="label">{{ locale.showRoma }}</span>
                         <input v-model="lyricSettings.showRoma.value" type="checkbox" />
+                      </div>
+                      <div v-if="lyricSettings.useAMLyrics.value" class="setting-item switch">
+                        <span class="label">{{ locale.showWordsRoma }}</span>
+                        <input v-model="lyricSettings.showWordsRoma.value" type="checkbox" />
+                      </div>
+                      <div class="setting-item switch">
+                        <span class="label">{{ locale.swapTranRoma }}</span>
+                        <input v-model="lyricSettings.swapTranRoma.value" type="checkbox" />
                       </div>
                       <div v-if="!lyricSettings.useAMLyrics.value" class="setting-item switch">
                         <span class="label">{{ locale.showYrc }}</span>
@@ -383,7 +391,7 @@ import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import { useAudioQuality } from '~/composables/useAudioQuality'
 import { useAudioPlayerEnhanced } from '~/composables/useAudioPlayerEnhanced'
 import { useAudioVisualizer } from '~/composables/useAudioVisualizer'
-import { convertToHttps } from '~/utils/url'
+import { convertToHttps, getSizedCoverUrl } from '~/utils/url'
 import AMLyric from '~/components/Player/PlayerLyric/AMLyric.vue'
 import DefaultLyric from '~/components/Player/PlayerLyric/DefaultLyric.vue'
 import Popover from '~/components/UI/Common/Popover.vue'

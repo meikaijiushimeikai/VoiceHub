@@ -1,5 +1,6 @@
 import { createError, defineEventHandler, readBody, readMultipartFormData } from 'h3'
 import { db } from '~/drizzle/db'
+import { pluginClearOrder, restorePluginRecord } from '~~/server/utils/music-source-plugins/backup'
 import {
   apiKeyPermissions,
   apiKeys,
@@ -32,6 +33,7 @@ import { SmtpService } from '../../../services/smtpService'
 import { and, eq, inArray, isNull, notInArray, or } from 'drizzle-orm'
 import { restoreScheduleSongPoolRecord } from '~~/server/utils/restoreScheduleSongPool'
 import { omitMaskedSystemSettingsSecrets } from '~~/server/api/admin/system-settings/secretMask'
+import { restoreAstrbotBindings } from '~~/server/utils/astrbot-backup'
 import { validateThemeConfig } from '~~/server/utils/theme-config'
 import { createApiError } from '~~/server/utils/apiError'
 import { SERVER_ERROR_CODES } from '~~/server/config/constants'
@@ -207,6 +209,8 @@ export default defineEventHandler(async (event) => {
           await db.delete(playTimes)
           await db.delete(semesters)
           await db.delete(requestTimes)
+          await db.delete(gradeClass)
+          for (const table of pluginClearOrder) await db.delete(table)
           await db.delete(systemSettings)
         } else {
           const preservedUsers = await db
@@ -277,6 +281,8 @@ export default defineEventHandler(async (event) => {
           await db.delete(playTimes)
           await db.delete(semesters)
           await db.delete(requestTimes)
+          await db.delete(gradeClass)
+          for (const table of pluginClearOrder) await db.delete(table)
           await db.delete(systemSettings)
         }
         console.log('✅ 现有数据已清空')
@@ -293,6 +299,9 @@ export default defineEventHandler(async (event) => {
 
     // 定义恢复顺序（考虑外键依赖）
     const restoreOrder = [
+      'musicSourcePlugins',
+      'musicSourcePluginRevisions',
+      'musicSourceConfigState',
       'systemSettings',
       'playTimes',
       'semesters',
@@ -355,6 +364,11 @@ export default defineEventHandler(async (event) => {
                     }
                     // 根据表名选择恢复策略
                     switch (tableName) {
+                      case 'musicSourcePlugins':
+                      case 'musicSourcePluginRevisions':
+                      case 'musicSourceConfigState':
+                        await restorePluginRecord(tx, tableName, record)
+                        break
                       case 'users':
                         // 动态构建用户数据，自动跳过不存在的字段
                         const buildUserData = (includePassword = false) => {
@@ -374,7 +388,8 @@ export default defineEventHandler(async (event) => {
                             'statusChangedBy',
                             'remark',
                             'avatarProvider',
-                            'avatarProviderUserId'
+                            'avatarProviderUserId',
+                            'legalConsentVersion'
                           ]
 
                           // 处理日期字段
@@ -384,7 +399,8 @@ export default defineEventHandler(async (event) => {
                             'lastLogin',
                             'passwordChangedAt',
                             'meowBoundAt',
-                            'statusChangedAt'
+                            'statusChangedAt',
+                            'legalConsentAt'
                           ]
 
                           // 添加基本字段
@@ -565,6 +581,7 @@ export default defineEventHandler(async (event) => {
                           }
                         }
                         // 建立ID映射
+                        await restoreAstrbotBindings(tx, createdUser.id, record)
                         if (record.id && createdUser.id) {
                           userIdMapping.set(record.id, createdUser.id)
                         }
@@ -887,6 +904,7 @@ export default defineEventHandler(async (event) => {
                           'cover',
                           'musicPlatform',
                           'musicId',
+                          'musicSourceData',
                           'durationSeconds',
                           'submissionNote',
                           'submissionNotePublic',
@@ -1194,6 +1212,7 @@ export default defineEventHandler(async (event) => {
                           'submissionGuidelines',
                           'icpNumber',
                           'gonganNumber',
+                          'showBeianIcon',
                           'enableSubmissionLimit',
                           'dailySubmissionLimit',
                           'weeklySubmissionLimit',
@@ -1225,6 +1244,16 @@ export default defineEventHandler(async (event) => {
                           'smtpPassword',
                           'smtpFromEmail',
                           'smtpFromName',
+                          'astrbotEnabled',
+                          'astrbotPlatforms',
+                          'astrbotBaseUrl',
+                          'astrbotToken',
+                          'astrbotBroadcastEnabled',
+                          'astrbotGroupTargets',
+                          'astrbotGroupEvents',
+                          'astrbotGroupThrottle',
+                          'astrbotPushMode',
+                          'astrbotWeeklyConfig',
                           'allowOAuthRegistration',
                           'allowRegister',
                           'registerRequiresApproval',
@@ -1269,10 +1298,17 @@ export default defineEventHandler(async (event) => {
                           'captchaProvider',
                           'turnstileSiteKey',
                           'turnstileSecretKey',
+                          'esaCaptchaPrefix',
+                          'esaCaptchaScenes',
+                          'esaCaptchaRegion',
                           'autoBackupEnabled',
                           'autoBackupConfig',
                           'statisticsCodeEnabled',
                           'statisticsCode',
+                          'legalConsentEnabled',
+                          'legalConsentDisplayMode',
+                          'legalConsentUpdatedDate',
+                          'legalConsentDocuments',
                           'enabledPlatforms',
                           'platformOrder'
                         ]

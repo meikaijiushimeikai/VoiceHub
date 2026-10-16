@@ -1,5 +1,6 @@
 import { computed, ref, readonly } from 'vue'
 import { getAggregateOAuthLoginTypesOrDefault, getProviderDisplayName } from '~/utils/oauth'
+import { parseEsaCaptchaScenes } from '~/utils/esaCaptcha'
 import { applyThemeConfig, useTheme } from '~/composables/useTheme'
 
 const THEME_LOGO_SEPARATOR = '||'
@@ -49,7 +50,11 @@ const siteConfig = ref({
   gonganNumber: '',
   captchaEnabled: false,
   captchaProvider: 'graphic',
+  captchaMaxFailures: 3,
   turnstileSiteKey: '',
+  esaCaptchaPrefix: '',
+  esaCaptchaScenes: '[]',
+  esaCaptchaRegion: 'cn',
   enableSubmissionLimit: false,
   enableCardCodeRequests: false,
   requireCardCodeForRequests: false,
@@ -65,6 +70,11 @@ const siteConfig = ref({
   submissionNoteRequiresApproval: false,
   registerEmailRequired: false,
   registerRequiresGradeClass: false,
+  legalConsentEnabled: false,
+  legalConsentDisplayMode: 'modal',
+  legalConsentUpdatedDate: '',
+  legalConsentDocuments: '[]',
+  legalConsentVersion: '',
   defaultTheme: 'System',
   enabledThemes: JSON.stringify(['System', 'ClassicDark', 'ClassicLight', 'ModernLight'])
 })
@@ -130,6 +140,9 @@ export const useSiteConfig = () => {
         captchaEnabled: false,
         captchaProvider: 'graphic',
         turnstileSiteKey: '',
+        esaCaptchaPrefix: '',
+        esaCaptchaScenes: '[]',
+        esaCaptchaRegion: 'cn',
         enableSubmissionLimit: false,
         enableCardCodeRequests: false,
         requireCardCodeForRequests: false,
@@ -196,12 +209,32 @@ export const useSiteConfig = () => {
   const registerRequiresGradeClass = computed(
     () => siteConfig.value.registerRequiresGradeClass === true
   )
+  const legalConsentEnabled = computed(() => siteConfig.value.legalConsentEnabled === true)
+  const legalConsentDisplayMode = computed(() => siteConfig.value.legalConsentDisplayMode || 'modal')
+  const legalConsentUpdatedDate = computed(() => siteConfig.value.legalConsentUpdatedDate || '')
+  const legalConsentDocuments = computed(() => {
+    try {
+      const docs = typeof siteConfig.value.legalConsentDocuments === 'string' ? JSON.parse(siteConfig.value.legalConsentDocuments) : siteConfig.value.legalConsentDocuments
+      return Array.isArray(docs) ? docs.filter((doc) => doc?.name && doc?.slug) : []
+    } catch { return [] }
+  })
+  // 条款内容版本指纹（服务端派生），登录页据此判定是否需重新同意，随文档内容变化而变化
+  const legalConsentVersion = computed(() => siteConfig.value.legalConsentVersion || '')
   const submissionNoteRequiresApproval = computed(
     () => siteConfig.value.submissionNoteRequiresApproval === true
   )
   const captchaEnabled = computed(() => siteConfig.value.captchaEnabled === true)
   const captchaProvider = computed(() => siteConfig.value.captchaProvider || 'graphic')
+  // 触发图形验证码的失败阈值：0 = 每次必验，空值/非法回退 3
+  const captchaMaxFailures = computed(() => {
+    const raw = siteConfig.value.captchaMaxFailures
+    if (raw === null || raw === undefined || raw === '') return 3
+    const value = Number(raw)
+    return Number.isInteger(value) && value >= 0 ? value : 3
+  })
   const turnstileSiteKey = computed(() => siteConfig.value.turnstileSiteKey || '')
+  // ESA 场景 ID 规则列表（接口 + 域名），非法存储值回退空数组
+  const esaCaptchaScenes = computed(() => parseEsaCaptchaScenes(siteConfig.value.esaCaptchaScenes))
   const smtpEnabled = computed(() => !!siteConfig.value.smtpEnabled)
   const oauth = computed(() => ({
     github: !!siteConfig.value.githubOAuthEnabled,
@@ -285,9 +318,16 @@ export const useSiteConfig = () => {
     submissionNoteRequiresApproval,
     registerEmailRequired,
     registerRequiresGradeClass,
+    legalConsentEnabled,
+    legalConsentDisplayMode,
+    legalConsentUpdatedDate,
+    legalConsentDocuments,
+    legalConsentVersion,
     captchaEnabled,
     captchaProvider,
+    captchaMaxFailures,
     turnstileSiteKey,
+    esaCaptchaScenes,
     smtpEnabled,
     oauth,
     oauthProviders,

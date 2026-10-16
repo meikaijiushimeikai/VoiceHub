@@ -35,7 +35,7 @@
           >
             <h3 class="text-lg font-semibold text-text-primary">{{ locale.title }}</h3>
             <button
-              class="p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary rounded-lg transition-colors"
+              class="flex items-center justify-center p-2 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary rounded-lg transition-colors"
               @click="$emit('close')"
             >
               <Icon name="x" :size="20" />
@@ -131,6 +131,23 @@
                     :placeholder="locale.allSemesters"
                     class-name="w-full sm:w-48"
                   />
+                </div>
+              </div>
+
+              <!-- 投稿统计 -->
+              <div
+                v-if="activeTab === 'submitted'"
+                class="flex flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3 border-b border-border-secondary bg-bg-tertiary-20"
+              >
+                <div class="flex items-center gap-2 text-sm">
+                  <Icon name="music" :size="14" class="text-text-tertiary" />
+                  <span class="text-text-tertiary">{{ locale.stats.totalSubmitted }}</span>
+                  <span class="font-semibold text-text-primary">{{ submittedStats.total }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-sm">
+                  <Icon name="play" :size="14" class="text-text-tertiary" />
+                  <span class="text-text-tertiary">{{ locale.stats.played }}</span>
+                  <span class="font-semibold text-success">{{ submittedStats.played }}</span>
                 </div>
               </div>
 
@@ -268,7 +285,8 @@ const locale = computed(() => {
   return {
     ...base,
     tabs: { ...(base.tabs || {}) },
-    statuses: { ...(base.statuses || {}) }
+    statuses: { ...(base.statuses || {}) },
+    stats: { ...(base.stats || {}) }
   }
 })
 
@@ -321,6 +339,15 @@ const filteredSongs = computed(() => {
   }
 
   return songs
+})
+
+// 投稿统计：与列表同源，跟随学期过滤（统计栏仅在投稿标签页渲染）
+const submittedStats = computed(() => {
+  const songs = filteredSongs.value
+  return {
+    total: songs.length,
+    played: songs.filter((song) => song.played).length
+  }
 })
 
 // Methods

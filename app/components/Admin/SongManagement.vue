@@ -66,6 +66,14 @@
 
           <button
             class="flex items-center gap-2 px-5 py-2.5 bg-bg-secondary border border-border-secondary hover:border-border-tertiary text-text-secondary text-xs font-bold rounded-lg transition-all active:scale-95"
+            @click="showDuplicateModal = true"
+          >
+            <Copy :size="16" />
+            {{ locale.actions.duplicate }}
+            <span v-if="duplicateGroups.length" class="text-primary">({{ duplicateGroups.length }})</span>
+          </button>
+          <button
+            class="flex items-center gap-2 px-5 py-2.5 bg-bg-secondary border border-border-secondary hover:border-border-tertiary text-text-secondary text-xs font-bold rounded-lg transition-all active:scale-95"
             @click="openAddSongModal"
           >
             <Plus :size="16" /> {{ locale.actions.addManual }}
@@ -123,11 +131,19 @@
             class-name="w-full lg:w-32"
           />
           <CustomSelect
+            v-if="isAdmin"
+            v-model="poolFilter"
+            :label="locale.filters.pool"
+            :options="poolOptions"
+            :placeholder="locale.filters.selectPool"
+            class-name="w-full lg:w-32"
+          />
+          <CustomSelect
             v-model="sortOption"
             :label="locale.filters.sort"
             :options="sortOptions"
             :placeholder="locale.filters.selectSort"
-            class-name="w-full lg:w-36 col-span-2 md:col-span-1"
+            class-name="w-full lg:w-36 col-span-2 md:col-span-4 lg:col-span-1"
           />
         </div>
       </div>
@@ -300,7 +316,7 @@
               </p>
               <span
                 class="lg:hidden text-[9px] font-black text-text-secondary uppercase tracking-wider mt-1 inline-block"
-                >{{ formatDate(song.createdAt) }}</span
+                >{{ formatDate(song.requestedAt) }}</span
               >
             </div>
           </div>
@@ -321,7 +337,7 @@
                 </span>
                 <span
                   class="hidden lg:inline text-[9px] font-black text-text-secondary uppercase tracking-widest mt-1 opacity-60"
-                  >{{ formatDate(song.createdAt) }}</span
+                  >{{ formatDate(song.requestedAt) }}</span
                 >
               </div>
 
@@ -362,7 +378,7 @@
               class="col-span-12 lg:col-span-2 flex items-center justify-end gap-1 lg:gap-2 opacity-100 lg:opacity-0 group-hover:opacity-100 transition-all shrink-0 ml-auto"
             >
               <button
-                class="p-2 bg-bg-tertiary-50 text-primary hover:bg-primary-hover hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
+                class="flex items-center justify-center p-2 bg-bg-tertiary-50 text-primary hover:bg-primary-hover hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
                 :title="locale.actions.edit"
                 @click="editSong(song)"
               >
@@ -371,7 +387,7 @@
 
               <button
                 v-if="!song.played"
-                class="p-2 bg-bg-tertiary-50 text-success hover:bg-success hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
+                class="flex items-center justify-center p-2 bg-bg-tertiary-50 text-success hover:bg-success hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
                 :title="locale.actions.markPlayed"
                 @click="markAsPlayed(song.id)"
               >
@@ -379,7 +395,7 @@
               </button>
               <button
                 v-else
-                class="p-2 bg-bg-tertiary-50 text-text-tertiary hover:bg-bg-quaternary hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
+                class="flex items-center justify-center p-2 bg-bg-tertiary-50 text-text-tertiary hover:bg-bg-quaternary hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
                 :title="locale.actions.markUnplayed"
                 @click="markAsUnplayed(song.id)"
               >
@@ -387,14 +403,32 @@
               </button>
 
               <button
-                class="p-2 bg-bg-tertiary-50 text-warning hover:bg-warning hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
+                v-if="isAdmin"
+                :disabled="poolPendingIds.has(song.id)"
+                :class="[
+                  'flex items-center justify-center p-2 rounded-xl transition-all border',
+                  song.inPool
+                    ? 'bg-error-10 text-error border-error-20 hover:bg-error hover:text-text-primary'
+                    : 'bg-bg-tertiary-50 text-info border-border-tertiary-30 hover:bg-info hover:text-text-primary',
+                  poolPendingIds.has(song.id) ? 'opacity-50 cursor-wait' : ''
+                ]"
+                :title="song.inPool ? locale.actions.removeFromPool : locale.actions.addToPool"
+                @click="toggleSongPool(song)"
+              >
+                <Loader2 v-if="poolPendingIds.has(song.id)" :size="14" class="animate-spin" />
+                <FolderMinus v-else-if="song.inPool" :size="14" />
+                <FolderPlus v-else :size="14" />
+              </button>
+
+              <button
+                class="flex items-center justify-center p-2 bg-bg-tertiary-50 text-warning hover:bg-warning hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
                 :title="locale.actions.reject"
                 @click="rejectSong(song.id)"
               >
                 <X :size="14" />
               </button>
               <button
-                class="p-2 bg-bg-tertiary-50 text-error hover:bg-error hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
+                class="flex items-center justify-center p-2 bg-bg-tertiary-50 text-error hover:bg-error hover:text-text-primary rounded-xl transition-all border border-border-tertiary-30"
                 :title="locale.actions.deleteSong"
                 @click="deleteSong(song.id)"
               >
@@ -580,6 +614,15 @@
 
     <!-- 投票人员弹窗 -->
     <VotersModal :show="showVotersModal" :song-id="selectedSongId" @close="closeVotersModal" />
+
+    <!-- 重复歌曲检测弹窗 -->
+    <DuplicateSongsModal
+      :show="showDuplicateModal"
+      :groups="duplicateGroups"
+      @close="showDuplicateModal = false"
+      @edit-song="editFromDuplicate"
+      @delete-song="deleteSong"
+    />
 
     <!-- 下载歌曲对话框 -->
     <SongDownloadDialog
@@ -1024,20 +1067,37 @@
               <label class="text-[10px] font-black text-text-disabled uppercase tracking-widest px-1"
                 >{{ locale.editModal.coverUrl }}</label
               >
-              <input
-                v-if="showEditModal"
-                v-model="editForm.cover"
-                type="text"
-                placeholder="http://..."
-                class="w-full bg-bg-primary border border-border-secondary rounded-lg px-4 py-3 text-sm text-text-primary focus:outline-none transition-all"
-              />
-              <input
-                v-else
-                v-model="addForm.cover"
-                type="text"
-                placeholder="http://..."
-                class="w-full bg-bg-primary border border-border-secondary rounded-lg px-4 py-3 text-sm text-text-primary focus:outline-none transition-all"
-              />
+              <div class="flex gap-2">
+                <input
+                  v-if="showEditModal"
+                  v-model="editForm.cover"
+                  type="text"
+                  placeholder="http://..."
+                  class="w-full bg-bg-primary border border-border-secondary rounded-lg px-4 py-3 text-sm text-text-primary focus:outline-none transition-all"
+                />
+                <input
+                  v-else
+                  v-model="addForm.cover"
+                  type="text"
+                  placeholder="http://..."
+                  class="w-full bg-bg-primary border border-border-secondary rounded-lg px-4 py-3 text-sm text-text-primary focus:outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  :disabled="
+                    refreshCoverLoading ||
+                    (showEditModal
+                      ? !editForm.musicPlatform || !editForm.musicId
+                      : !addForm.musicPlatform || !addForm.musicId)
+                  "
+                  class="px-4 py-3 bg-bg-tertiary-50 hover:bg-bg-quaternary text-text-secondary text-xs font-bold rounded-lg transition-all border border-border-tertiary-30 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center gap-1.5"
+                  :title="locale.editModal.refreshCover"
+                  @click="refreshCoverInModal"
+                >
+                  <RotateCcw :size="14" :class="{ 'animate-spin': refreshCoverLoading }" />
+                  {{ locale.editModal.refreshCover }}
+                </button>
+              </div>
               <p
                 v-if="
                   (showEditModal ? editCoverValidation.valid : addCoverValidation.valid) &&
@@ -1132,6 +1192,7 @@
 import { computed, onMounted, ref, watch, onUnmounted } from 'vue'
 import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import VotersModal from '~/components/Admin/VotersModal.vue'
+import DuplicateSongsModal from '~/components/Admin/DuplicateSongsModal.vue'
 import SongDownloadDialog from '~/components/Admin/SongDownloadDialog.vue'
 import SubmissionRemarkDialog from '~/components/Admin/SubmissionRemarkDialog.vue'
 import Pagination from '~/components/UI/Common/Pagination.vue'
@@ -1140,6 +1201,7 @@ import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import {
   Search,
   Plus,
+  Copy,
   RotateCcw,
   Edit2,
   Check,
@@ -1154,7 +1216,10 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  FolderPlus,
+  FolderMinus,
+  Loader2
 } from '@lucide/vue'
 import { useSongs } from '~/composables/useSongs'
 import { useAdmin } from '~/composables/useAdmin'
@@ -1165,6 +1230,7 @@ import { useSongPlayer } from '~/composables/useSongPlayer'
 import { useLocale } from '~/utils/locale'
 import { useServerErrors } from '~/composables/useLocaleText'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
+import { normalizeForMatch } from '~/utils/song-name-normalize'
 import { validateUrl, convertToHttps } from '~/utils/url'
 import { formatDuration } from '~/utils/timeUtils'
 import dayjs from 'dayjs'
@@ -1207,8 +1273,10 @@ const { msg: getLocaleMessage, nested: getNestedMessage } = useLocaleText(locale
 const loading = ref(false)
 const searchQuery = ref('')
 const statusFilter = ref('all')
+const poolFilter = ref('all')
 const sortOption = ref('time-desc')
 const selectedSongs = ref([])
+const poolPendingIds = ref(new Set())
 const currentPage = ref(1)
 const pageSize = ref(20)
 
@@ -1236,6 +1304,16 @@ const statusOptions = computed(() => [
   { label: getNestedMessage('options', 'hasNote'), value: 'has-note' }
 ])
 
+const poolOptions = computed(() => [
+  { label: getNestedMessage('options', 'allPool'), value: 'all' },
+  { label: getNestedMessage('options', 'inPool'), value: 'in-pool' },
+  { label: getNestedMessage('options', 'notInPool'), value: 'not-in-pool' }
+])
+
+// 备选池为管理员操作，普通用户不下发 inPool 也不展示入口
+const auth = useAuth()
+const { isAdmin } = auth
+
 const sortOptions = computed(() => [
   { label: getNestedMessage('options', 'newest'), value: 'time-desc' },
   { label: getNestedMessage('options', 'oldest'), value: 'time-asc' },
@@ -1254,6 +1332,9 @@ const deleteAction = ref(null)
 // 投票人员弹窗相关
 const showVotersModal = ref(false)
 const selectedSongId = ref(null)
+
+// 重复歌曲检测弹窗相关
+const showDuplicateModal = ref(false)
 
 // 下载对话框相关
 const showDownloadDialog = ref(false)
@@ -1290,6 +1371,7 @@ const rejectSongInfo = ref({
 const showEditModal = ref(false)
 const editLoading = ref(false)
 const refreshDurationLoading = ref(false)
+const refreshCoverLoading = ref(false)
 const editForm = ref({
   id: null,
   title: '',
@@ -1361,7 +1443,6 @@ const songs = ref([])
 // 服务
 let songsService = null
 let adminService = null
-let auth = null
 let formatPlayTimeDisplay = (pt) => pt?.name || ''
 
 // 计算属性
@@ -1423,6 +1504,13 @@ const filteredSongs = computed(() => {
     })
   }
 
+  // 备选池过滤
+  if (poolFilter.value !== 'all') {
+    filtered = filtered.filter((song) =>
+      poolFilter.value === 'in-pool' ? song.inPool === true : song.inPool !== true
+    )
+  }
+
   // 排序
   filtered.sort((a, b) => {
     switch (sortOption.value) {
@@ -1444,6 +1532,33 @@ const filteredSongs = computed(() => {
   })
 
   return filtered
+})
+
+// 归一化歌名+歌手一致的视为重复，仅在当前筛选结果内分组
+const duplicateGroups = computed(() => {
+  const grouped = new Map()
+
+  for (const song of filteredSongs.value) {
+    const normalizedTitle = normalizeForMatch(song.title)
+    const normalizedArtist = normalizeForMatch(song.artist)
+    if (!normalizedTitle || !normalizedArtist) continue
+
+    const key = `${normalizedTitle}|${normalizedArtist}`
+    if (!grouped.has(key)) grouped.set(key, [])
+    grouped.get(key).push(song)
+  }
+
+  return [...grouped.entries()]
+    .filter(([, list]) => list.length > 1)
+    .map(([key, list]) => ({
+      key,
+      title: list[0].title,
+      artist: list[0].artist,
+      songs: list,
+      sameSource:
+        list.every((song) => song.musicPlatform && song.musicId) &&
+        new Set(list.map((song) => `${song.musicPlatform}:${song.musicId}`)).size === 1
+    }))
 })
 
 const paginatedSongs = computed(() => {
@@ -1507,8 +1622,9 @@ const canClearEditSubmissionNote = computed(() => {
 })
 
 // 方法
+// 入参为服务端转好北京时间的 requestedAt（"YYYY/M/D H:mm:ss"）
 const formatDate = (dateString) => {
-  const date = new Date(dateString)
+  const date = dayjs(dateString, 'YYYY/M/D H:mm:ss').toDate()
   const now = getSyncedDate()
   const diff = now - date
 
@@ -1731,6 +1847,54 @@ const markAsUnplayed = async (songId) => {
       console.error('标记未播放失败:', error)
       showNotification(getNestedMessage('errors', 'markFailed', error?.data?.message || error?.message || error?.statusMessage || getLocaleMessage('unknownError')), 'error')
     }
+}
+
+// 加入 / 移出备选池
+const toggleSongPool = async (song) => {
+  if (poolPendingIds.value.has(song.id)) return
+
+  poolPendingIds.value = new Set([...poolPendingIds.value, song.id])
+  const willAdd = !song.inPool
+  try {
+    if (willAdd) {
+      const result = await $fetch('/api/admin/schedule/song-pool', {
+        method: 'POST',
+        ...auth.getAuthConfig(),
+        body: { songIds: [song.id] }
+      })
+      const skipped = result?.skipped || []
+      showNotification(
+        skipped.length > 0
+          ? getNestedMessage('messages', 'addToPoolSkipped')
+          : getNestedMessage('messages', 'addToPoolSuccess'),
+        skipped.length > 0 ? 'warning' : 'success'
+      )
+    } else {
+      await $fetch('/api/admin/schedule/song-pool', {
+        method: 'DELETE',
+        ...auth.getAuthConfig(),
+        query: { songIds: song.id }
+      })
+      showNotification(getNestedMessage('messages', 'removeFromPoolSuccess'), 'success')
+    }
+
+    // 备选池每首歌最多一条记录，结果确定，就地更新可避免整表刷新清掉批量勾选
+    song.inPool = willAdd
+  } catch (error) {
+    console.error('备选池操作失败:', error)
+    showNotification(
+      getNestedMessage(
+        'errors',
+        willAdd ? 'addToPoolFailed' : 'removeFromPoolFailed',
+        localizeServerError(error) || getLocaleMessage('unknownError')
+      ),
+      'error'
+    )
+  } finally {
+    const next = new Set(poolPendingIds.value)
+    next.delete(song.id)
+    poolPendingIds.value = next
+  }
 }
 
 const deleteSong = async (songId) => {
@@ -1989,6 +2153,12 @@ const editSong = (song) => {
   showEditModal.value = true
 }
 
+// 从重复检测弹窗进入编辑：先关闭弹窗，避免与编辑模态框层级重叠
+const editFromDuplicate = (song) => {
+  showDuplicateModal.value = false
+  editSong(song)
+}
+
 const saveEditSong = async () => {
   if (!editForm.value.title || !editForm.value.artist) {
     showNotification(getNestedMessage('errors', 'songInfoRequired'), 'error')
@@ -2098,6 +2268,42 @@ const refreshDurationInModal = async () => {
     showNotification(getNestedMessage('errors', 'durationRefreshFailed', getErrorMessage(error)), 'error')
   } finally {
     refreshDurationLoading.value = false
+  }
+}
+
+// 弹窗内刷新歌曲封面（编辑模式按 songId，新增模式按平台+音乐ID），仅填入表单随弹窗保存
+const refreshCoverInModal = async () => {
+  const isEdit = showEditModal.value
+  const form = isEdit ? editForm.value : addForm.value
+  if (!form.musicPlatform || !form.musicId) {
+    showNotification(getNestedMessage('errors', 'coverPlatformRequired'), 'warning')
+    return
+  }
+
+  refreshCoverLoading.value = true
+  try {
+    const body = isEdit
+      ? { songId: editForm.value.id }
+      : { platform: addForm.value.musicPlatform, musicId: addForm.value.musicId }
+    const result = await $fetch('/api/admin/songs/cover', {
+      method: 'POST',
+      body
+    })
+    if (result.success && result.cover) {
+      if (isEdit) {
+        editForm.value.cover = result.cover
+      } else {
+        addForm.value.cover = result.cover
+      }
+      showNotification(getNestedMessage('messages', 'coverRefreshed'), 'success')
+    } else {
+      showNotification(getNestedMessage('errors', 'coverRefreshFailed', result?.message), 'error')
+    }
+  } catch (error) {
+    console.error('刷新歌曲封面失败:', error)
+    showNotification(getNestedMessage('errors', 'coverRefreshFailed', getErrorMessage(error)), 'error')
+  } finally {
+    refreshCoverLoading.value = false
   }
 }
 
@@ -2444,7 +2650,7 @@ const handleClickOutside = (event) => {
 }
 
 // 监听器
-watch([searchQuery, statusFilter, sortOption, selectedSemester, selectedPlayTime], () => {
+watch([searchQuery, statusFilter, poolFilter, sortOption, selectedSemester, selectedPlayTime], () => {
   currentPage.value = 1
 })
 
@@ -2459,7 +2665,6 @@ watch(semesterUpdateEvent, async () => {
 onMounted(async () => {
   songsService = useSongs()
   adminService = useAdmin()
-  auth = useAuth()
 
   const { fetchCurrentSemester, currentSemester } = useSemesters()
   await fetchSemesters()
