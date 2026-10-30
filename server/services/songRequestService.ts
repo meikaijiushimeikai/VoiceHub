@@ -17,13 +17,21 @@ import { createApiError } from '~~/server/utils/apiError'
 import { createCollaborationInvitationNotification } from '~~/server/services/notificationService'
 import { enqueueAstrbotGroupEvent } from '~~/server/services/astrbotGroupService'
 import {
+  findReachedGlobalSubmissionLimit,
+  getActiveGlobalSubmissionLimits,
   isCardCodeLimitBypassActive,
-  isLimitReached
+  isLimitReached,
+  type LimitType
 } from '~~/server/utils/submissionLimit'
 import { getClientIP } from '~~/server/utils/ip-utils'
-import { getBeijingTimeISOString } from '~/utils/timeUtils'
+import { getBeijingTimeISOString, getWeekdayLabel } from '~/utils/timeUtils'
 import { getSystemSettingsCached } from '~~/server/utils/system-settings-helper'
 import { getServerDate } from '~~/server/utils/serverTime'
+import {
+  getWeekdayOfDateString,
+  slotAppliesToWeekday,
+  validatePlayDateString
+} from '~~/server/utils/play-slot'
 import { SERVER_ERROR_CODES, SONG_DURATION_MAX_SECONDS, SONG_DURATION_MIN_SECONDS, SUBMISSION_NOTE_MAX_LENGTH, SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 import { normalizeForMatch } from '~~/server/utils/song-name-normalize'
 import { resolveSubmissionRestrictionPolicy } from '~~/server/utils/submission-restriction-policy'
@@ -33,6 +41,15 @@ import { readSelection } from '~~/server/utils/music-source-plugins/resolver'
 type SongRequestUser = {
   id: number
   role: string
+}
+
+export type SongRequestOptions = {
+  /**
+   * 是否按站点设置强制要求选择播出时段。
+   * 网页投稿表单为 true；机器人 / 开放 API 等没有时段选择界面的入口传 false，
+   * 未提供时段时按「未指定时段」落库。
+   */
+  enforceRequiredPlaySlot?: boolean
 }
 
 const songRequestBodySchema = z.object({
@@ -57,15 +74,29 @@ const songRequestBodySchema = z.object({
   // 保持「站点表单 / 机器人 / zod」三处同一个数值
   submissionNote: z.string().trim().max(SUBMISSION_NOTE_MAX_LENGTH, `备注留言不能超过${SUBMISSION_NOTE_MAX_LENGTH}个字符`).optional().nullable(),
   submissionNotePublic: z.boolean().optional(),
+  submissionAnonymous: z.boolean().optional(),
   preferredPlayTimeId: z.preprocess(
     (value) => value === null || value === undefined || value === '' ? null : Number(value),
     z.number().int().positive('播出时段 ID 无效').nullable()
   ).optional(),
+  // 期望播出日期（北京时间 YYYY-MM-DD），与 preferredPlayTimeId 共同构成「日期 + 时段」
+  preferredPlayDate: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, '播出日期格式不正确，应为 YYYY-MM-DD')
+    .optional()
+    .nullable(),
   cardCode: z.string().trim().max(100, 'CARD_CODE_TOO_LONG').optional().nullable(),
   collaborators: z.array(z.union([z.string(), z.number()])).max(20, '联合投稿人不能超过20个').optional()
 })
 
-export async function requestSongForUser(event: any, user: SongRequestUser, body: any) {
+export async function requestSongForUser(
+  event: any,
+  user: SongRequestUser,
+  body: any,
+  options: SongRequestOptions = {}
+) {
+  const enforceRequiredPlaySlot = options.enforceRequiredPlaySlot !== false
   const parsedBody = songRequestBodySchema.safeParse(body || {})
   if (!parsedBody.success) {
     const issues = parsedBody.error.issues || []
@@ -326,28 +357,79 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
       throw createApiError(400, 'CARD_CODE_DISABLED', 'Request card submissions are not enabled')
     }
 
+    // 播出日期 + 时段选择（依赖 enablePlayTimeSelection 总开关）
+    // 口径：时段是硬约束（开启时段必选后网页投稿必须选择，排期也只能排到该时段）；
+    //       播出日期是可选偏好，仅在用户显式选择时落库，未选择保持 null 交由排期决定
+    const playTimeSelectionEnabled = systemSettingsData?.enablePlayTimeSelection === true
+    const playSlotRequired =
+      playTimeSelectionEnabled &&
+      systemSettingsData?.playSlotRequired === true &&
+      enforceRequiredPlaySlot
+    const requestedPlayDate =
+      typeof requestBody.preferredPlayDate === 'string' && requestBody.preferredPlayDate
+        ? requestBody.preferredPlayDate
+        : null
+    const hasPlayTime = !!requestBody.preferredPlayTimeId
+
     let preferredPlayTime = null
-    if (requestBody.preferredPlayTimeId) {
-      if (!systemSettingsData?.enablePlayTimeSelection) {
-        throw createError({
-          statusCode: 400,
-          message: '播出时段选择功能未启用'
-        })
+    // 仅取用户显式指定的日期，未选择则为 null
+    const playDate: string | null = requestedPlayDate
+
+    if (playTimeSelectionEnabled) {
+      if (playSlotRequired && !hasPlayTime) {
+        throw createApiError(
+          400,
+          SERVER_ERROR_CODES.SONG_PLAY_SLOT_REQUIRED,
+          '请选择期望播出时段'
+        )
       }
 
-      const playTimeResult = await db
-        .select()
-        .from(playTimes)
-        .where(and(eq(playTimes.id, requestBody.preferredPlayTimeId), eq(playTimes.enabled, true)))
-        .limit(1)
-      preferredPlayTime = playTimeResult[0]
-
-      if (!preferredPlayTime) {
-        throw createError({
-          statusCode: 400,
-          message: '选择的播出时段不存在或未启用'
-        })
+      if (requestedPlayDate) {
+        const dateCheck = validatePlayDateString(requestedPlayDate)
+        if (!dateCheck.valid) {
+          throw createApiError(
+            400,
+            dateCheck.code || SERVER_ERROR_CODES.SONG_PLAY_DATE_FORMAT_INVALID,
+            '播出日期无效'
+          )
+        }
       }
+
+      if (hasPlayTime) {
+        const playTimeResult = await db
+          .select()
+          .from(playTimes)
+          .where(and(eq(playTimes.id, requestBody.preferredPlayTimeId!), eq(playTimes.enabled, true)))
+          .limit(1)
+        preferredPlayTime = playTimeResult[0]
+
+        if (!preferredPlayTime) {
+          throw createError({
+            statusCode: 400,
+            message: '选择的播出时段不存在或未启用'
+          })
+        }
+
+        // 指定的日期不开放该时段则拒绝（弹窗内已按星期过滤，服务端同样校验）
+        if (requestedPlayDate) {
+          const weekday = getWeekdayOfDateString(requestedPlayDate)
+          if (!slotAppliesToWeekday(preferredPlayTime.weekdays, weekday)) {
+            const weekdayLabel = getWeekdayLabel(weekday)
+            throw createApiError(
+              400,
+              SERVER_ERROR_CODES.SONG_PLAY_SLOT_NOT_OPEN_ON_DATE,
+              `所选播出时段在 ${requestedPlayDate}（${weekdayLabel}）不开放，请重新选择日期或时段`,
+              { params: [requestedPlayDate, weekdayLabel] }
+            )
+          }
+        }
+      }
+    } else if (requestedPlayDate || hasPlayTime) {
+      // 功能未开启时忽略任何日期/时段入参，防止绕过开关写入
+      throw createError({
+        statusCode: 400,
+        message: '播出时段选择功能未启用'
+      })
     }
 
     const rawSubmissionNote = requestBody.submissionNote || ''
@@ -363,6 +445,19 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
         ? SUBMISSION_NOTE_STATUS.PENDING
         : null
 
+    // 匿名投稿：站点未开启总开关时强制视为实名（防绕过）；开启时按用户勾选。
+    // 匿名投稿不允许联合投稿。
+    const submissionAnonymous =
+      systemSettingsData?.allowAnonymousSubmission === true &&
+      requestBody.submissionAnonymous === true
+    if (submissionAnonymous && requestBody.collaborators?.length) {
+      throw createApiError(
+        400,
+        SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+        '匿名投稿不支持联合投稿'
+      )
+    }
+
     const notificationsToSend: { userId: number; songId: number; songTitle: string }[] = []
 
     const song = await db.transaction(async (tx) => {
@@ -377,7 +472,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
           .limit(1)
 
         const found = codeRows[0]
-        if (!found || found.status !== 'AVAILABLE') {
+        if (!found) {
           throw createApiError(
             400,
             'CARD_CODE_INVALID_OR_USED',
@@ -385,10 +480,25 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
           )
         }
 
+        // 派发给指定用户的券只能由该用户核销；未派发的券沿用原有规则
+        const isAssignedToSelf = found.status === 'ASSIGNED' && found.assignedTo === user.id
+        if (found.status !== 'AVAILABLE' && !isAssignedToSelf) {
+          throw createApiError(
+            400,
+            'CARD_CODE_INVALID_OR_USED',
+            'Request card is invalid or already used'
+          )
+        }
+
+        // 条件更新保证并发下同一张券只会被锁定一次
         const lockResult = await tx
           .update(cardCodes)
-          .set({ status: 'LOCKED', lockedBy: user.id, lockedAt: new Date() })
-          .where(and(eq(cardCodes.id, found.id), eq(cardCodes.status, 'AVAILABLE')))
+          .set({ status: 'LOCKED', lockedBy: user.id, lockedAt: getServerDate(), updatedAt: getServerDate() })
+          .where(
+            isAssignedToSelf
+              ? and(eq(cardCodes.id, found.id), eq(cardCodes.status, 'ASSIGNED'), eq(cardCodes.assignedTo, user.id))
+              : and(eq(cardCodes.id, found.id), eq(cardCodes.status, 'AVAILABLE'))
+          )
           .returning()
 
         if (lockResult.length === 0) {
@@ -429,6 +539,33 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
             statusCode: 400,
             message: `${labelMap[limitType]}投稿限额为${effectiveLimit}首，您${timeMap[limitType]}已达到限额`
           })
+        }
+      }
+
+      // 全站投稿总量限额：对所有用户合计计数，管理员豁免
+      // 先解析生效周期，三值全空（无周期可拦）时跳过，避免零收益的全站串行加锁
+      if (!isAdmin && getActiveGlobalSubmissionLimits(systemSettingsData).length > 0) {
+        // 全局计数必须串行，否则并发请求会读到相同计数并同时越过上限
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext('global_submission_limit'))`)
+
+        const reachedLimit = await findReachedGlobalSubmissionLimit(
+          tx as any,
+          systemSettingsData
+        )
+
+        if (reachedLimit) {
+          const codeMap: Record<LimitType, string> = {
+            daily: SERVER_ERROR_CODES.SONG_GLOBAL_DAILY_LIMIT_REACHED,
+            weekly: SERVER_ERROR_CODES.SONG_GLOBAL_WEEKLY_LIMIT_REACHED,
+            monthly: SERVER_ERROR_CODES.SONG_GLOBAL_MONTHLY_LIMIT_REACHED
+          }
+
+          throw createApiError(
+            403,
+            codeMap[reachedLimit.type],
+            `全站投稿总量已达上限（${reachedLimit.limit} 首）`,
+            { params: [reachedLimit.limit] }
+          )
         }
       }
 
@@ -487,6 +624,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
           artist: requestBody.artist,
           requesterId: user.id,
           preferredPlayTimeId: preferredPlayTime?.id || null,
+          preferredPlayDate: playDate,
           semester: currentSemester,
           cover: requestBody.cover || null,
           musicPlatform: isBilibili ? 'bilibili' : requestBody.musicPlatform || null,
@@ -497,6 +635,7 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
           durationSeconds: requestBody.durationSeconds || null,
           submissionNote,
           submissionNotePublic,
+          submissionAnonymous,
           submissionNotePublicStatus,
           hitRequestId: hitRequestTime?.id || null
         })
@@ -618,7 +757,11 @@ export async function requestSongForUser(event: any, user: SongRequestUser, body
     try {
       const [requester] = await db.select({ name: users.name, username: users.username })
         .from(users).where(eq(users.id, user.id)).limit(1)
-      const displayName = requester?.name || requester?.username || `用户 ${user.id}`
+      // 匿名投稿不在群聊推送里暴露真实姓名
+      const displayName =
+        song.submissionAnonymous === true
+          ? '匿名投稿'
+          : (requester?.name || requester?.username || `用户 ${user.id}`)
       await enqueueAstrbotGroupEvent(
         'songRequest',
         '新的点歌投稿',

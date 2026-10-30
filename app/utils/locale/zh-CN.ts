@@ -25,12 +25,38 @@ export const siteConfig = {
   siteDescription: '站点描述',
   siteDescriptionPlaceholder: '请输入站点描述',
   statisticsCode: '站点统计代码',
-  legalConsentTitle: '登录条款确认', legalConsentDesc: '控制登录页面是否要求用户先阅读并同意条款。', legalConsentDisplayMode: '展示形式', legalConsentModal: '弹窗', legalConsentCheckbox: '复选框', legalConsentModalHint: '登录成功后若该账号尚未确认当前条款则弹出，确认后进入系统。', legalConsentCheckboxHint: '复选框会显示在登录按钮下方，未勾选前所有登录入口禁用。', legalConsentUpdatedDate: '条款更新日期', legalConsentDocuments: '协议文档', legalConsentAdd: '添加文档', legalConsentDocument: '文档', legalConsentName: '文档名称', legalConsentSlug: '路由标识', legalConsentContent: 'Markdown 内容', legalConsentKeepOne: '至少保留一份协议文档', delete: '删除',
-  legalConsentPrefix: '我已阅读并同意', legalConsentSeparator: '、', legalConsentBlocked: '请先阅读并同意最新条款后再登录', legalConsentDisplayModeHint: '复选框会显示在登录按钮下方，未勾选所有登录入口禁用。', legalConsentUpdatedDateHint: '日期或文档内容变化后，用户需要重新同意。', legalConsentDocumentsDesc: '文档名称可自定义，内容按 Markdown 保存。可参考：服务条款、使用政策、支持的国家和地区、服务特定条款。', legalConsentUntitled: '未命名文档', legalConsentNamePlaceholder: '例如：服务条款', legalConsentSlugPlaceholder: '例如：terms', legalConsentContentPlaceholder: '在这里填写正式 Markdown 条款内容。',
+  legalConsentTitle: '登录条款确认',
+  legalConsentDesc: '控制登录页面是否要求用户先阅读并同意条款。',
+  legalConsentDisplayMode: '展示形式',
+  legalConsentModal: '弹窗',
+  legalConsentCheckbox: '复选框',
+  legalConsentModalHint: '登录成功后若该账号尚未确认当前条款则弹出，确认后进入系统。',
+  legalConsentCheckboxHint: '复选框会显示在登录按钮下方，未勾选前所有登录入口禁用。',
+  legalConsentUpdatedDate: '条款更新日期',
+  legalConsentDocuments: '协议文档',
+  legalConsentAdd: '添加文档',
+  legalConsentDocument: '文档',
+  legalConsentName: '文档名称',
+  legalConsentSlug: '路由标识',
+  legalConsentContent: 'Markdown 内容',
+  legalConsentKeepOne: '至少保留一份协议文档',
+  delete: '删除',
+  legalConsentPrefix: '我已阅读并同意',
+  legalConsentSeparator: '、',
+  legalConsentBlocked: '请先阅读并同意最新条款后再登录',
+  legalConsentDisplayModeHint: '复选框会显示在登录按钮下方，未勾选所有登录入口禁用。',
+  legalConsentUpdatedDateHint: '日期或文档内容变化后，用户需要重新同意。',
+  legalConsentDocumentsDesc:
+    '文档名称可自定义，内容按 Markdown 保存。可参考：服务条款、使用政策、支持的国家和地区、服务特定条款。',
+  legalConsentUntitled: '未命名文档',
+  legalConsentNamePlaceholder: '例如：服务条款',
+  legalConsentSlugPlaceholder: '例如：terms',
+  legalConsentContentPlaceholder: '在这里填写正式 Markdown 条款内容。',
   statisticsCodeEnabled: '启用站点统计代码',
   statisticsCodeEnabledDesc: '开启后才会将下方统计代码注入到页面',
   statisticsCodePlaceholder: '粘贴统计代码片段（如百度统计、51.la、Clarity、Google Analytics 等）',
-  statisticsCodeHint: '将注入到所有页面的 <head> 中，支持任意 HTML/JS 统计代码。保存后约 1 分钟内生效。',
+  statisticsCodeHint:
+    '将注入到所有页面的 <head> 中，支持任意 HTML/JS 统计代码。保存后约 1 分钟内生效。',
 
   // 视觉识别
   themeSettings: '主题设置',
@@ -64,10 +90,12 @@ export const siteConfig = {
   enableRemarks: '启用投稿备注留言',
   enableRemarksDesc: '允许用户在投稿时附加公开或仅管理员可见的备注',
   submissionNoteRequiresApproval: '投稿公开留言需审核',
-  submissionNoteRequiresApprovalDesc: '开启后，用户投稿时勾选的公开留言需管理员在歌曲管理中通过后才能展示给其他用户',
+  submissionNoteRequiresApprovalDesc:
+    '开启后，用户投稿时勾选的公开留言需管理员在歌曲管理中通过后才能展示给其他用户',
   enableCardCodeRequests: '启用点歌券点歌',
   enableCardCodeLimitBypass: '允许点歌券突破投稿限额',
-  enableCardCodeLimitBypassDesc: '开启后，有效点歌券投稿不占普通额度，并可在日、周或月额度用完后继续投稿',
+  enableCardCodeLimitBypassDesc:
+    '开启后，有效点歌券投稿不占普通额度，并可在日、周或月额度用完后继续投稿',
   enableCardCodeRequestsDesc: '允许用户使用点歌券在投稿时抵扣或提交点歌',
   requireCardCodeForRequests: '强制使用点歌券投稿',
   requireCardCodeForRequestsDesc: '开启后，所有用户提交点歌时必须填写有效点歌券',
@@ -84,6 +112,12 @@ export const siteConfig = {
   monthlyLimitLabel: '单月',
   limitLabelPrefix: '',
   limitLabelSuffix: '投稿上限',
+  enableGlobalLimit: '启用全站投稿总量限额',
+  enableGlobalLimitDesc: '统计所有用户投稿总数，防止集中刷稿，管理员不受限制',
+  globalLimitUnlimited: '留空为不限制',
+  globalLimitUnit: '首',
+  globalLimitHint:
+    '三个周期互不影响，可同时设置；填 0 表示该周期内停止接受投稿。全站限额与上方单人限额相互独立。',
 
   // 排期可见范围
   scheduleVisibility: '排期可见范围',
@@ -106,7 +140,8 @@ export const siteConfig = {
   captchaEsa: '阿里云 ESA AI 验证码',
   captchaMaxFailures: '触发阈值（失败次数）',
   captchaMaxFailuresPlaceholder: '例如: 3',
-  captchaMaxFailuresDesc: '连续密码错误达到此次数后，后续登录必须输入验证码。设置为 0 表示每次登录均需验证码。建议设置为 3-5 次。',
+  captchaMaxFailuresDesc:
+    '连续密码错误达到此次数后，后续登录必须输入验证码。设置为 0 表示每次登录均需验证码。建议设置为 3-5 次。',
   turnstileSiteKey: 'Site Key (Sitekey)',
   turnstileSiteKeyPlaceholder: '在此输入 Turnstile 的 Site Key',
   turnstileSecretKey: 'Secret Key (Secret)',
@@ -116,40 +151,71 @@ export const siteConfig = {
   esaCaptchaPrefixPlaceholder: '在此输入 ESA 控制台 AI 验证码配置页右上角的身份标',
   esaCaptchaSceneId: '场景 ID (SceneId)',
   esaCaptchaScenes: '场景 ID 规则',
-  esaCaptchaScenesDesc: '每行对应 ESA 控制台的一条验证码规则。「需验签的接口」只填路径、不带协议与域名（接口列下方已标出对应路径，如 /api/auth/login），且一条规则只能填一个路径，因此登录与注册接口、以及每个对外域名都要各建一条规则，再把各自的场景 ID 抄回下表。域名列用于多域名部署时区分规则，精确域名优先于 *.域名，*.域名优先于 *。',
+  esaCaptchaScenesDesc:
+    '每行对应 ESA 控制台的一条验证码规则，均作用于公共验证接口 /api/captcha/verify（路径已标在下方），「需验签的接口」只填该路径、不带协议与域名。验证一次通过后由本站签发凭证，登录与注册共用，因此每个对外域名各建一条规则即可。域名列用于多域名部署时区分规则，精确域名优先于 *.域名，*.域名优先于 *。',
   esaCaptchaAddScene: '添加场景',
-  esaCaptchaEndpoint: '接口',
-  esaCaptchaEndpointLogin: '登录',
-  esaCaptchaEndpointRegister: '注册',
   esaCaptchaHost: '域名',
   esaCaptchaHostPlaceholder: '* 或 hub.example.com 或 *.example.com',
   esaCaptchaKeepOne: '至少保留一条场景配置',
+  esaCaptchaStaleNotice:
+    '检测到旧版按接口（登录/注册）配置的场景，已随统一验证接口改造失效；请在 ESA 控制台为上述路径重新创建规则，并把新的场景 ID 填入下表后保存。',
   esaCaptchaRegion: '部署区域',
   esaCaptchaRegionCn: '中国内地',
   esaCaptchaRegionSgp: '新加坡',
-  esaCaptchaDesc: '开启后，所有用户在每次登录与注册时都需要通过 ESA AI 验证码验证。ESA 侧一条规则只对应一个接口加一个域名，需先在 ESA 控制台为登录接口、注册接口以及每个对外域名分别新增规则，再把各自的场景 ID 登记到下表。验证码形态（无痕/一点即过/滑块/拼图等）由场景 ID 所属的那条规则决定，并在页面初始化时由 ESA 下发；更换规则或修改形态后，请同步更新对应的场景 ID 并刷新页面。验签在 ESA 边缘完成，源站只确认验签请求头是否存在，因此启用前必须确保源站只接受来自 ESA 回源的流量（防火墙或安全组仅放行 ESA 回源网段，禁止公网直连源站端口），否则人机验证可被绕过。',
+  esaCaptchaDesc:
+    '开启后，所有用户在登录与注册时都需先通过一次 ESA AI 验证码验证。验证码形态（无痕/一点即过/滑块/拼图等）由场景 ID 所属的那条规则决定，并在页面初始化时由 ESA 下发；更换规则或修改形态后，请同步更新对应的场景 ID 并刷新页面。验签在 ESA 边缘对公共验证接口 /api/captcha/verify 完成，通过后源站签发短期凭证供登录/注册校验，因此启用前必须确保源站只接受来自 ESA 回源的流量（防火墙或安全组仅放行 ESA 回源网段，禁止公网直连源站端口），否则可直接调用该接口骗取凭证绕过人机验证。',
+  esaCaptchaTest: '连通性测试',
+  esaCaptchaTestDesc:
+    '点击下方按钮完成一次真实人机验证，用于确认当前已生效的 ESA 配置、公共验证接口与凭证签发是否可用。',
+  esaCaptchaTestButton: '开始测试',
+  esaCaptchaTestUnsaved:
+    'ESA 相关设置已修改但尚未保存，测试将按上一次保存的配置进行，请先保存后再测试。',
+  esaCaptchaTestNotReady:
+    '测试需要已保存的 ESA 配置：人机验证已开启、服务商为 ESA AI 验证码，且当前访问域名能解析到场景 ID。请先保存配置并确认本域名已在场景规则内。',
+  esaCaptchaTestTesting: '验证完成，正在签发凭证…',
+  esaCaptchaTestWaiting:
+    '请在弹出的人机验证中完成验证，只有验证成功后才会判定通过。若未弹出滑块，说明该场景 ID 属于无痕/一点即过形态，需改在 ESA 控制台改为滑块/拼图类场景才能看到弹窗。',
+  esaCaptchaTestNoParam:
+    '未获取到验签参数，人机验证并未真正完成（或弹窗因配置错误未正常验证），请修正配置后重试。',
+  esaCaptchaTestSuccess: '人机验证通过，公共验证接口可用，凭证签发正常。',
+  esaCaptchaTestNotRequired:
+    '当前配置未触发人机验证（未开启、服务商非 ESA，或本域名无匹配场景），无需测试。',
+  esaCaptchaTestRejected: '请求被 ESA 边缘拦截，原因码：',
+  esaCaptchaTestVerifyFailed: '人机验证未通过，请重新完成验证后再试。',
+  esaCaptchaTestLoadFailed: '人机验证组件加载失败，请检查身份标与部署区域后刷新页面重试。',
+  esaCaptchaTestFailed: '测试未通过，请检查配置后重试。',
   allowRegister: '允许用户注册',
   allowRegisterDesc: '开启后，登录页将显示注册入口，用户可通过用户名和密码自助注册账号。',
   registerRequiresApproval: '注册需要管理员审核',
   registerRequiresApprovalDesc: '开启后，新注册的用户需管理员在用户管理中审核通过后才能登录。',
   oauthRegisterRequiresApproval: '第三方注册需管理员审核',
-  oauthRegisterRequiresApprovalDesc: '开启后，通过第三方（GitHub/聚合登录等）新创建的用户同样需审核后才能登录。',
+  oauthRegisterRequiresApprovalDesc:
+    '开启后，通过第三方（GitHub/聚合登录等）新创建的用户同样需审核后才能登录。',
   registerEmailRequired: '注册时必须填写邮箱',
-  registerEmailRequiredDesc: '开启后注册表单要求填写邮箱并通过验证码验证归属；需先配置SMTP邮件服务，未配置时不可开启。',
+  registerEmailRequiredDesc:
+    '开启后注册表单要求填写邮箱并通过验证码验证归属；需先配置SMTP邮件服务，未配置时不可开启。',
   registerEmailSmtpRequired: '请先在邮件推送设置中配置 SMTP 服务后再开启该功能',
   registerRequiresGradeClass: '注册时必须选择年级班级',
-  registerRequiresGradeClassDesc: '开启后，注册表单（含第三方创建账户）必须选择系统内已有的年级和班级；选项需在年级班级管理中预先维护。',
+  registerRequiresGradeClassDesc:
+    '开启后，注册表单（含第三方创建账户）必须选择系统内已有的年级和班级；选项需在年级班级管理中预先维护。',
   showBlacklistKeywords: '显示黑名单具体关键词',
-  showBlacklistKeywordsDesc: '开启后，在投稿命中黑名单时将明确提示冲突关键词；关闭则仅提示"包含关键词"。',
+  showBlacklistKeywordsDesc:
+    '开启后，在投稿命中黑名单时将明确提示冲突关键词；关闭则仅提示"包含关键词"。',
   forcePasswordChangeOnFirstLogin: '首次登录强制修改密码',
   forcePasswordChangeOnFirstLoginDesc:
     '开启后，尚未设置过密码的新用户首次登录时必须设置新密码，完成前不能访问其他功能。',
   hideStudentInfo: '隐藏学生详细信息',
-  hideStudentInfoDesc: '开启后，非管理员用户在前端点歌列表、排期预览中将无法查看投稿学生的完整学号与真实姓名。',
+  hideStudentInfoDesc:
+    '开启后，非管理员用户在前端点歌列表、排期预览中将无法查看投稿学生的完整学号与真实姓名。',
+  allowAnonymousSubmission: '允许匿名投稿',
+  allowAnonymousSubmissionDesc:
+    '开启后，投稿人可在投稿时逐条选择“匿名投稿”，对外仅显示“匿名投稿”；管理员与投稿人本人仍可见真实姓名。匿名投稿不支持联合投稿。',
   telemetryEnabled: '启用错误追踪与遥测',
-  telemetryEnabledDesc: '默认开启。开启后，系统会向 Sentry 发送前后端错误事件和实例在线事件（仅包含技术错误信息、实例 ID、请求路径和运行时环境），用于统计实例数量并定位部署问题。',
+  telemetryEnabledDesc:
+    '默认开启。开启后，系统会向 Sentry 发送前后端错误事件和实例在线事件（仅包含技术错误信息、实例 ID、请求路径和运行时环境），用于统计实例数量并定位部署问题。',
   telemetryPrivacy: '不会收集任何个人身份信息、用户数据或业务内容。',
-  configWarning: '站点基础配置在保存后将立即对所有终端生效。请在修改关键业务逻辑（如投稿限额）前确保已知晓对现有用户的影响。',
+  configWarning:
+    '站点基础配置在保存后将立即对所有终端生效。请在修改关键业务逻辑（如投稿限额）前确保已知晓对现有用户的影响。',
 
   // 投稿须知
   submissionGuidelines: '投稿须知',
@@ -189,17 +255,22 @@ export const siteConfig = {
   platformDisabled: '已禁用',
 
   serverMessages: {
-    oauthRedirectCallbackInvalid: 'oauthRedirectUri 必须是回调地址，例如 https://yourdomain.com/api/auth/[provider]/callback',
-    oauthRedirectUrlInvalid: 'oauthRedirectUri 不是合法 URL，示例：https://yourdomain.com/api/auth/[provider]/callback',
+    oauthRedirectCallbackInvalid:
+      'oauthRedirectUri 必须是回调地址，例如 https://yourdomain.com/api/auth/[provider]/callback',
+    oauthRedirectUrlInvalid:
+      'oauthRedirectUri 不是合法 URL，示例：https://yourdomain.com/api/auth/[provider]/callback',
     raw: {
-      oauthRedirectCallbackInvalid: 'oauthRedirectUri 必须是回调地址，例如 https://yourdomain.com/api/auth/[provider]/callback',
-      oauthRedirectUrlInvalid: 'oauthRedirectUri 不是合法URL，示例：https://yourdomain.com/api/auth/[provider]/callback',
+      oauthRedirectCallbackInvalid:
+        'oauthRedirectUri 必须是回调地址，例如 https://yourdomain.com/api/auth/[provider]/callback',
+      oauthRedirectUrlInvalid:
+        'oauthRedirectUri 不是合法URL，示例：https://yourdomain.com/api/auth/[provider]/callback',
       unauthorized: '未授权访问',
       adminOnly: '只有管理员才能更新系统设置',
       captchaProviderInvalid: 'captchaProvider 必须是 graphic 或 turnstile',
       turnstileRequired: '启用 Turnstile 验证前，请先配置 Site Key 和 Secret Key',
       smtpPortInvalid: 'smtpPort 必须是1-65535之间的整数',
-      oauthBaseRequired: '启用 OAuth 登录方式前，请先在管理员后台配置 OAuth 重定向 URI 和 OAuth State 密钥',
+      oauthBaseRequired:
+        '启用 OAuth 登录方式前，请先在管理员后台配置 OAuth 重定向 URI 和 OAuth State 密钥',
       githubClientIdRequired: '启用 GitHub 登录时必须提供 Client ID',
       githubClientSecretRequired: '启用 GitHub 登录时必须提供 Client Secret',
       casdoorServerUrlRequired: '启用 Casdoor 登录时必须提供服务器 URL',
@@ -230,7 +301,8 @@ export const siteConfig = {
     captchaProviderInvalid: 'captchaProvider 必须是 graphic 或 turnstile',
     turnstileRequired: '启用 Turnstile 验证前，请先配置 Site Key 和 Secret Key',
     smtpPortInvalid: 'smtpPort 必须是1-65535之间的整数',
-    oauthBaseRequired: '启用 OAuth 登录方式前，请先在管理员后台配置 OAuth 重定向 URI 和 OAuth State 密钥',
+    oauthBaseRequired:
+      '启用 OAuth 登录方式前，请先在管理员后台配置 OAuth 重定向 URI 和 OAuth State 密钥',
     githubClientIdRequired: '启用 GitHub 登录时必须提供 Client ID',
     githubClientSecretRequired: '启用 GitHub 登录时必须提供 Client Secret',
     casdoorServerUrlRequired: '启用 Casdoor 登录时必须提供服务器 URL',
@@ -366,6 +438,25 @@ export const common = {
     login: '登录',
     related: '相关文档',
     backHome: '返回首页'
+  },
+  datePicker: {
+    placeholder: '选择日期',
+    today: '今天',
+    clear: '清除',
+    prevMonth: '上一月',
+    nextMonth: '下一月',
+    prevYear: '上一年',
+    nextYear: '下一年',
+    weekdays: ['日', '一', '二', '三', '四', '五', '六'],
+    monthNames: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+    yearSuffix: '年'
+  },
+  timePicker: {
+    placeholder: '选择时间',
+    now: '现在',
+    clear: '清除',
+    hour: '时',
+    minute: '分'
   }
 } as const
 
@@ -424,7 +515,8 @@ export const pages = {
         userNotFound: '找不到该账号名，请检查是否拼写错误',
         emailNotBound: '该账号未绑定安全邮箱，无法通过此方式找回密码。请联系管理员。',
         emailRequiredFull: '请输入完整的邮箱地址以验证身份',
-        mailSentFull: '如果账号名和邮箱匹配，重置密码链接已发送至您的邮箱。请查收并按照邮件中的说明重置密码。',
+        mailSentFull:
+          '如果账号名和邮箱匹配，重置密码链接已发送至您的邮箱。请查收并按照邮件中的说明重置密码。',
         systemError: '系统错误，请稍后重试'
       },
       rateLimited: (minutes: string | number) => `操作过于频繁，请等待 ${minutes} 分钟后再试`,
@@ -432,7 +524,8 @@ export const pages = {
       userNotFound: '找不到该账号名，请检查是否拼写错误',
       emailNotBound: '该账号未绑定安全邮箱，无法通过此方式找回密码。请联系管理员。',
       emailRequiredFull: '请输入完整的邮箱地址以验证身份',
-      mailSentFull: '如果账号名和邮箱匹配，重置密码链接已发送至您的邮箱。请查收并按照邮件中的说明重置密码。',
+      mailSentFull:
+        '如果账号名和邮箱匹配，重置密码链接已发送至您的邮箱。请查收并按照邮件中的说明重置密码。',
       systemError: '系统错误，请稍后重试'
     }
   },
@@ -460,7 +553,13 @@ export const pages = {
       logoutOthersSuccess: '已退出其他登录会话',
       logoutFailed: '退出登录会话失败',
       loadFailed: '加载登录会话失败',
-      methods: { password: '密码', twoFactor: '双重认证', oauth: '第三方登录', webauthn: '通行密钥', legacy: '历史会话' }
+      methods: {
+        password: '密码',
+        twoFactor: '双重认证',
+        oauth: '第三方登录',
+        webauthn: '通行密钥',
+        legacy: '历史会话'
+      }
     },
     social: {
       title: '社交账号绑定',
@@ -474,7 +573,8 @@ export const pages = {
       emailPlaceholder: '请输入邮箱地址',
       pleaseWait: '请稍候...',
       bindNow: '立即绑定',
-      emailCodeSentTip: '验证码已发送至您的邮箱，请在 5 分钟内完成验证。若未收到邮件，请检查垃圾箱。',
+      emailCodeSentTip:
+        '验证码已发送至您的邮箱，请在 5 分钟内完成验证。若未收到邮件，请检查垃圾箱。',
       emailCodePlaceholder: '输入 6 位数字验证码',
       verifying: '验证中...',
       confirmVerify: '确认验证',
@@ -564,7 +664,8 @@ export const pages = {
       neverExpires: '永不过期',
       deleteTitle: '删除个人 API Key',
       deleteMessageDefault: '确定要删除这个个人 API Key 吗？删除后相关集成将无法继续使用。',
-      deleteMessage: (name: string) => `确定要删除个人 API Key “${name}”吗？删除后相关集成将无法继续使用。`,
+      deleteMessage: (name: string) =>
+        `确定要删除个人 API Key “${name}”吗？删除后相关集成将无法继续使用。`,
       createdTitle: 'API Key 创建成功',
       createdDesc: '完整 Key 只会显示这一次',
       copyWarning: '请现在复制并保存。关闭窗口后，VoiceHub 不会再次显示完整 Key。',
@@ -649,7 +750,8 @@ export const pages = {
       'music-source': '音源控制',
       database: '数据库操作',
       'api-keys': 'API密钥管理',
-      'card-codes': '点歌券管理'
+      'card-codes': '点歌券管理',
+      'system-board': '系统看板'
     },
     roles: {
       USER: '普通用户',
@@ -743,7 +845,8 @@ export const pages = {
     acceptInvite: '接受邀请',
     reject: '拒绝',
     delete: '删除',
-    paginationInfo: (total: number, current: number, pages: number) => `共 ${total} 条通知，第 ${current} / ${pages} 页`,
+    paginationInfo: (total: number, current: number, pages: number) =>
+      `共 ${total} 条通知，第 ${current} / ${pages} 页`,
     pageSize: '每页显示：',
     previousPage: '上一页',
     nextPage: '下一页',
@@ -801,7 +904,8 @@ export const pages = {
       hoursAgo: (hours: number) => `${hours}小时前`,
       daysAgo: (days: number) => `${days}天前`,
       weekdays: ['日', '一', '二', '三', '四', '五', '六'],
-      dateFormat: (year: number, month: number, date: number, weekday: string) => `${year}年${month}月${date}日 周${weekday}`,
+      dateFormat: (year: number, month: number, date: number, weekday: string) =>
+        `${year}年${month}月${date}日 周${weekday}`,
       seconds: (seconds: number) => `${seconds}秒`,
       minutes: (minutes: number) => `${minutes}分钟`,
       minutesSeconds: (minutes: number, seconds: number) => `${minutes}分${seconds}秒`
@@ -818,7 +922,8 @@ export const pages = {
       inviteRejected: '已拒绝联合投稿邀请',
       operationFailed: '操作失败',
       notificationLogin: '需要登录才能查看通知',
-      changePasswordTip: '为了您的账户安全，建议您修改密码。您可以点击右上角的"修改密码"按钮进行修改。'
+      changePasswordTip:
+        '为了您的账户安全，建议您修改密码。您可以点击右上角的"修改密码"按钮进行修改。'
     },
     titleHome: '首页',
     titleLoading: '加载中'
@@ -875,7 +980,8 @@ export const pages = {
     loginForm: {
       bindExisting: '绑定现有账户',
       createAccount: '创建新账户',
-      bindProvider: (providerName: string, providerUsername: string) => `即将绑定 ${providerName} 账号: ${providerUsername}`,
+      bindProvider: (providerName: string, providerUsername: string) =>
+        `即将绑定 ${providerName} 账号: ${providerUsername}`,
       createWithProvider: (providerName: string) => `通过 ${providerName} 创建新账户`,
       loginSubtitle: '登录您的VoiceHub账户',
       setUsername: '设置用户名',
@@ -1080,9 +1186,11 @@ export const pages = {
       cancel: '取消',
       remove: '移除',
       unbindTitle: '解除绑定',
-      unbindMessage: (providerName: string) => `确定要解除 ${providerName} 账号的绑定吗？解除后您将无法使用该账号登录。`,
+      unbindMessage: (providerName: string) =>
+        `确定要解除 ${providerName} 账号的绑定吗？解除后您将无法使用该账号登录。`,
       removePasskeyTitle: '移除 Passkey',
-      removePasskeyMessage: (deviceName: string) => `确定要移除设备 "${deviceName}" 吗？VoiceHub 会尝试通知当前设备同步删除；若系统不支持，仍需在密码保险箱中手动删除。`,
+      removePasskeyMessage: (deviceName: string) =>
+        `确定要移除设备 "${deviceName}" 吗？VoiceHub 会尝试通知当前设备同步删除；若系统不支持，仍需在密码保险箱中手动删除。`,
       unbindSuccess: '解除绑定成功',
       unbindFailed: '解绑失败',
       passkeyCleanupRequired: '已从 VoiceHub 移除，请同时在设备密码保险箱中删除对应 Passkey',
@@ -1134,7 +1242,8 @@ export const pages = {
       codePlaceholder: '请输入6位验证码',
       verifyAndEnable: '验证并开启',
       disableTitle: '关闭双重认证',
-      disableContent: '关闭后，您的账户将不再受到双重认证保护。为确保安全，请输入您的登录密码以确认。',
+      disableContent:
+        '关闭后，您的账户将不再受到双重认证保护。为确保安全，请输入您的登录密码以确认。',
       verifyAndDisable: '验证并关闭',
       passwordPlaceholder: '请输入当前登录密码',
       fetchFailed: '获取验证码失败',
@@ -1208,6 +1317,8 @@ export const pages = {
       showWordsRoma: '逐字罗马音',
       swapTranRoma: '音译置于翻译前',
       showYrc: '逐字歌词 (YRC)',
+      amllSubFontSizeFollow: '副行字号跟随主行',
+      amllSubFontSize: '副行字号',
       amllNormalizeSpaces: '规范空格',
       amllResetLineTimestamps: '对齐行时间戳',
       amllConvertBgLines: '合并背景和声行',
@@ -1229,7 +1340,19 @@ export const pages = {
       }
     },
     audioQuality: {
+      actualQualityNotice: '请求{0}，当前音质：{1}',
       unknown: '未知音质',
+      levels: {
+        standard: '标准',
+        higher: '较高',
+        exhigh: 'HQ极高',
+        lossless: 'SQ无损',
+        hires: 'Hi-Res',
+        jyeffect: '高清臻音',
+        vivid: '臻音全景声',
+        sky: '沉浸环绕声',
+        jymaster: '超清母带'
+      },
       options: {
         standard: { label: '标准', description: '适合流量有限的情况' },
         neteaseHq: { label: 'HQ极高', description: '高品质音乐体验' },
@@ -1297,18 +1420,38 @@ export const pages = {
     loginRequired: (action: string) => `需要登录才能${action}`,
     failed: (action: string) => `${action}失败`,
     actions: {
-      createSchedule: '创建排期', removeSchedule: '移除排期', updateScheduleSequence: '更新排期顺序',
-      markPlayed: '标记歌曲已播放', sendNotification: '发送系统通知', getSystemSettings: '获取系统设置',
-      updateSystemSettings: '更新系统设置', getPlayTimes: '获取播放时段', createPlayTime: '创建播放时段',
-      updatePlayTime: '更新播放时段', deletePlayTime: '删除播放时段', deleteSong: '删除歌曲',
-      updateSong: '更新歌曲', addSong: '添加歌曲', updateNotificationSettings: '更新通知设置',
-      markNotification: '标记通知', markAllNotifications: '标记所有通知', deleteNotification: '删除通知',
-      clearNotifications: '清空通知', getSemesters: '获取学期列表', getCurrentSemester: '获取当前学期', createSemester: '创建学期',
-      setActiveSemester: '设置活跃学期', updateSemester: '更新学期', deleteSemester: '删除学期',
+      createSchedule: '创建排期',
+      removeSchedule: '移除排期',
+      updateScheduleSequence: '更新排期顺序',
+      markPlayed: '标记歌曲已播放',
+      sendNotification: '发送系统通知',
+      getSystemSettings: '获取系统设置',
+      updateSystemSettings: '更新系统设置',
+      getPlayTimes: '获取播放时段',
+      createPlayTime: '创建播放时段',
+      updatePlayTime: '更新播放时段',
+      deletePlayTime: '删除播放时段',
+      deleteSong: '删除歌曲',
+      updateSong: '更新歌曲',
+      addSong: '添加歌曲',
+      updateNotificationSettings: '更新通知设置',
+      markNotification: '标记通知',
+      markAllNotifications: '标记所有通知',
+      deleteNotification: '删除通知',
+      clearNotifications: '清空通知',
+      getSemesters: '获取学期列表',
+      getCurrentSemester: '获取当前学期',
+      createSemester: '创建学期',
+      setActiveSemester: '设置活跃学期',
+      updateSemester: '更新学期',
+      deleteSemester: '删除学期',
       getSemesterOptions: '获取学期选项'
     },
     lyrics: {
-      missingParams: '缺少必要参数', notFound: '未获取到歌词', unavailable: '暂无歌词', fetchFailed: '获取歌词失败'
+      missingParams: '缺少必要参数',
+      notFound: '未获取到歌词',
+      unavailable: '暂无歌词',
+      fetchFailed: '获取歌词失败'
     }
   },
   audioPlayer: {
@@ -1321,8 +1464,14 @@ export const pages = {
     popupBlocked: '浏览器拦截了新标签页，请允许弹窗后重试',
     originalLinkOpened: '已为你打开原始链接',
     fallbackSource: '当前播放链接无效，已切换备用音源',
+    slowNetworkRetry: '当前播放链接加载过慢，正在切换备用音源',
+    slowNetworkFailed: '播放链接加载过慢，请检查网络后重试',
     consecutiveFailures: '连续多首歌曲播放失败，已停止自动播放',
     networkOffline: '网络连接已断开，请检查网络后重试',
+    scheduleSyncFailed: '播放队列更新失败，当前队列已保留',
+    scheduleSyncAuthChanged: '登录身份已变化，已停止排期同步',
+    scheduleWaiting: '等待排期歌曲，点击暂停等待',
+    playPause: '播放/暂停',
     bilibiliSkipped: '哔哩哔哩视频播放失败，自动跳过',
     pluginExcluded: '插件音源已排除',
     pluginInvalidUrl: '插件音源返回的播放链接无效',
@@ -1468,6 +1617,7 @@ export const pages = {
       requester: '投稿人：',
       mainRequesterTitle: '主投稿人: ',
       requesterTitle: '投稿人: ',
+      anonymousRequester: '匿名投稿',
       collaboratorsTitle: '联合投稿: ',
       unknown: '未知',
       replay: '重播',
@@ -1546,6 +1696,9 @@ export const pages = {
       viewSubmissionNote: '查看备注留言',
       mainRequesterTitle: '主投稿人: ',
       requesterTitle: '投稿人: ',
+      anonymousRequester: '匿名投稿',
+      anonymousTag: '匿名投稿',
+      anonymousTagHint: '该投稿已匿名，其他用户看到的投稿人为“匿名投稿”，你仍可正常管理自己的投稿',
       collaboratorsTitle: '联合投稿: ',
       replayRequest: (count: number) => `重播申请 (${count})：`,
       requester: '投稿人：',
@@ -1576,7 +1729,8 @@ export const pages = {
       unlike: '点击取消点赞',
       loginBeforeLike: '请先登录后再点赞',
       withdrawTitle: '撤回投稿',
-      withdrawMessage: (title: string) => `确认撤回歌曲《${title}》的投稿吗？这将同时取消所有联合投稿关联。`,
+      withdrawMessage: (title: string) =>
+        `确认撤回歌曲《${title}》的投稿吗？这将同时取消所有联合投稿关联。`,
       leaveTitle: '退出联合投稿',
       leaveMessage: (title: string) => `确认退出歌曲《${title}》的联合投稿吗？`,
       cancelReplayConfirmTitle: '取消重播申请',
@@ -1630,6 +1784,7 @@ export const pages = {
       adminUnlimited: '您是管理员，不受投稿限制',
       outsideRequestTime: '当前不在投稿开放时段',
       submissionClosed: '投稿功能已关闭',
+      globalLimitReached: '全站投稿名额已满，请稍后再试',
       currentPeriod: '当前时段：',
       accepted: '已接纳',
       todayRequests: '今日投稿：',
@@ -1660,6 +1815,16 @@ export const pages = {
       qqLoginExpired: 'QQ 音乐登录已失效，请重新登录',
       preferredPlayTime: '期望播出时段',
       choosePlayTime: '选择时段',
+      preferredPlayDate: '期望播出日期',
+      noSlotsForDate: '该日期暂无可用播出时段，请选择其他日期',
+      playSlotTimeRequiredError: '请选择期望播出时段',
+      playSlotNotOpenOnDate: '所选播出时段在该日期不开放，请重新选择日期或时段',
+      playSlotModalTitle: '选择播出时段',
+      playSlotModalSubtitle: '时段必选；播出日期可选，留空则由后台排期安排播出日',
+      playSlotDateOptionalHint: '未指定播出日期，具体播出日由后台排期决定',
+      playSlotTimeFreeHint: '可选择任一启用的播出时段',
+      playSlotTimeRestrictedHint: '仅显示该日期开放的播出时段',
+      weekdaysFull: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
       submissionNote: '投稿备注留言',
       cardCode: '点歌券',
       required: '必填',
@@ -1695,6 +1860,26 @@ export const pages = {
       cardCodeLockedOrUnavailable: '点歌券已被锁定或不可用',
       cardCodeRequiredForSite: '本站点已启用仅点歌券投稿，请提供有效点歌券',
       cardCodeTooLong: '点歌券不能超过100个字符',
+      submissionOptions: '更多选项',
+      submissionOptionsTitle: '投稿选项',
+      submissionOptionsSubtitle: '留言与点歌券会随本次投稿一并提交，均为选填',
+      submissionOptionsEmptyHint: '当前站点未开放可配置的投稿选项',
+      playSlotSectionTitle: '播出安排',
+      submissionOptionsSummary: '投稿设置包含：{0}',
+      submissionOptionItemSlot: '播出安排',
+      submissionOptionItemNote: '投稿留言',
+      submissionOptionItemAnonymous: '匿名投稿',
+      submissionOptionItemCardCode: '点歌券',
+      cardCodeMyCodes: '我的点歌券',
+      cardCodeSelectLabel: '选择点歌券',
+      cardCodeSelectPlaceholder: '从我的点歌券中选择，或手动输入券码',
+      cardCodeNoCodes: '暂无可用的点歌券',
+      cardCodeNoCodesHint: '暂无可用的点歌券，可在列表中选择「手动输入券码」录入。',
+      cardCodeAddManually: '添加点歌券',
+      cardCodeManualInput: '手动输入券码',
+      cardCodeManualOption: '手动输入券码',
+      cardCodeManualPlaceholder: '输入收到的点歌券码',
+      cardCodeMyCodesCount: (count: number) => `我有 ${count} 张点歌券`,
       notifications: {
         restrictionSameSong: '该歌曲处于投稿限制冷却期，请稍后再试',
         restrictionSameArtist: '该歌手处于投稿限制冷却期，请稍后再试',
@@ -1724,13 +1909,16 @@ export const pages = {
         replayRequestSuccess: '申请重播成功',
         replayRequestFailed: (message: string) => `申请重播失败: ${message}`,
         replayOriginalNotFound: '未找到可申请重播的原歌曲',
-        periodQuotaFull: (accepted: number, expected: number) => `当前时段投稿名额已满 (${accepted}/${expected})`,
+        periodQuotaFull: (accepted: number, expected: number) =>
+          `当前时段投稿名额已满 (${accepted}/${expected})`,
         dailyLimitReached: (used: number, limit: number) => `今日投稿已达上限 (${used}/${limit})`,
         weeklyLimitReached: (used: number, limit: number) => `本周投稿已达上限 (${used}/${limit})`,
         monthlyLimitReached: (used: number, limit: number) => `本月投稿已达上限 (${used}/${limit})`
       },
-      publicToUsers: '公开给已登录用户',
+      publicToUsers: '备注留言公开给已登录用户',
+      anonymousSubmission: '匿名投稿',
       submissionNoteApprovalHint: '公开留言需管理员审核通过后展示',
+      submissionNotePlaceholder: '想说点什么？（选填，最多 300 字）',
       coverAlt: '封面',
       albumDetailsTitle: '点击查看专辑详情',
       album: '专辑：',
@@ -1852,7 +2040,8 @@ export const pages = {
         tokenFailed: (message: string | number) => `获取凭证失败: ${message}`,
         nosFailed: (status: number | string) => `NOS上传失败: ${status}`,
         nosNetworkError: 'NOS网络错误',
-        saveMaybeFailed: (code: string | number) => `云盘信息保存可能失败 (错误码: ${code})，请检查云盘内是否成功上传歌曲。`,
+        saveMaybeFailed: (code: string | number) =>
+          `云盘信息保存可能失败 (错误码: ${code})，请检查云盘内是否成功上传歌曲。`,
         publishFailed: (message: string | number) => `发布失败: ${message}`
       },
       playlistModal: {
@@ -1882,7 +2071,8 @@ export const pages = {
       audioMatchFailed: '听歌识曲失败，请稍后重试',
       microphoneRequesting: '正在请求麦克风权限...',
       microphoneUnsupported: '当前环境不支持麦克风访问，请确保使用 HTTPS 访问或 localhost 调试',
-      audioMatchRecordingProgress: (current: string, total: number) => `录音中 ${current}s / ${total}s`,
+      audioMatchRecordingProgress: (current: string, total: number) =>
+        `录音中 ${current}s / ${total}s`,
       microphoneTimeout: '麦克风授权超时，请在系统设置中确认已允许麦克风权限',
       microphoneReady: '麦克风已连接，点击开始识曲',
       audioMatchInitFailed: '无法初始化听歌识曲，请检查麦克风权限',
@@ -1965,6 +2155,7 @@ export const admin = {
       musicSource: '音源控制',
       siteConfig: '站点配置',
       database: '数据库操作',
+      systemBoard: '系统看板',
       password: '修改密码'
     },
     roles: {
@@ -1973,6 +2164,101 @@ export const admin = {
       ADMIN: '管理员',
       SUPER_ADMIN: '超级管理员'
     }
+  },
+  systemBoard: {
+    title: '系统看板',
+    desc: '进程状态、数据库状态、表规模、生效配置与运行事件，用于排查问题',
+    refresh: '刷新',
+    autoRefresh: '自动刷新',
+    lastUpdated: '最后刷新 {0}',
+    running: '运行中',
+    loadingLabel: '读取中',
+    unavailable: '不可用',
+    on: '开',
+    off: '关',
+    processTitle: '进程状态',
+    uptime: '运行时长',
+    startedAt: '启动时间',
+    nodeVersion: 'Node 版本',
+    platform: '平台 / 架构',
+    appVersion: '系统版本',
+    pid: '进程号',
+    env: '运行环境',
+    telemetry: '数据上报',
+    serverTime: '服务器时间',
+    instanceId: '实例 ID',
+    uptimeDHM: '{0} 天 {1} 小时 {2} 分',
+    uptimeHM: '{0} 小时 {1} 分',
+    uptimeM: '{0} 分',
+    memRss: '常驻内存 RSS',
+    memHeapUsed: '堆内存已用',
+    memHeapTotal: '堆内存总量',
+    memExternal: '外部内存',
+    databaseTitle: '数据库状态',
+    connected: '已连接',
+    disconnected: '已断开',
+    latency: '查询延迟',
+    dbStatus: '连接状态',
+    statusCached: '缓存结果',
+    dbSize: '数据库大小',
+    poolActive: '活跃连接',
+    poolUsage: '连接池占用',
+    poolValue: '{0} / {1}',
+    countPair: '{0} / {1}',
+    tablesTitle: '表规模',
+    tablesTotal: '{0} 张表 · 约 {1} 行',
+    tablesSearch: '搜索表名',
+    tablesEmpty: '无匹配的表',
+    tablesHint: '行数取自 pg_stat_user_tables 估算值，长期未 ANALYZE 时可能偏差',
+    settingsTitle: '生效配置',
+    settingsReadAt: '读取时间 {0}',
+    settingsEmpty: '暂无系统设置记录',
+    semesterLabel: '当前学期',
+    siteTitleLabel: '站点标题',
+    platformsLabel: '启用音源',
+    themeLabel: '默认主题',
+    playTimesLabel: '播出时段（启用/总数）',
+    requestTimesLabel: '投稿时段（启用/总数）',
+    userLimitLabel: '单人限额（日/周/月）',
+    globalLimitLabel: '全局限额（日/周/月）',
+    allowRegisterLabel: '允许注册',
+    registerApprovalLabel: '注册需审核',
+    captchaLabel: '图形验证码',
+    smtpLabel: 'SMTP 推送',
+    astrbotLabel: 'AstrBot 推送方向',
+    autoBackupLabel: '自动备份',
+    blockAllRequestsLabel: '全站封锁投稿',
+    requestTimeLimitLabel: '投稿时段限制',
+    replayLabel: '重播申请',
+    collaborationLabel: '联合投稿',
+    cardCodeLabel: '卡密点歌',
+    cardCodeRequiredLabel: '强制卡密投稿',
+    hideStudentInfoLabel: '隐藏学生信息',
+    eventsTitle: '运行事件',
+    eventsHint: '进程内异常与请求 5xx 仅保留最近若干条，不落盘；API 错误与口令审计来自数据库记录；多实例部署时只反映当前请求命中的进程',
+    eventsEmpty: '暂无事件记录',
+    eventsTruncated: '事件较多，仅显示最近 {0} 条',
+    eventsClear: '清空缓冲',
+    eventsClearing: '清空中',
+    eventsCleared: '运行事件缓冲已清空',
+    bufferUsage: '缓冲 {0}/{1} 条',
+    levelAll: '全部级别',
+    levelError: '错误',
+    levelWarn: '告警',
+    levelInfo: '信息',
+    sourceAll: '全部来源',
+    sourceRuntime: '进程内',
+    sourceApiError: 'API 错误',
+    sourcePasswordAudit: '口令审计',
+    passwordAuditUser: '用户 #{0}：{1}',
+    passwordAuditActions: {
+      INITIAL_PASSWORD: '设置初始密码',
+      CHANGE_PASSWORD: '修改密码',
+      RESET_PASSWORD: '重置密码'
+    },
+    bufferCleared: (count: number) => `运行事件缓冲已清空（${count} 条）`,
+    serverStarted: '服务进程已启动，全局错误处理器就绪',
+    dbHealthRecovered: '数据库健康检查恢复'
   },
   overview: {
     recentActivities: '最近活动',
@@ -2035,8 +2321,10 @@ export const admin = {
     keywordLabel: '关键词内容',
     languageLabel: '语种值',
     genreLabel: '曲风值',
-    languageHint: '仅对网易云/QQ音源生效：「其他」指已判定但不属于上述语种的歌曲；无法判定或手动投稿不拦截',
-    genreHint: '对网易云/QQ音源生效：QQ流派按官网英文分类映射，不属于上述候选的流派归入「其他」；无法判定不拦截',
+    languageHint:
+      '仅对网易云/QQ音源生效：「其他」指已判定但不属于上述语种的歌曲；无法判定或手动投稿不拦截',
+    genreHint:
+      '对网易云/QQ音源生效：QQ流派按官网英文分类映射，不属于上述候选的流派归入「其他」；无法判定不拦截',
     songPlaceholder: '例如: 歌曲名 - 艺术家',
     keywordPlaceholder: '例如: 敏感词、特定风格',
     reason: '封禁原因 (可选)',
@@ -2082,13 +2370,15 @@ export const admin = {
     batchGradePlaceholder: '多个年级用逗号分隔，如：高一,高二,高三',
     batchClassPlaceholder: '多个班级用逗号分隔，支持数字区间，如：一班,二班 或 1-10',
     batchButton: '批量生成',
-    batchResult: (added: number, skipped: number) => `已添加 ${added} 项${skipped > 0 ? `，跳过 ${skipped} 项已存在` : ''}`,
+    batchResult: (added: number, skipped: number) =>
+      `已添加 ${added} 项${skipped > 0 ? `，跳过 ${skipped} 项已存在` : ''}`,
     batchInvalid: '请填写至少一个年级和一个班级',
     batchLimit: '单次批量最多 500 项，请缩小年级或班级范围',
     initTitle: '从现有用户初始化',
     initDesc: '自动提取当前所有活跃用户的年级班级组合并添加到配置，已存在的组合自动跳过',
     initButton: '从用户提取',
-    initResult: (added: number, skipped: number) => `已提取 ${added} 项${skipped > 0 ? `，跳过 ${skipped} 项已存在` : ''}`,
+    initResult: (added: number, skipped: number) =>
+      `已提取 ${added} 项${skipped > 0 ? `，跳过 ${skipped} 项已存在` : ''}`,
     initFailed: '初始化失败',
     batchFailed: '批量生成失败',
     guideTitle: '使用说明',
@@ -2134,6 +2424,8 @@ export const admin = {
       reject: '驳回歌曲',
       deleteSong: '删除歌曲',
       batchReject: '驳回',
+      batchMarkPlayed: '标记已播放',
+      batchMarkUnplayed: '标记未播放',
       addToPool: '加入备选池',
       removeFromPool: '移出备选池'
     },
@@ -2142,6 +2434,7 @@ export const admin = {
       selectSemester: '选择学期',
       playTime: '播出时段',
       selectPlayTime: '选择时段',
+      playDate: '播出日期',
       status: '状态',
       selectStatus: '选择状态',
       pool: '备选池',
@@ -2171,7 +2464,9 @@ export const admin = {
       stats: '统计',
       status: '状态',
       actions: '操作',
-      selectPage: '全选本页'
+      selectPage: '全选本页',
+      submitStat: (count: number) => `投 ${count}`,
+      playStat: (count: number) => `播 ${count}`
     },
     empty: {
       search: '没有找到匹配的歌曲',
@@ -2179,7 +2474,8 @@ export const admin = {
     },
     duplicateModal: {
       title: '重复歌曲检测',
-      subtitle: (groups: number, songs: number) => `当前筛选下发现 ${groups} 组重复，共 ${songs} 首`,
+      subtitle: (groups: number, songs: number) =>
+        `当前筛选下发现 ${groups} 组重复，共 ${songs} 首`,
       matchHint: '按歌名与歌手判定重复，忽略大小写、空格、标点、繁简体与 feat. 标记',
       empty: '当前筛选范围内没有重复歌曲',
       dupCount: (count: number) => `${count} 首重复`,
@@ -2192,7 +2488,11 @@ export const admin = {
       deleteSongTitle: '删除歌曲',
       deleteSongMessage: (title: string) => `确定要删除歌曲 "${title}" 吗？此操作不可撤销。`,
       batchDeleteTitle: '批量删除歌曲',
-      batchDeleteMessage: (count: number) => `确定要删除选中的 ${count} 首歌曲吗？此操作不可撤销。`
+      batchDeleteMessage: (count: number) => `确定要删除选中的 ${count} 首歌曲吗？此操作不可撤销。`,
+      markPlayedTitle: '确认标记为已播放',
+      markPlayedMessage: (count: number) => `确定将选中的 ${count} 首歌曲标记为已播放吗？`,
+      markUnplayedTitle: '确认标记为未播放',
+      markUnplayedMessage: (count: number) => `确定撤回选中的 ${count} 首歌曲的已播放状态吗？`
     },
     rejectDialog: {
       title: '驳回歌曲',
@@ -2223,12 +2523,16 @@ export const admin = {
       collaboratorHint: '支持添加多个联合投稿人，保存后立即生效',
       preferredPlayTime: '期望时段 (可选)',
       selectPreferredPlayTime: '选择期望播出时段',
+      preferredPlayDate: '期望播出日期',
       submissionNote: '歌曲备注',
       clearNote: '清空备注',
       cancelClearNote: '撤销清空',
       submissionNotePlaceholder: '填写歌曲备注',
       publicNote: '公开备注留言',
       publicNoteHint: '公开后其他用户可以看到此备注留言',
+      anonymousSubmission: '匿名投稿',
+      anonymousSubmissionHint:
+        '开启后其他用户看到的投稿人为“匿名投稿”，管理员仍可见真实姓名',
       clearNoteHint: '保存后将清空当前备注，可填写理由并发送通知',
       clearNoteReasonPlaceholder: '可选：请输入清空备注的理由，例如：备注内容违规',
       notifyAfterClear: '清空后发送通知',
@@ -2249,6 +2553,38 @@ export const admin = {
       saveChanges: '保存更改',
       adding: '添加中...',
       addSong: '添加歌曲'
+    },
+    sourceReplace: {
+      sectionTitle: '音源信息',
+      button: '换源',
+      title: '替换歌曲音源',
+      subtitle: '搜索其他平台，选择匹配曲目后替换歌曲的平台、音乐 ID、封面与时长',
+      currentSource: '当前音源',
+      current: '当前',
+      searchPlaceholder: '输入歌名，可附加歌手名',
+      search: '搜索',
+      searching: '搜索中...',
+      all: '全部',
+      autoSearchHint: '已按歌名在其他音源自动搜索，可修改关键词后手动搜索',
+      keywordsRequired: '请输入搜索关键词',
+      empty: '没有找到匹配的曲目',
+      emptyHint: '尝试修改关键词，或切换平台后重新搜索',
+      searchFailed: '搜索失败',
+      platformFailed: (platform: string) => `${platform} 搜索失败`,
+      matchHigh: '高度匹配',
+      matchMedium: '可能匹配',
+      matchLow: '低匹配',
+      durationUnknown: '时长未知',
+      selectPage: '选择分P',
+      pageLabel: (page: number) => `P${page}`,
+      selectedHint: '应用后将替换平台、音乐 ID 与封面，可用时更新时长，并清空播放地址',
+      selectHint: '选择一条搜索结果',
+      apply: '应用替换',
+      applying: '获取信息中...',
+      applied: '已填入新音源信息，保存后生效',
+      cancel: '取消',
+      preview: '试听',
+      stopPreview: '停止试听'
     },
     songDownloadDialog: {
       title: '下载歌曲',
@@ -2322,7 +2658,8 @@ export const admin = {
       downloadingProgress: (title: string, percent: number) => `正在下载: ${title} (${percent}%)`,
       usingPreloadCache: (title: string) => `使用预下载缓存: ${title}`,
       downloadingTitle: (title: string) => `下载中: ${title}`,
-      mergedFilename: (date: string, count: number, ext: string) => `排期合并_${date}_${count}首.${ext}`,
+      mergedFilename: (date: string, count: number, ext: string) =>
+        `排期合并_${date}_${count}首.${ext}`,
       preprocessingAudio: (value: number | string) => `正在预处理音频: ${value}%`,
       mergingAudio: (value: number | string) => `正在合并音频: ${value}%`,
       encodingAudio: (format: string, value: number | string) => `正在编码 ${format}: ${value}%`,
@@ -2345,11 +2682,13 @@ export const admin = {
       compatibleMerge: '正在使用兼容模式合并...',
       fastMerge: '正在使用快速模式合并...',
       fastMergeMemoryFallback: '快速合并内存不足，已切换兼容模式重试',
-      activeWorkers: (title: string, active: number, concurrency: number) => `${title} (${active}/${concurrency} 活动)`,
+      activeWorkers: (title: string, active: number, concurrency: number) =>
+        `${title} (${active}/${concurrency} 活动)`,
       remainingSongs: (count: number) => `剩余 ${count} 首`,
       processComplete: '处理完成',
       downloadSuccess: (count: number) => `成功下载 ${count} 首歌曲`,
-      downloadCompleteWithCount: (success: number, failed: number) => `下载完成，成功 ${success} 首，失败 ${failed} 首`
+      downloadCompleteWithCount: (success: number, failed: number) =>
+        `下载完成，成功 ${success} 首，失败 ${failed} 首`
     },
     searchPlaceholder: '搜索歌曲标题、艺术家或投稿人...',
     loading: '正在加载...',
@@ -2384,7 +2723,14 @@ export const admin = {
       remarkRejected: '备注留言已拒绝',
       deleteSuccess: '歌曲删除成功',
       batchDeleteSuccess: '批量删除成功',
-      batchRejectSuccess: (rejected: number, missing: number) => missing > 0 ? `批量驳回完成，成功 ${rejected} 首，${missing} 首未找到` : `批量驳回成功，共 ${rejected} 首，已通知投稿人`,
+      batchRejectSuccess: (rejected: number, missing: number) =>
+        missing > 0
+          ? `批量驳回完成，成功 ${rejected} 首，${missing} 首未找到`
+          : `批量驳回成功，共 ${rejected} 首，已通知投稿人`,
+      batchMarkPlayedSuccess: (count: number) => `已将 ${count} 首歌曲标记为已播放`,
+      batchMarkUnplayedSuccess: (count: number) => `已将 ${count} 首歌曲撤回已播放状态`,
+      batchMarkPlayedNoop: '所选歌曲均已是已播放状态',
+      batchMarkUnplayedNoop: '所选歌曲均已是未播放状态',
       rejectSuccess: '歌曲驳回成功，已通知投稿人',
       validatingUrl: '正在验证URL，请稍候...',
       validatingCoverUrl: '正在验证封面URL，请稍候...',
@@ -2462,7 +2808,8 @@ export const admin = {
     noOnlineUsers: '暂无在线用户',
     syncingRealtime: '实时数据同步中',
     countSongs: (count: number) => `${count}首`,
-    userActivity: (contributions: number, likes: number) => `${contributions}首投稿 · ${likes}次点赞`,
+    userActivity: (contributions: number, likes: number) =>
+      `${contributions}首投稿 · ${likes}次点赞`,
     onlineCount: (count: number) => `${count} 在线`,
     andMoreUsers: (count: number) => `及其他 ${count} 位用户`,
     loadingSteps: ['获取学期信息', '加载统计数据', '获取图表数据', '加载实时数据'],
@@ -2620,7 +2967,8 @@ export const admin = {
     addAllPendingConfirmTitle: '全部移入备选池',
     addAllPendingConfirmMessage: (count) => `确定将 ${count} 首待排歌曲全部移入备选池？`,
     addCurrentPageConfirmTitle: '将本页移入备选池',
-    addCurrentPageConfirmMessage: (count, page) => `确定将第 ${page} 页的 ${count} 首歌曲移入备选池？`,
+    addCurrentPageConfirmMessage: (count, page) =>
+      `确定将第 ${page} 页的 ${count} 首歌曲移入备选池？`,
     addCurrentPageSuccess: (count) => `本页已移入 ${count} 首歌曲到备选池`,
     addSingleToPoolSuccess: '已加入备选池',
     addSingleToPoolSkipped: '加入备选池失败',
@@ -2628,6 +2976,8 @@ export const admin = {
     removeFromPoolFailed: '移除失败',
     addedBy: '添加者',
     playSong: '播放歌曲',
+    replaceSource: '更换音源',
+    replaceSourceSuccess: '换源成功',
     removeFromSchedule: '从排期移除',
     addToScheduleSuccess: '已加入排期',
     playlist: '播放列表',
@@ -2697,6 +3047,8 @@ export const admin = {
     directionUnder: '不超过目标',
     directionMiddle: '相差最小',
     directionOver: '不低于目标',
+    heatWeightLabel: '热度权重',
+    heatWeightDesc: (weight: number) => `热度加权随机：${weight}% 依据热度（票数越高越靠前）、${100 - weight}% 随机。0% = 纯随机，100% ≈ 完全按热度排序。`,
     availableCount: (count) => `当前筛选下共 ${count} 首候选歌曲`,
     autoScheduleRun: '开始排期',
     resultTitle: '推荐结果',
@@ -2715,12 +3067,17 @@ export const admin = {
     newPlan: '新增方案',
     fixExistingSelected: '固定已选歌曲',
     fixExistingCount: (n) => `已固定 ${n} 首`,
-    fixExistingDuration: (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`,
+    fixExistingDuration: (sec) =>
+      `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`,
     fixExistingRemaining: (totalMin, fixedSec) => {
       const sec = Math.max(0, Math.floor(totalMin * 60 - fixedSec))
       return `剩余 ${Math.floor(sec / 60)}分${String(Math.floor(sec % 60)).padStart(2, '0')}秒`
     },
     fixExistingNone: '当前无已排期歌曲',
+    fixExistingMissingDuration: (n) => `${n} 首时长未知`,
+    fixExistingMissingDurationTip: '时长未知的固定歌曲仍会保留，但不计入目标时长；运行排期时会自动尝试补齐，也可点右侧按钮手动补齐',
+    fixExistingResolvingDuration: (progress) => `补齐时长 ${progress}`,
+    autoScheduleRunning: '计算中',
     replaySong: '重播歌曲',
     replay: '重播',
     draft: '草稿',
@@ -2756,6 +3113,7 @@ export const admin = {
     emptySongs: '暂无歌曲记录',
     pendingSongItemName: '首待排歌曲',
     preferredPlayTime: (name: string) => `期望: ${name}`,
+    preferredPlayDate: (date: string) => `期望日期: ${date}`,
     tabs: {
       normal: '普通投稿',
       replay: '重播申请',
@@ -2785,23 +3143,51 @@ export const admin = {
       clearListTitle: '清空播放列表',
       clearListMessage: '确定要清空当前的播放顺序列表吗？未保存的修改将会丢失。',
       clearListConfirm: '确认清空',
-      moveDateMessage: (sourceDate: string, count: number, targetDate: string, sourcePlayTime: string, targetPlayTime: string) => `确定将 ${sourceDate}（${sourcePlayTime}）的 ${count} 首歌曲迁移到 ${targetDate}（${targetPlayTime}）吗？歌曲顺序与内容将保持不变。`,
+      moveDateMessage: (
+        sourceDate: string,
+        count: number,
+        targetDate: string,
+        sourcePlayTime: string,
+        targetPlayTime: string
+      ) =>
+        `确定将 ${sourceDate}（${sourcePlayTime}）的 ${count} 首歌曲迁移到 ${targetDate}（${targetPlayTime}）吗？歌曲顺序与内容将保持不变。`,
       moveDateConfirm: '确认迁移',
-      moveDateAppendMessage: (targetDate: string, targetPlayTime: string) => `目标日期 ${targetDate}（${targetPlayTime}）已存在排期，迁移的歌曲将追加在已有歌曲之后。是否继续？`,
+      moveDateAppendMessage: (targetDate: string, targetPlayTime: string) =>
+        `目标日期 ${targetDate}（${targetPlayTime}）已存在排期，迁移的歌曲将追加在已有歌曲之后。是否继续？`,
       moveDateAppendConfirm: '继续追加',
-      copyDateMessage: (fromStart: string, fromEnd: string, sourceDays: number, toStart: string, toEnd: string, targetDays: number) => `确定将 ${fromStart} 至 ${fromEnd} 共 ${sourceDays} 天的排期复制到 ${toStart} 至 ${toEnd} 共 ${targetDays} 天吗？源排期将循环复用至填满目标区间。`,
-      copyDateOverwriteMessage: (fromStart: string, fromEnd: string, sourceDays: number, toStart: string, toEnd: string, targetDays: number, draftDays: number) => `确定将 ${fromStart} 至 ${fromEnd} 共 ${sourceDays} 天的排期复制到 ${toStart} 至 ${toEnd} 共 ${targetDays} 天吗？目标区间内有 ${draftDays} 个日期的草稿将被覆盖。源排期将循环复用至填满目标区间。`,
+      copyDateMessage: (
+        fromStart: string,
+        fromEnd: string,
+        sourceDays: number,
+        toStart: string,
+        toEnd: string,
+        targetDays: number
+      ) =>
+        `确定将 ${fromStart} 至 ${fromEnd} 共 ${sourceDays} 天的排期复制到 ${toStart} 至 ${toEnd} 共 ${targetDays} 天吗？源排期将循环复用至填满目标区间。`,
+      copyDateOverwriteMessage: (
+        fromStart: string,
+        fromEnd: string,
+        sourceDays: number,
+        toStart: string,
+        toEnd: string,
+        targetDays: number,
+        draftDays: number
+      ) =>
+        `确定将 ${fromStart} 至 ${fromEnd} 共 ${sourceDays} 天的排期复制到 ${toStart} 至 ${toEnd} 共 ${targetDays} 天吗？目标区间内有 ${draftDays} 个日期的草稿将被覆盖。源排期将循环复用至填满目标区间。`,
       copyDateConfirm: '确认复制',
-      copyDateSingleMessage: (sourceDate: string, targetDate: string) => `确定将 ${sourceDate} 的排期复制到 ${targetDate} 吗？`,
+      copyDateSingleMessage: (sourceDate: string, targetDate: string) =>
+        `确定将 ${sourceDate} 的排期复制到 ${targetDate} 吗？`,
       copyDateSingleConfirm: '确认复制',
-      copyDateOverwriteDraftConfirm: (draftCount: number) => `目标日期 ${draftCount} 首草稿将被覆盖，确定继续？`,
+      copyDateOverwriteDraftConfirm: (draftCount: number) =>
+        `目标日期 ${draftCount} 首草稿将被覆盖，确定继续？`,
       deleteScheduleTitle: '删除排期',
       deleteScheduleMessage: '确定要删除当天的所有排期吗？此操作不可恢复。',
       deleteScheduleConfirm: '确认删除',
       publishScheduleTitle: '发布排期',
       publishScheduleMessage: '确定要发布当前排期吗？发布后将立即公示并发送通知。',
       publishDraftTitle: '发布草稿',
-      publishDraftMessage: (title: string) => `确定要发布草稿《${title}》吗？发布后将立即公示并发送通知。`,
+      publishDraftMessage: (title: string) =>
+        `确定要发布草稿《${title}》吗？发布后将立即公示并发送通知。`,
       unspecifiedPlayTimeTitle: '未选择播出时段',
       unspecifiedPlayTimePublishWarning: (count: number) =>
         `当前未选择播出时段，当天已有 ${count} 条排期设置了播出时段。继续发布会将当天所有排期合并为全天排期，原有播出时段信息将丢失。如需保留，请先取消并选择对应播出时段。`,
@@ -2820,7 +3206,8 @@ export const admin = {
       moveDateSuccess: (count: number, date: string) => `已迁移 ${count} 首歌曲到 ${date}`,
       moveDateSkipped: (count: number) => `跳过 ${count} 首重复歌曲`,
       moveDateAllSkipped: (count: number) => `目标位置已存在这些歌曲，全部跳过（${count} 首）`,
-      copyDateSuccess: (count: number, toStart: string, toEnd: string) => `已逐日复制 ${count} 首歌曲至 ${toStart} ~ ${toEnd}`,
+      copyDateSuccess: (count: number, toStart: string, toEnd: string) =>
+        `已逐日复制 ${count} 首歌曲至 ${toStart} ~ ${toEnd}`,
       draftSaved: '排期草稿保存成功！',
       allDraftsDeleted: '所有草稿已删除！',
       scheduleDeleted: '排期已删除！',
@@ -2838,16 +3225,24 @@ export const admin = {
       allDurationsSkipped: '当前无可刷新时长的歌曲',
       allDurationsCapped: '候选歌曲较多，本次仅刷新前 100 首',
       candidateDurationsUpdated: (count: number) => `成功刷新 ${count} 首候选歌曲的时长`,
-      candidateDurationsPartial: (ok: number, fail: number) => `刷新完成：成功 ${ok} 首，失败 ${fail} 首`,
+      candidateDurationsPartial: (ok: number, fail: number) =>
+        `刷新完成：成功 ${ok} 首，失败 ${fail} 首`,
       candidateDurationsFailed: '刷新候选歌曲时长失败',
       candidateDurationsSkipped: '当前无候选歌曲可刷新时长',
-      confirmAutoScheduleApplied: (count, duration) => `已自动排期 ${count} 首歌曲，合计 ${duration}`,
+      confirmAutoScheduleApplied: (count, duration) =>
+        `已自动排期 ${count} 首歌曲，合计 ${duration}`,
       allDurationsProgressTotal: '{0} 首歌',
       allDurationsProgressWithCount: '{0}/{1}（成功{2} 失败{3}）',
       candidateDurationsProgressTotal: '{0} 首歌',
       allDurationsProgress: '{0} / {1}',
       autoScheduleNoResult: '未能找到满足条件的歌曲组合',
-      autoScheduleNoMorePlans: '已无更多不同方案'
+      autoScheduleNoMorePlans: '已无更多不同方案',
+      playTimeConstraintViolation: (title: string, playTimeName: string) =>
+        `《${title}》指定了播出时段「${playTimeName}」，只能排到该时段`,
+      excludedByPlayTime: (count: number) =>
+        `${count} 首歌曲指定了其它播出时段，已按硬约束排除在本次自动排期之外`,
+      preferredDateHits: (count: number) =>
+        `${count} 首歌曲的期望播出日期是当天，将优先安排`
     },
     playlistFilterModal: {
       title: '歌单重复过滤',
@@ -2979,7 +3374,8 @@ export const admin = {
     serverResponseInvalid: '备份创建失败：服务器响应格式错误',
     createFailed: (message: string) => `创建备份失败: ${message}`,
     parseFailed: '无法解析备份文件，请检查文件格式是否正确。',
-    restoreSuccess: (tables: number, records: number) => `备份恢复成功！处理了 ${tables} 个表，恢复了 ${records} 条记录`,
+    restoreSuccess: (tables: number, records: number) =>
+      `备份恢复成功！处理了 ${tables} 个表，恢复了 ${records} 条记录`,
     restoreWarning: (count: number) => `恢复过程中发生了 ${count} 个错误`,
     restoreCompleteRedirect: '数据库恢复完成，3秒后将返回首页重新登录',
     importFailed: (message: string) => `备份导入失败: ${message}`,
@@ -2987,7 +3383,8 @@ export const admin = {
   },
   oauthConfig: {
     title: 'OAuth 第三方登录配置',
-    runtimeConfigNotice: 'OAuth 运行时配置已迁移到后台。环境变量仅用于兼容旧部署和一键导入，导入后以此页面保存的配置为准。',
+    runtimeConfigNotice:
+      'OAuth 运行时配置已迁移到后台。环境变量仅用于兼容旧部署和一键导入，导入后以此页面保存的配置为准。',
     baseSettings: '基础设置',
     importEnv: '导入环境配置',
     allowRegistration: '允许第三方注册',
@@ -3035,9 +3432,11 @@ export const admin = {
     aggregateTitle: '聚合登录',
     aggregateLoginTypeLabel: '登录方式',
     aggregateLoginTypePlaceholder: '请选择至少一种登录方式',
-    aggregateLoginTypeDesc: '请选择当前聚合登录服务已接入并开通的登录方式；启用服务商尚未支持的平台会导致授权失败。每种登录方式会独立记录账号绑定关系。',
+    aggregateLoginTypeDesc:
+      '请选择当前聚合登录服务已接入并开通的登录方式；启用服务商尚未支持的平台会导致授权失败。每种登录方式会独立记录账号绑定关系。',
     aggregateEndpointLabel: '接口地址',
-    aggregateEndpointDesc: '兼容彩虹聚合登录协议的服务端 connect.php 地址；公网应使用 HTTPS，可信内网可使用 HTTP。',
+    aggregateEndpointDesc:
+      '兼容彩虹聚合登录协议的服务端 connect.php 地址；公网应使用 HTTPS，可信内网可使用 HTTP。',
     aggregateClientIdPlaceholder: '输入聚合登录 AppID',
     aggregateClientSecretPlaceholder: '输入聚合登录 AppKey',
     aggregateDocLabel: '查看聚合登录开发文档',
@@ -3056,10 +3455,12 @@ export const admin = {
       kuaishou: '快手'
     },
     clearBindingsTitle: '清除所有聚合登录绑定',
-    clearBindingsDesc: '更换聚合登录提供商时使用，将清除系统中所有用户的聚合登录绑定关系并要求其重新绑定。',
+    clearBindingsDesc:
+      '更换聚合登录提供商时使用，将清除系统中所有用户的聚合登录绑定关系并要求其重新绑定。',
     clearBindingsBtn: '清除绑定',
     clearBindingsConfirmTitle: '确认清除所有聚合登录绑定？',
-    clearBindingsConfirmMessage: '此操作将永久清除系统中所有用户的聚合登录绑定关系。\n若更换了聚合登录提供商，旧数据已失效，清除后用户需重新绑定方可通过聚合登录访问账号。\n此操作不可撤销，是否继续？',
+    clearBindingsConfirmMessage:
+      '此操作将永久清除系统中所有用户的聚合登录绑定关系。\n若更换了聚合登录提供商，旧数据已失效，清除后用户需重新绑定方可通过聚合登录访问账号。\n此操作不可撤销，是否继续？',
     clearBindingsSuccess: '已成功清除 {0} 条聚合登录绑定数据（影响 {1} 位用户）',
     clearBindingsFailed: '清除聚合登录绑定失败',
     userIdField: '用户 ID 字段',
@@ -3067,8 +3468,10 @@ export const admin = {
     nameField: '昵称字段',
     emailField: '邮箱字段',
     avatarField: '头像字段',
-    brokerHintPrefix: '在 Vercel 等平台进行多环境部署时，GitHub OAuth App 等提供商通常只能配置单一的回调地址。为了解决这个问题，项目可以使用',
-    brokerHintSuffix: '中间件作为统一的回调入口。该中间件能根据 state 参数动态转发回调请求到正确的部署环境，从而实现单个 OAuth App 支持无限个预览/生产环境。详情请参考该项目文档。',
+    brokerHintPrefix:
+      '在 Vercel 等平台进行多环境部署时，GitHub OAuth App 等提供商通常只能配置单一的回调地址。为了解决这个问题，项目可以使用',
+    brokerHintSuffix:
+      '中间件作为统一的回调入口。该中间件能根据 state 参数动态转发回调请求到正确的部署环境，从而实现单个 OAuth App 支持无限个预览/生产环境。详情请参考该项目文档。',
     importFailed: '导入环境配置失败',
     logs: {
       fetchEnvFailed: '获取环境变量失败:',
@@ -3076,7 +3479,6 @@ export const admin = {
     }
   },
   musicSourceController: {
-    
     title: '音源控制',
     description: '管理音乐平台的开关状态和搜索顺序，配置后立即生效',
     saveConfig: '保存配置',
@@ -3135,15 +3537,22 @@ export const admin = {
     canSearch: '支持搜索',
     resolveOnly: '仅解析',
     pending: '待加载 / 待部署',
-    invalidJson: '请输入有效的 JSON 参数',
+    invalidJson: '请输入有效的 JSON 参数'
   },
   playTimeManager: {
     title: '播出时段管理',
     desc: '定义校园广播的常规播放窗口，用户仅可在这些时间段内进行点歌或查看排期',
     enableSelection: '启用播出时段选择',
+    requireSlot: '点歌时段必选',
+    requireSlotDesc: '开启后，投稿必须选择播出时段；播出日期可选',
+    weekdaysTitle: '适用星期',
+    weekdaysHint: '不勾选表示每天均可选；用户选择日期后，仅展示该日期所在星期勾选的时段',
+    weekdaysShort: ['日', '一', '二', '三', '四', '五', '六'],
+    weekdaysFull: ['周日', '周一', '周二', '周三', '周四', '周五', '周六'],
     add: '添加播出时段',
     aboutTitle: '关于时段限制',
-    aboutDesc: '启用全局时段选择后，系统将仅在定义的时段内开放点歌功能。如果未设置开始或结束时间，系统将视为该边界不设限。',
+    aboutDesc:
+      '启用全局时段选择后，系统将仅在定义的时段内开放点歌功能。如果未设置开始或结束时间，系统将视为该边界不设限。',
     loading: '加载中...',
     fetchFailed: '获取数据失败',
     emptyTitle: '暂无播出时段',
@@ -3165,6 +3574,9 @@ export const admin = {
     descriptionOptional: '描述 (可选)',
     descriptionPlaceholder: '请输入时段描述信息...',
     enableThisPlayTime: '启用此播出时段',
+    defaultSlot: '设为默认播出时段',
+    defaultSlotHint: '用户投稿时若未选择时段，将自动预选该时段；同一时间只能有一个默认时段',
+    defaultBadge: '默认',
     cancel: '取消',
     saving: '保存中...',
     saveSettings: '保存设置',
@@ -3174,16 +3586,19 @@ export const admin = {
     deleteConfirmDesc: '此操作不可恢复，相关的歌曲点播和排期的时段设置将受影响或被清除。',
     messages: {
       systemSettingsUpdated: '系统设置已更新',
+      slotRequiredUpdated: '必选设置已更新',
       playTimeEnabled: '播出时段已启用',
       playTimeDisabled: '播出时段已禁用',
       playTimeDeleted: '播出时段已删除',
       playTimeUpdated: '播出时段已更新',
-      playTimeCreated: '播出时段已创建'
+      playTimeCreated: '播出时段已创建',
+      defaultSlotCleared: '已停用并取消默认播出时段'
     },
     errors: {
       adminOnly: '只有管理员才能管理播出时段',
       fetchPlayTimesFailed: '获取播出时段失败',
       updateSystemSettingsFailed: '更新系统设置失败',
+      updateSlotRequiredFailed: '更新必选设置失败',
       updatePlayTimeStatusFailed: '更新播出时段状态失败',
       deletePlayTimeFailed: '删除播出时段失败',
       startBeforeEnd: '开始时间必须早于结束时间',
@@ -3253,13 +3668,16 @@ export const admin = {
     restrictionScopeAll: '所有人',
     restrictionScopeDesc: '选择对比哪些用户的排期记录',
     sameSongRestrictionHours: '同一首歌限制时间',
-    sameSongRestrictionHoursDesc: '同一首歌进入排期后的禁止再次投稿时间窗口，留空表示不设冷却窗口，上限 30 天（720 小时）',
+    sameSongRestrictionHoursDesc:
+      '同一首歌进入排期后的禁止再次投稿时间窗口，留空表示不设冷却窗口，上限 30 天（720 小时）',
     sameArtistRestrictionHours: '同一歌手限制时间',
-    sameArtistRestrictionHoursDesc: '同一歌手进入排期后的禁止再次投稿时间窗口，留空表示不设冷却窗口，上限 30 天（720 小时）',
+    sameArtistRestrictionHoursDesc:
+      '同一歌手进入排期后的禁止再次投稿时间窗口，留空表示不设冷却窗口，上限 30 天（720 小时）',
     restrictionUnit: '小时',
     restrictionPanelTitle: '重复投稿限制',
     restrictionPanelDesc: '对进入排期的歌曲或歌手设置再次投稿冷却窗口',
-    restrictionPanelHint: '关闭后不做任何重复投稿限制，普通用户可再次投稿已排期或已播放的歌曲；开启后限制范围同时作用于同一首歌和同一歌手两个检查，两项时长都留空时沿用本学期同一首歌不可重复投稿的规则',
+    restrictionPanelHint:
+      '关闭后不做任何重复投稿限制，普通用户可再次投稿已排期或已播放的歌曲；开启后限制范围同时作用于同一首歌和同一歌手两个检查，两项时长都留空时沿用本学期同一首歌不可重复投稿的规则',
     restrictionSaveSuccess: '限制设置已保存',
     restrictionSaveFailed: '保存限制设置失败',
     stats: {
@@ -3282,7 +3700,8 @@ export const admin = {
       nameRequired: '时段名称不能为空',
       nameExists: '投稿开放时段名称已存在，请使用其他名称',
       saveFailed: '保存投稿开放时段失败',
-      saveFailedWithStatus: (isUpdate: boolean, status: number) => `${isUpdate ? '更新' : '创建'}投稿开放时段失败: ${status}`
+      saveFailedWithStatus: (isUpdate: boolean, status: number) =>
+        `${isUpdate ? '更新' : '创建'}投稿开放时段失败: ${status}`
     }
   },
   semesterManager: {
@@ -3295,7 +3714,8 @@ export const admin = {
     noCurrent: '未设置当前活跃学期',
     createNow: '立即创建',
     switchTitle: '学期切换说明',
-    switchDesc: '切换学期后，前端点歌界面将清空旧排期。所有历史数据会自动归档至对应学期下，您仍可在数据中心进行查看。',
+    switchDesc:
+      '切换学期后，前端点歌界面将清空旧排期。所有历史数据会自动归档至对应学期下，您仍可在数据中心进行查看。',
     historyTitle: '学期历史记录',
     historyCount: (count: number) => `共 ${count} 条`,
     loading: '加载中...',
@@ -3316,7 +3736,8 @@ export const admin = {
     createSemester: '创建学期',
     confirmDelete: '确认删除',
     deleteDialogTitle: '确认删除学期',
-    deleteMessage: (name: string) => `确定要彻底删除 "${name}" 吗？此操作将同步清除该学期下的所有点歌记录、排期数据和统计信息。数据一旦删除将无法找回。`,
+    deleteMessage: (name: string) =>
+      `确定要彻底删除 "${name}" 吗？此操作将同步清除该学期下的所有点歌记录、排期数据和统计信息。数据一旦删除将无法找回。`,
     terms: {
       first: '第一学期',
       second: '第二学期'
@@ -3381,7 +3802,10 @@ export const admin = {
       methodNotAllowed: { raw: '方法不被允许', text: '方法不被允许' },
       unauthorized: { raw: '未授权访问', text: '未授权访问' },
       adminReloadOnly: { raw: '只有管理员才能重载SMTP配置', text: '只有管理员才能重载 SMTP 配置' },
-      adminTestConnectionOnly: { raw: '只有管理员才能测试SMTP连接', text: '只有管理员才能测试 SMTP 连接' },
+      adminTestConnectionOnly: {
+        raw: '只有管理员才能测试SMTP连接',
+        text: '只有管理员才能测试 SMTP 连接'
+      },
       adminTestEmailOnly: { raw: '只有管理员才能发送测试邮件', text: '只有管理员才能发送测试邮件' },
       smtpDisabled: { raw: 'SMTP服务未启用', text: 'SMTP 服务未启用' },
       incompleteConfig: { raw: '请填写完整的SMTP配置信息', text: '请填写完整的 SMTP 配置信息' },
@@ -3417,21 +3841,36 @@ export const admin = {
     pushMode: '推送方向',
     pushModePush: 'push（VoiceHub 主动推送）',
     pushModePull: 'pull（插件主动拉取）',
-    pushModeHint: 'push 要求 VoiceHub 能访问插件端口；插件在内网/NAT 后时选 pull，由插件轮询取件，需在插件侧同时设置拉取间隔。',
+    pushModeHint:
+      'push 要求 VoiceHub 能访问插件端口；插件在内网/NAT 后时选 pull，由插件轮询取件，需在插件侧同时设置拉取间隔。',
     weeklyTitle: '本周歌单显示项',
-    weeklyHint: '用于 /广播 本周歌单的图片与文本输出；与此浏览器本地保存的打印排期导出方案相互独立。',
+    weeklyHint:
+      '用于 /广播 本周歌单的图片与文本输出；与此浏览器本地保存的打印排期导出方案相互独立。',
     weeklyLayout: '图片排版',
     weeklyLayoutClassic: '经典列表',
     weeklyLayoutTable: '表格排版',
     weeklyListColumns: '列表列数',
     weeklyOneColumn: '单列',
     weeklyTwoColumns: '双列',
-    weeklyFields: { showLogo: '显示站点 Logo', showSchoolLogo: '显示学校 Logo', showCover: '显示封面', showTitle: '显示歌曲标题', showArtist: '显示歌手', showSequence: '显示序号', showRequester: '显示投稿人', showVotes: '显示热度', showPlayTime: '显示播出时段', showDate: '显示日期' },
+    weeklyFields: {
+      showLogo: '显示站点 Logo',
+      showSchoolLogo: '显示学校 Logo',
+      showCover: '显示封面',
+      showTitle: '显示歌曲标题',
+      showArtist: '显示歌手',
+      showSequence: '显示序号',
+      showRequester: '显示投稿人',
+      showVotes: '显示热度',
+      showPlayTime: '显示播出时段',
+      showDate: '显示日期'
+    },
     groupTitle: '群聊推送',
-    groupHint: '把点歌投稿、注册待审核、备份失败与系统异常推送到指定群。群目标必须逐条标注所属平台：会话串的前缀是 AstrBot 平台实例 ID，无法自动判断平台。',
+    groupHint:
+      '把点歌投稿、注册待审核、备份失败与系统异常推送到指定群。群目标必须逐条标注所属平台：会话串的前缀是 AstrBot 平台实例 ID，无法自动判断平台。',
     groupEnabled: '启用群聊推送',
     groupTargetsTitle: '群目标白名单',
-    groupTargetsHint: '会话串在群里发送 /广播 状态 获取，形如 default:GroupMessage:123456。未列入白名单的群不会被推送。',
+    groupTargetsHint:
+      '会话串在群里发送 /广播 状态 获取，形如 default:GroupMessage:123456。未列入白名单的群不会被推送。',
     groupTargetPlaceholder: 'default:GroupMessage:123456',
     groupLabelPlaceholder: '备注（可选）',
     groupAdd: '添加群目标',
@@ -3448,7 +3887,8 @@ export const admin = {
     },
     groupMergeWindow: '合并窗口（秒）',
     groupMinInterval: '同群同事件最短间隔（秒）',
-    groupThrottleHint: '同一窗口内的高频事件会合并成一条消息，避免刷屏；留空或填 0 表示不合并、立即发送。',
+    groupThrottleHint:
+      '同一窗口内的高频事件会合并成一条消息，避免刷屏；留空或填 0 表示不合并、立即发送。',
     save: '保存配置',
     saving: '保存中...',
     saved: 'AstrBot 配置已保存',
@@ -3501,7 +3941,8 @@ export const admin = {
     importantToggleTitle: '重要通知弹窗提醒',
     importantToggleDescription: '用户登录后将立即弹窗展示，关闭后标记为已读',
     groupForwardToggleTitle: '同时转发到群聊',
-    groupForwardToggleDescription: '按「机器人通知配置 → 群聊推送」的目标白名单与事件开关，把这条通知也推送到群里。',
+    groupForwardToggleDescription:
+      '按「机器人通知配置 → 群聊推送」的目标白名单与事件开关，把这条通知也推送到群里。',
     scope: '通知范围',
     allUsersHint: '将向系统中所有已注册的活跃用户发送此通知。',
     selectGrade: '选择年级',
@@ -3600,13 +4041,15 @@ export const admin = {
       editContent: '通知正文',
       editContentPlaceholder: '请输入 Markdown 通知正文',
       editImportant: '重要通知弹窗提醒',
-      editImportantDescription: '保存后将生成新的通知批次，所有接收用户（含已读和已删除该通知的用户）会重置为未读并重新收到弹窗提醒',
+      editImportantDescription:
+        '保存后将生成新的通知批次，所有接收用户（含已读和已删除该通知的用户）会重置为未读并重新收到弹窗提醒',
       preview: 'Markdown 预览',
       cancel: '取消',
       save: '保存修改',
       saving: '正在保存...',
       deleteNotification: '删除通知',
-      deleteConfirmation: (title: string) => `确定删除“${title}”吗？该通知对所有接收用户的记录都会被删除，且无法恢复。`,
+      deleteConfirmation: (title: string) =>
+        `确定删除“${title}”吗？该通知对所有接收用户的记录都会被删除，且无法恢复。`,
       confirmDelete: '确认删除',
       titleContentRequired: '通知标题和正文不能为空',
       titleTooLong: (max: number) => `通知标题不能超过 ${max} 个字符`,
@@ -3648,6 +4091,12 @@ export const admin = {
     selectedItems: (count: number) => `已选择 ${count} 项`,
     applyBulk: '执行批量操作',
     cancelSelection: '取消选择',
+    dispatch: '派发',
+    dispatchSelected: '派发所选',
+    dispatchCoupon: '派发点歌券',
+    dispatchRowHint: '派发这张点歌券给指定用户',
+    dispatchRowDisabledHint: '该券当前为「{status}」状态，不可直接派发；请先将其恢复为「可用」',
+    dispatchNoAvailableHint: '未勾选「可用」状态的点歌券，可在下方列表中直接勾选',
     loading: '加载点歌券中...',
     cardCode: '点歌券',
     note: '备注',
@@ -3660,16 +4109,24 @@ export const admin = {
     createdAt: (time: string) => `创建：${time}`,
     updatedAt: (time: string) => `更新：${time}`,
     available: '可用',
+    assigned: '已派发',
     locked: '锁定',
     redeemed: '核销',
     invalid: '作废',
     lockedStatus: '已锁定',
+    assignedStatus: '已派发',
     redeemedStatus: '已核销',
     invalidStatus: '已作废',
     setAvailable: '设为可用',
     setLocked: '设为锁定',
     setRedeemed: '设为核销',
     setInvalid: '设为作废',
+    statusChangeTitle: '确认变更点歌券状态',
+    statusChangeMessage: (count: number, status: string) =>
+      `确定将选中的 ${count} 张点歌券设为「${status}」吗？`,
+    statusChangeUnbindHint: '已派发的点歌券会解除当前绑定，记录转为已回收。',
+    statusChangeCancel: '取消',
+    statusChangeConfirm: '确认变更',
     unknown: '未知',
     empty: '没有找到符合条件的点歌券',
     itemName: '张点歌券',
@@ -3693,7 +4150,7 @@ export const admin = {
     quickTipsTitle: '快速说明',
     quickTips: [
       '支持按状态和关键词筛选，搜索范围包含点歌券和备注。',
-      '支持单条和批量状态切换，方便锁定、核销或作废。',
+      '支持单条和批量状态切换；作废会解除派发，之后设为可用需要重新派发。',
       '备注可直接就地编辑，适合记录发放对象、批次来源等信息。',
       '导出会按当前筛选条件生成完整 CSV；勾选点歌券后会优先导出勾选项。'
     ],
@@ -3721,9 +4178,12 @@ export const admin = {
     sources: {
       adminManual: '手动核销',
       admin: '管理员操作',
+      openApiManual: '开放API核销',
       scheduleAuto: '排期自动',
+      songPlayed: '播放核销',
       scheduleRemove: '移除排期',
       schedule: '排期',
+      playbackCancel: '取消播放',
       withdraw: '撤回'
     },
     messages: {
@@ -3740,7 +4200,8 @@ export const admin = {
       saveNoteFailed: '保存备注失败',
       inputRequired: '请先输入点歌券',
       createSuccess: (count: number) => `创建成功，共 ${count} 条`,
-      createDone: (inserted: number, skipped: number) => `创建完成，成功 ${inserted} 条，跳过 ${skipped} 条重复项`,
+      createDone: (inserted: number, skipped: number) =>
+        `创建完成，成功 ${inserted} 条，跳过 ${skipped} 条重复项`,
       createFailed: '创建点歌券失败',
       noGeneratedToCopy: '暂无可复制的本次生成点歌券',
       copiedGenerated: (count: number) => `已复制 ${count} 张点歌券`
@@ -3750,11 +4211,98 @@ export const admin = {
       all: '全部',
       available: '可用',
       unused: '未使用',
+      assigned: '已派发',
+      assignedHint: '已派给用户',
       locked: '锁定',
       pendingRedeem: '待核销',
       redeemed: '核销',
       completed: '已完成'
-    }
+    },
+    assignTitle: '派发点歌券',
+    assignDesc: '把点歌券派发给指定用户，用户投稿时可直接下拉选择，也可在「更多选项」里手动输入券码',
+    assignClearRecipients: '清空',
+    assignSearchUserPlaceholder: '搜索用户姓名 / 用户名',
+    assignSearching: '搜索中...',
+    assignSearchResultCount: (count: number) => `找到 ${count} 位用户`,
+    assignSelectAllResults: '全选结果',
+    assignSearchEmpty: '没有匹配的用户',
+    assignTreeSummary: (total: number, picked: number) => `共 ${total} 位用户，已选 ${picked} 位`,
+    assignToggleExpand: '展开 / 收起',
+    assignTreeRefresh: '刷新',
+    assignTreeEmpty: '暂无组织架构数据',
+    assignTreeClassEmpty: '该班级暂无可派发用户',
+    assignTreeLoadFailed: '加载组织架构失败',
+    assignPickedCount: (count: number) => `已选 ${count}`,
+    assignPickedSummary: (count: number) => `已选 ${count} 位接收人`,
+    assignSelectWholeGrade: '全选年级',
+    assignSelectWholeClass: '全选班级',
+    assignUnsetGrade: '未设置年级',
+    assignUnsetClass: '未设置班级',
+    assignTooManyRecipients: (max: number) => `单次最多派发给 ${max} 位用户`,
+    assignPreviewLoading: '正在匹配接收人...',
+    assignDistributionHint: (codes: number, recipients: number) =>
+      `已选择 ${codes} 张点歌券，将按顺序轮流分配给 ${recipients} 位接收人；接收人多于点歌券时，未获得券的用户会在派发结果中列出。`,
+    assignGenerateDistributionHint: (count: number, recipients: number) =>
+      `将为 ${recipients} 位接收人各生成并派发 ${count} 张点歌券，共 ${count * recipients} 张；每位用户都会拿到自己的券，不会出现漏发。`,
+    assignResultSummary: (assigned: number, recipients: number, failed: number) =>
+      `成功派发 ${assigned} 张，覆盖 ${recipients} 位用户，失败 ${failed} 张`,
+    assignSkippedRecipients: (count: number) => `${count} 位用户未获得点歌券（券数量不足）：`,
+    assignInvalidRecipients: '以下用户无法派发：',
+    assignSelectUser: '选择接收用户',
+    assignSelectUserPlaceholder: '点击选择要接收点歌券的用户',
+    assignNoUser: '请先选择接收用户',
+    assignSelectCodesHint: '仅可派发状态为「可用」的点歌券',
+    assignSelectedCodes: (count: number) => `已选择 ${count} 张点歌券`,
+    assignNoCodes: '请先在列表中勾选要派发的点歌券',
+    assignSearchCodePlaceholder: '搜索点歌券券码、备注',
+    assignClearCodes: '清空',
+    assignCodeLoading: '正在加载可用点歌券…',
+    assignCodeSummary: (selected: number, total: number) => `已选 ${selected} 张，共 ${total} 张可用`,
+    assignSelectAllCodes: '全选本页',
+    assignCodeEmpty: '当前没有「可用」状态的点歌券，可切换到「为接收人新生成」',
+    assignCodeSearchEmpty: '没有匹配的可用点歌券',
+    assignCodePresetTag: '非搜索结果',
+    assignSource: '点歌券来源',
+    assignSourceSelected: '使用已有点歌券',
+    assignSourceGenerate: '为接收人新生成',
+    assignCountPerUser: '每人派发张数',
+    assignGenerateHint: (count: number, recipients: number) =>
+      `为 ${recipients} 位接收人各生成 ${count} 张新点歌券，共 ${count * recipients} 张，无需提前勾选。`,
+    assignInvalidCount: '每人派发张数必须为正整数',
+    assignGeneratedCodes: (count: number) => `本次新生成的 ${count} 张点歌券：`,
+    assignNotePlaceholder: '可选：派发备注，会记录在派发记录中',
+    assignNotify: '同时发送站内通知',
+    assignSubmit: '确认派发',
+    assignmentsTitle: '派发记录',
+    assignmentsDesc: '记录派发时间、派发人员、接收人与回收情况',
+    assignmentStatus: '派发状态',
+    allAssignmentStatuses: '全部派发状态',
+    assignmentAssignee: '接收用户',
+    assignmentDispatcher: '派发人员',
+    assignmentAssignedAt: '派发时间',
+    assignmentFailureReason: '失败原因',
+    assignmentStatusAssigned: '已派发',
+    assignmentStatTotal: '累计派发',
+    assignmentStatusUsed: '已使用',
+    assignmentStatusRecycled: '已回收',
+    assignmentStatusFailed: '派发失败',
+    assignmentRecycle: '回收',
+    assignmentRecycleConfirm: (code: string) => `确定回收派发给该用户的点歌券 ${code} 吗？回收后该券将回到可用池。`,
+    assignmentNoRecords: '暂无派发记录',
+    assignmentFilterPlaceholder: '搜索券码 / 接收用户 / 派发人员',
+    assignResultTitle: '派发结果',
+    assignSuccess: (count: number) => `成功派发 ${count} 张点歌券`,
+    assignPartial: (success: number, failed: number) =>
+      `派发完成，成功 ${success} 张，失败 ${failed} 张`,
+    assignFailed: '派发点歌券失败',
+    assignAllFailed: '所有点歌券派发失败，请检查所选券码是否可用',
+    recycleSuccess: (count: number) => `成功回收 ${count} 张点歌券`,
+    recycleFailed: '回收点歌券失败',
+    notifyFailedButAssigned: '点歌券已发放，但通知发送失败，用户可在「更多选项」中查看',
+    messages2: {
+      fetchAssignmentsFailed: '获取派发记录失败',
+      recycleFailed: '回收点歌券失败'
+    },
   },
   databaseManager: {
     title: '数据库操作',
@@ -3762,7 +4310,8 @@ export const admin = {
     highRisk: '高风险操作',
     executing: '执行中...',
     maintenanceTitle: '数据库维护建议',
-    maintenanceDesc: '建议每周进行一次全量备份。在执行“恢复备份”或“重置数据库”前，请务必先创建一份当前的数据备份，以免误操作造成不可挽回的损失。',
+    maintenanceDesc:
+      '建议每周进行一次全量备份。在执行“恢复备份”或“重置数据库”前，请务必先创建一份当前的数据备份，以免误操作造成不可挽回的损失。',
     backupTitle: '创建数据库备份',
     restoreTitle: '恢复数据库备份',
     selectContent: '选择包含的内容',
@@ -3785,7 +4334,8 @@ export const admin = {
     resetSequenceTitle: '重置数据表序列',
     selectTargetTable: '选择目标表',
     sequenceHelpTitle: '什么是重置序列？',
-    sequenceHelpDesc: '如果您的数据表 ID 出现了断档或在手动操作数据库后无法自增，重置序列可以将数据库底层的计数器更新为当前 ID 最大值 +1，从而解决 ID 冲突导致的写入失败问题。此操作不会修改任何现有数据。',
+    sequenceHelpDesc:
+      '如果您的数据表 ID 出现了断档或在手动操作数据库后无法自增，重置序列可以将数据库底层的计数器更新为当前 ID 最大值 +1，从而解决 ID 冲突导致的写入失败问题。此操作不会修改任何现有数据。',
     resetting: '正在重置...',
     executeReset: '执行重置',
     dangerResetTitle: '危险操作：重置数据库',
@@ -3796,16 +4346,39 @@ export const admin = {
     confirmCodePlaceholder: '在此输入上述代码...',
     confirmResetDatabase: '确认彻底重置',
     cards: {
-      backup: { title: '创建备份', desc: '导出当前数据库的所有数据到文件，用于安全备份或迁移。', button: '创建备份文件' },
-      restore: { title: '恢复备份', desc: '从之前导出的备份文件中恢复系统数据。', button: '选择备份文件' },
-      resetSeq: { title: '重置序列', desc: '修复数据表的自增ID序列，确保新记录的ID从正确值开始。', button: '开始重置序列' },
-      resetDb: { title: '重置数据库', desc: '清空除管理员账号外的所有系统数据。此操作不可撤销。', button: '立即重置数据库' },
-      autoBackup: { title: '自动备份', desc: '配置多种备份方式，通过外部触发实现定时自动备份', button: '配置自动备份' }
+      backup: {
+        title: '创建备份',
+        desc: '导出当前数据库的所有数据到文件，用于安全备份或迁移。',
+        button: '创建备份文件'
+      },
+      restore: {
+        title: '恢复备份',
+        desc: '从之前导出的备份文件中恢复系统数据。',
+        button: '选择备份文件'
+      },
+      resetSeq: {
+        title: '重置序列',
+        desc: '修复数据表的自增ID序列，确保新记录的ID从正确值开始。',
+        button: '开始重置序列'
+      },
+      resetDb: {
+        title: '重置数据库',
+        desc: '清空除管理员账号外的所有系统数据。此操作不可撤销。',
+        button: '立即重置数据库'
+      },
+      autoBackup: {
+        title: '自动备份',
+        desc: '配置多种备份方式，通过外部触发实现定时自动备份',
+        button: '配置自动备份'
+      }
     },
     backupOptions: {
       songs: { label: '歌曲与排期数据', desc: '包含所有歌曲库、用户投稿记录及历史播音排期' },
       system: { label: '系统配置信息', desc: '包含站点设置、黑名单、播出时段等全局参数' },
-      users: { label: '用户账户数据', desc: '包含所有注册用户的权限、偏好设置（不含管理员敏感信息）' }
+      users: {
+        label: '用户账户数据',
+        desc: '包含所有注册用户的权限、偏好设置（不含管理员敏感信息）'
+      }
     },
     tableOptions: [
       { label: '重置所有表 (All)', value: 'all' },
@@ -3875,7 +4448,7 @@ export const admin = {
 
       masterSwitch: {
         label: '启用自动备份',
-        desc: 'API 被触发时，总开关关闭则不执行任何备份；开启时仅执行已启用的备份方式',
+        desc: 'API 被触发时，总开关关闭则不执行任何备份；开启时仅执行已启用的备份方式'
       },
 
       methods: {
@@ -3895,7 +4468,7 @@ export const admin = {
           accessKeyPlaceholder: '请输入 Access Key ID',
           secretKey: 'Secret Access Key',
           secretKeyPlaceholder: '请输入 Secret Access Key',
-          testConnection: '测试连接',
+          testConnection: '测试连接'
         },
         webdav: {
           name: 'WebDAV',
@@ -3908,7 +4481,7 @@ export const admin = {
           passwordPlaceholder: '请输入密码',
           path: '上传路径',
           pathPlaceholder: 'voicehub-backups/',
-          testConnection: '测试连接',
+          testConnection: '测试连接'
         },
         telegram: {
           name: 'Telegram Bot',
@@ -3917,7 +4490,7 @@ export const admin = {
           botTokenPlaceholder: '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
           chatId: 'Chat ID',
           chatIdPlaceholder: '123456789',
-          testSend: '测试发送',
+          testSend: '测试发送'
         },
         email: {
           name: '邮件附件',
@@ -3925,8 +4498,8 @@ export const admin = {
           recipient: '收件人邮箱',
           recipientPlaceholder: 'admin@example.com',
           testSend: '测试发送',
-          smtpHint: '使用站点已配置的邮件服务发送，只需填写收件人邮箱即可',
-        },
+          smtpHint: '使用站点已配置的邮件服务发送，只需填写收件人邮箱即可'
+        }
       },
 
       endpoint: {
@@ -3940,15 +4513,17 @@ export const admin = {
         cronTab: 'Linux Cron',
         curlHint: '将 YOUR_API_KEY 替换为你的 API 密钥，在终端中运行即可触发一次备份。',
         cronjobLink: '访问 cron-job.org 免费创建定时任务',
-        githubHint: '在 GitHub 仓库 Settings → Secrets 中配置 BACKUP_URL 和 API_KEY，将上述内容保存为 .github/workflows/backup.yml。',
-        cronHint: '将 YOUR_API_KEY 替换为实际的 API 密钥，在服务器上执行 crontab -e 并添加上述内容。',
+        githubHint:
+          '在 GitHub 仓库 Settings → Secrets 中配置 BACKUP_URL 和 API_KEY，将上述内容保存为 .github/workflows/backup.yml。',
+        cronHint:
+          '将 YOUR_API_KEY 替换为实际的 API 密钥，在服务器上执行 crontab -e 并添加上述内容。'
       },
 
       history: {
         title: '备份历史',
         empty: '暂无备份记录',
         emptyHint: '触发一次备份后，记录将显示在此处',
-        clear: '清空历史',
+        clear: '清空历史'
       },
 
       messages: {
@@ -3956,7 +4531,7 @@ export const admin = {
         copyFailed: '复制失败',
         testConnection: '正在测试连接...',
         testSend: '正在测试发送...',
-        allSaved: '全部配置已保存',
+        allSaved: '全部配置已保存'
       }
     }
   },
@@ -4123,7 +4698,8 @@ export const admin = {
       templateSheetName: '用户导入模板',
       templateFileName: '用户批量导入模板.xlsx',
       supportedRoles: '支持的角色：',
-      supportedRolesFull: 'USER（普通用户）、ADMIN（管理员）、SONG_ADMIN（歌曲管理员）、SUPER_ADMIN（超级管理员）',
+      supportedRolesFull:
+        'USER（普通用户）、ADMIN（管理员）、SONG_ADMIN（歌曲管理员）、SUPER_ADMIN（超级管理员）',
       supportedRolesLimited: 'USER（普通用户）、SONG_ADMIN（歌曲管理员）',
       downloadTemplate: '下载模板',
       chooseFile: '选择数据文件',
@@ -4316,7 +4892,8 @@ export const admin = {
       },
       preview: {
         blockersTitle: (count: number) => `需要处理的用户 (${count})`,
-        blockersDesc: '以下用户不在当前更新列表中，但占用了目标用户名。请先将其标记为退学或禁用后再更新。',
+        blockersDesc:
+          '以下用户不在当前更新列表中，但占用了目标用户名。请先将其标记为退学或禁用后再更新。',
         dataPreview: (visible: number, total: number) => `数据预览 (${visible}/${total}条)`,
         pending: (count: number) => `待更新 (${count})`,
         noChangeCount: (count: number) => `无变更 (${count})`,
@@ -4351,18 +4928,24 @@ export const admin = {
         fileName: '学生信息批量更新模板.xlsx'
       },
       progress: {
-        processing: (current: number, total: number) => `正在更新：正在处理第 ${current} / ${total} 批数据...`,
-        completed: (success: number, failed: number) => `更新完成：成功 ${success} 个，失败 ${failed} 个`
+        processing: (current: number, total: number) =>
+          `正在更新：正在处理第 ${current} / ${total} 批数据...`,
+        completed: (success: number, failed: number) =>
+          `更新完成：成功 ${success} 个，失败 ${failed} 个`
       },
       messages: {
-        partialGradeSuccess: (failed: number) => `部分更新成功，${failed} 个用户因权限或状态等原因跳过`,
+        partialGradeSuccess: (failed: number) =>
+          `部分更新成功，${failed} 个用户因权限或状态等原因跳过`,
         gradeSuccess: (count: number) => `成功更新 ${count} 个用户的年级`,
-        partialExcelSuccess: (success: number, failed: number) => `部分更新成功：成功 ${success} 个，失败 ${failed} 个，请检查后重试`,
+        partialExcelSuccess: (success: number, failed: number) =>
+          `部分更新成功：成功 ${success} 个，失败 ${failed} 个，请检查后重试`,
         excelFailed: (failed: number) => `批量更新失败：${failed} 个用户未能更新，请检查后重试`,
-        partialStatusSuccess: (failed: number) => `部分更新成功，${failed} 个用户因权限或状态等原因跳过`,
+        partialStatusSuccess: (failed: number) =>
+          `部分更新成功，${failed} 个用户因权限或状态等原因跳过`,
         statusSuccess: '批量更新状态成功',
         songAdminSuccess: (count: number) => `成功更新 ${count} 位歌曲管理员信息`,
-        partialSongAdminSuccess: (failed: number) => `部分更新成功，${failed} 位管理员因权限或状态等原因跳过`,
+        partialSongAdminSuccess: (failed: number) =>
+          `部分更新成功，${failed} 位管理员因权限或状态等原因跳过`,
         songAdminNoChanges: '所选歌曲管理员的信息没有需要更新的变更'
       },
       errors: {
@@ -4373,8 +4956,10 @@ export const admin = {
         fieldRequired: (field: string) => `${field}不能为空`,
         duplicateNames: '存在多个同名用户，请切换至按用户名匹配',
         userNotFound: '用户不存在',
-        duplicateTarget: (username: string) => `重复的更新目标：多行数据尝试更新为同一个用户名 ${username}`,
-        usernameOccupied: (username: string, name: string) => `用户名 ${username} 被占用，请先处理 ${name} 的账户`,
+        duplicateTarget: (username: string) =>
+          `重复的更新目标：多行数据尝试更新为同一个用户名 ${username}`,
+        usernameOccupied: (username: string, name: string) =>
+          `用户名 ${username} 被占用，请先处理 ${name} 的账户`,
         loadXlsxFailed: '无法加载Excel处理库，请检查网络连接',
         loadXlsxRetry: 'Excel处理库加载失败，请刷新页面后重试',
         batchUpdateFailed: (message: string) => `批量更新失败: ${message}`,
@@ -4411,6 +4996,7 @@ export const admin = {
       meowBinding: 'MeoW 账号绑定',
       emailBinding: '邮箱绑定',
       oauthBinding: 'OAuth 账号绑定',
+      loading: '加载中...',
       bound: (value: string) => `已绑定: ${value}`,
       unbound: '未绑定',
       oauthBindingsTitle: 'OAuth 绑定详情',
@@ -4486,15 +5072,20 @@ export const admin = {
       readFileFailed: '读取文件失败',
       processExcelFailed: (message: string) => `处理Excel文件失败: ${message}`,
       partialImportFailed: (errors: string) => `部分导入失败原因：\n${errors}`,
-      importFailedWithReasons: (errors: string) => `导入失败，请检查数据格式后重试。\n失败原因：\n${errors}`,
-      importRuntimeFailed: (count: number, message: string) => `导入过程中发生错误 (已成功导入 ${count} 个): ${message}`,
+      importFailedWithReasons: (errors: string) =>
+        `导入失败，请检查数据格式后重试。\n失败原因：\n${errors}`,
+      importRuntimeFailed: (count: number, message: string) =>
+        `导入过程中发生错误 (已成功导入 ${count} 个): ${message}`,
       statusLogsFailed: '加载状态日志失败'
     },
     importProgress: {
-      processingBatch: (current: number, total: number) => `正在导入：正在处理第 ${current} / ${total} 批数据...`,
-      complete: (created: number, failed: number) => `导入完成：成功导入 ${created} 个，失败 ${failed} 个`,
+      processingBatch: (current: number, total: number) =>
+        `正在导入：正在处理第 ${current} / ${total} 批数据...`,
+      complete: (created: number, failed: number) =>
+        `导入完成：成功导入 ${created} 个，失败 ${failed} 个`,
       batchFailed: (batch: number, message: string) => `第 ${batch} 批请求失败: ${message}`,
-      rowError: (row: string | number, name: string, reason: string) => `第${row}行${name}: ${reason}`
+      rowError: (row: string | number, name: string, reason: string) =>
+        `第${row}行${name}: ${reason}`
     }
   },
   apiKeys: {
@@ -4510,7 +5101,8 @@ export const admin = {
     creatorPlaceholder: '创建者用户名',
     loading: '加载中...',
     emptyTitle: '暂无API密钥',
-    emptyDesc: '您还没有创建任何访问密钥。创建密钥后，您可以安全地将 VoiceHub 集成到第三方应用程序中。',
+    emptyDesc:
+      '您还没有创建任何访问密钥。创建密钥后，您可以安全地将 VoiceHub 集成到第三方应用程序中。',
     createFirst: '创建您的第一个密钥',
     noDescription: '暂无描述',
     unknown: '未知',
@@ -4608,6 +5200,12 @@ export const serverErrors = {
   CARD_CODE_LOCKED_OR_UNAVAILABLE: '点歌券已被锁定或不可用',
   CARD_CODE_REQUIRED_FOR_SITE: '本站点已启用仅点歌券投稿，请提供有效点歌券',
   CARD_CODE_TOO_LONG: '点歌券不能超过100个字符',
+  CARD_CODE_ASSIGN_FAILED: '点歌券派发失败，请刷新后重试',
+  CARD_CODE_RECYCLE_FAILED: '点歌券无法回收，请刷新后确认状态',
+  CARD_CODE_ASSIGNMENT_NOT_FOUND: '点歌券派发记录不存在',
+  CARD_CODE_NOT_ASSIGNABLE: '点歌券不可派发，请确认当前状态',
+  CARD_CODE_RECIPIENT_UNAVAILABLE: '接收用户不存在或尚未通过审核',
+  CARD_CODE_BOUND_TO_SONG: '点歌券已关联投稿，请通过歌曲管理处理',
   AUTH_CSRF_COOKIE_MISSING: 'CSRF验证失败：Cookie丢失，请从登录页面重新开始',
   AUTH_CHALLENGE_EXPIRED: 'Challenge 已失效',
   AUTH_CHALLENGE_INVALID: 'Challenge 已失效或不匹配',
@@ -4616,7 +5214,8 @@ export const serverErrors = {
   AUTH_MISSING_PROVIDER: '缺少 provider 参数',
   AUTH_OAUTH_PROVIDER_DISABLED: 'OAuth 提供商已被禁用',
   AUTH_OAUTH_PROVIDER_STATE_MISMATCH: 'OAuth provider 与 state 不匹配',
-  AUTH_OAUTH_REDIRECT_ORIGIN_MISMATCH: 'OAuth 回调地址与当前请求源站不一致，请在管理员后台将 OAuth 重定向 URI 配置为当前站点域名',
+  AUTH_OAUTH_REDIRECT_ORIGIN_MISMATCH:
+    'OAuth 回调地址与当前请求源站不一致，请在管理员后台将 OAuth 重定向 URI 配置为当前站点域名',
   AUTH_OAUTH_REDIRECT_INVALID: 'OAuth 重定向 URI 配置无效，请在管理员后台检查配置',
   AUTH_WEBAUTHN_RP_ID_INVALID: 'WebAuthn RP ID 配置无效',
   AUTH_UNSUPPORTED_VERIFICATION_TYPE: '不支持的验证类型',
@@ -4635,16 +5234,21 @@ export const serverErrors = {
   THEME_INVALID_DEFAULT: '默认主题必须有效且处于启用状态',
   THEME_SYSTEM_REQUIRES_CLASSIC: '跟随系统时必须同时启用经典深色和经典浅色',
   SETTINGS_GRADE_CLASS_OPTIONS_MISSING: '请先在年级班级管理中配置年级班级，再启用该选项',
-  SETTINGS_CAPTCHA_PROVIDER_INVALID: '验证类型必须是图形验证码、Cloudflare Turnstile 或阿里云 ESA AI 验证码',
-  SETTINGS_ESA_CAPTCHA_CREDENTIALS_MISSING: '请先配置阿里云 ESA AI 验证码的身份标，再切换到该验证类型',
-  SETTINGS_ESA_CAPTCHA_SCENE_INVALID: '场景 ID 规则格式无效，每条规则需选择接口、填写域名与场景 ID，且同一接口下域名不可重复',
-  SETTINGS_ESA_CAPTCHA_SCENE_MISSING: '请先为登录接口配置场景 ID；开启用户注册时还需为注册接口配置场景 ID，或先关闭注册入口',
+  SETTINGS_CAPTCHA_PROVIDER_INVALID:
+    '验证类型必须是图形验证码、Cloudflare Turnstile 或阿里云 ESA AI 验证码',
+  SETTINGS_ESA_CAPTCHA_CREDENTIALS_MISSING:
+    '请先配置阿里云 ESA AI 验证码的身份标，再切换到该验证类型',
+  SETTINGS_ESA_CAPTCHA_SCENE_INVALID:
+    '场景 ID 规则格式无效，每条规则需选择接口、填写域名与场景 ID，且同一接口下域名不可重复',
+  SETTINGS_ESA_CAPTCHA_SCENE_MISSING:
+    '请先为登录接口配置场景 ID；开启用户注册时还需为注册接口配置场景 ID，或先关闭注册入口',
   SETTINGS_LEGAL_CONSENT_DATE_MISSING: '启用条款确认时必须填写条款更新日期',
   SETTINGS_LEGAL_CONSENT_DOC_INVALID: '协议文档配置无效',
   SETTINGS_LEGAL_CONSENT_DOC_EMPTY: '启用条款确认时至少需要配置一份协议文档',
   SETTINGS_LEGAL_CONSENT_DOC_NAME_MISSING: '协议文档名称不能为空',
   SETTINGS_LEGAL_CONSENT_DOC_CONTENT_MISSING: '协议文档「{0}」的内容不能为空',
-  SETTINGS_LEGAL_CONSENT_DOC_SLUG_INVALID: '协议文档「{0}」的标识只能包含字母、数字、下划线和连字符',
+  SETTINGS_LEGAL_CONSENT_DOC_SLUG_INVALID:
+    '协议文档「{0}」的标识只能包含字母、数字、下划线和连字符',
   SETTINGS_LEGAL_CONSENT_DOC_SLUG_DUPLICATE: '协议文档标识不能重复',
   BILIBILI_PLAYURL_FAILED: '获取 Bilibili 音频链接失败',
   AUTH_NAME_USERNAME_PASSWORD_REQUIRED: '姓名、用户名、密码不能为空',
@@ -4655,14 +5259,16 @@ export const serverErrors = {
   AUTH_PASSWORD_TOO_MANY_BYTES: '密码有效长度不能超过72字节',
   AUTH_PASSWORD_TOO_COMMON: '该密码过于常见，请更换更安全的密码',
   AUTH_PASSWORD_COMPLEXITY_REQUIRED: '密码至少需要包含大写字母、小写字母、数字、特殊字符中的三类',
-  AUTH_INITIAL_PASSWORD_COMPLEXITY_REQUIRED: '密码至少需要包含大写字母、小写字母、数字、特殊字符中的两类',
+  AUTH_INITIAL_PASSWORD_COMPLEXITY_REQUIRED:
+    '密码至少需要包含大写字母、小写字母、数字、特殊字符中的两类',
   AUTH_PASSWORD_NOT_SET: '当前账号尚未设置密码，请使用初始密码设置功能',
   AUTH_INITIAL_PASSWORD_NOT_REQUIRED: '当前账号不需要设置初始密码，请使用修改密码功能',
   AUTH_PASSWORD_CHANGE_REQUIRED: '请先完成密码修改后再继续',
   AUTH_PASSWORD_STATE_CHANGED: '密码状态已变化，请重新验证后再试',
   AUTH_GRADE_CLASS_TOGETHER: '年级和班级需要同时选择，或全部留空',
   AUTH_GRADE_CLASS_REQUIRED: '注册时必须选择年级和班级',
-  AUTH_UNSUPPORTED_OAUTH_PROVIDER: '当前仅支持 GitHub / Casdoor / Google / 聚合登陆 / 第三方 OAuth2',
+  AUTH_UNSUPPORTED_OAUTH_PROVIDER:
+    '当前仅支持 GitHub / Casdoor / Google / 聚合登陆 / 第三方 OAuth2',
   AUTH_CURRENT_PASSWORD_INCORRECT: '当前密码不正确',
   AUTH_CURRENT_AND_NEW_PASSWORD_REQUIRED: '当前密码和新密码都是必需的',
   AUTH_PASSWORD_ALREADY_SET: '您已经设置过密码，请使用修改密码功能',
@@ -4719,7 +5325,6 @@ export const serverErrors = {
   AUTH_OAUTH_ALREADY_BOUND: '该第三方账号已被绑定，请直接登录或绑定到现有账户',
   AUTH_ACCOUNT_UNAVAILABLE_OR_RESTRICTED: '该账号不可用或已限制访问',
   AUTH_ACCOUNT_GRADUATED: '该账号已毕业，限制访问',
-  AUTH_ACCOUNT_BANNED: '该账号已被封禁',
   AUTH_ACCOUNT_WITHDRAWN: '该账号已退学，限制访问',
   AUTH_ACCOUNT_CURRENTLY_UNAVAILABLE: '该账号当前不可用',
   AUTH_NO_SECURITY_EMAIL: '该账号未绑定安全邮箱，无法通过此方式找回密码。请联系管理员。',
@@ -4758,6 +5363,11 @@ export const serverErrors = {
   SONG_REPLAY_CURRENT_SEMESTER_ONLY: '只能申请重播当前学期的歌曲',
   SONG_INVITATION_FAILED: '处理邀请失败',
   SONG_SCHEDULED_CANNOT_WITHDRAW: '已排期的歌曲不能撤回',
+  SONG_PLAY_SLOT_REQUIRED: '请选择期望播出时段',
+  SONG_PLAY_DATE_FORMAT_INVALID: '播出日期格式不正确，应为 YYYY-MM-DD',
+  SONG_PLAY_DATE_BEFORE_TODAY: '播出日期不能早于今天',
+  SONG_PLAY_SLOT_NOT_OPEN_ON_DATE: '所选播出时段在 {0}（{1}）不开放，请重新选择日期或时段',
+  SONG_SCHEDULE_PREFERRED_TIME_MISMATCH: '指定了播出时段的歌曲只能排到该时段',
   SONG_PLAYED_CANNOT_WITHDRAW: '已播放的歌曲不能撤回',
   SONG_NO_ACTIVE_SEMESTER_REPLAY: '当前没有活跃学期，无法申请重播',
   SONG_RESTRICTION_SAME_SONG: '《{1}》排期后 {0} 小时内不能重复投稿',
@@ -4782,7 +5392,8 @@ export const serverErrors = {
   SONG_COVER_PLATFORM_REQUIRED: '歌曲缺少平台或音乐 ID 信息，无法获取封面',
   SONG_CARD_RELEASE_FAILED: '点歌券释放失败，撤回已终止',
   SONG_CARD_RESTORE_FAILED: '点歌券返还失败，保存草稿已终止',
-  SONG_NO_ACTIVE_SEMESTER_IMPORT: '系统未设置当前活跃学期，无法导入歌曲。请联系管理员先设置活跃学期。',
+  SONG_NO_ACTIVE_SEMESTER_IMPORT:
+    '系统未设置当前活跃学期，无法导入歌曲。请联系管理员先设置活跃学期。',
   SONG_FETCH_VOTERS_FAILED: '获取投票人员列表失败',
   SONG_FETCH_STATUS_FAILED: '获取投稿状态失败',
   SONG_FETCH_COUNT_FAILED: '获取歌曲数量失败',
@@ -4804,6 +5415,9 @@ export const serverErrors = {
   SONG_BATCH_REJECT_IDS_REQUIRED: '请先选择要驳回的歌曲',
   SONG_BATCH_REJECT_LIMIT_EXCEEDED: '单次最多驳回 {0} 首歌曲',
   SONG_BATCH_REJECT_REASON_REQUIRED: '驳回原因不能为空',
+  SONG_GLOBAL_DAILY_LIMIT_REACHED: '今日全站投稿总量已达上限（{0} 首），请稍后再试',
+  SONG_GLOBAL_WEEKLY_LIMIT_REACHED: '本周全站投稿总量已达上限（{0} 首），请稍后再试',
+  SONG_GLOBAL_MONTHLY_LIMIT_REACHED: '本月全站投稿总量已达上限（{0} 首），请稍后再试',
   USER_API_KEY_NOT_FOUND: '个人集成令牌不存在',
   USER_API_KEY_ID_REQUIRED: '令牌 ID 不能为空',
   USER_API_KEY_ID_INVALID: '无效的令牌 ID',
@@ -4890,4 +5504,7 @@ export const serverErrors = {
   NOTIFICATION_HISTORY_FETCH_FAILED: '获取通知历史失败',
   NOTIFICATION_HISTORY_UPDATE_FAILED: '修改通知失败',
   NOTIFICATION_HISTORY_DELETE_FAILED: '删除通知失败',
+  PLAY_TIME_DEFAULT_REQUIRES_ENABLED: '已停用的播出时段不能设为默认时段',
+  PLAY_TIME_DEFAULT_CONFLICT: '默认播出时段正在被其他操作修改，请重试',
+  SYSTEM_BOARD_FAILED: '系统看板数据异常，请稍后重试'
 } as const

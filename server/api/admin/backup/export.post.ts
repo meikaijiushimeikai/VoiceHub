@@ -1,10 +1,12 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 import { db } from '~/drizzle/db'
+import { isServerlessRuntime } from '~~/server/utils/serverless-runtime'
 import { pluginBackupTables } from '~~/server/utils/music-source-plugins/backup'
 import {
   apiKeys,
   apiKeyPermissions,
   apiLogs,
+  cardCodeAssignments,
   cardCodeRedeemLogs,
   cardCodes,
   collaborationLogs,
@@ -51,7 +53,23 @@ export default defineEventHandler(async (event) => {
     console.log('开始创建数据库备份...')
 
     // 创建备份数据对象
-    const backupData = {
+    const backupData: {
+      metadata: {
+        version: string
+        timestamp: string
+        creator: string
+        description: string
+        backupType: string
+        tables: Array<{
+          name: string
+          description: string
+          recordCount: number
+          skipped?: boolean
+        }>
+        totalRecords: number
+      }
+      data: Record<string, any>
+    } = {
       metadata: {
         version: '1.0',
         timestamp: new Date().toISOString(),
@@ -129,6 +147,10 @@ export default defineEventHandler(async (event) => {
           }))
         },
         description: '点歌券数据'
+      },
+      cardCodeAssignments: {
+        query: async () => await db.select().from(cardCodeAssignments),
+        description: '点歌券派发记录'
       },
       cardCodeRedeemLogs: {
         query: async () => {
@@ -517,7 +539,7 @@ export default defineEventHandler(async (event) => {
 
         totalRecords += tableData.length
         console.log(`✅ ${tableName}: ${tableData.length} 条记录`)
-      } catch (error) {
+      } catch (error: any) {
         // 检查是否为表不存在错误
         // Postgres 错误代码 42P01: undefined_table (表不存在)
         const isTableMissing =
@@ -564,10 +586,8 @@ export default defineEventHandler(async (event) => {
     console.log(`✅ 备份完成: ${filename}`)
     console.log(`📊 总计备份 ${totalRecords} 条记录`)
 
-    // 检测运行环境
-    const isVercel = process.env.VERCEL || process.env.VERCEL_ENV
-    const isNetlify = process.env.NETLIFY
-    const isServerless = isVercel || isNetlify
+    // 检测运行环境（与连接池等处共用一份判定）
+    const isServerless = isServerlessRuntime()
 
     if (isServerless) {
       // 在无服务器环境中，直接返回备份数据供前端下载
@@ -611,7 +631,7 @@ export default defineEventHandler(async (event) => {
             downloadMode: 'file' // 标识为文件下载模式
           }
         }
-      } catch (fsError) {
+      } catch (fsError: any) {
         console.warn('文件系统操作失败，回退到直接返回模式:', fsError.message)
 
         // 如果文件系统操作失败，回退到直接返回模式
@@ -629,7 +649,7 @@ export default defineEventHandler(async (event) => {
         }
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('创建数据库备份失败:', error)
     throw createError({
       statusCode: error.statusCode || 500,

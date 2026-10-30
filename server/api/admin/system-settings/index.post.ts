@@ -2,6 +2,7 @@ import { db } from '~/drizzle/db'
 import { systemSettings } from '~/drizzle/schema'
 import { eq } from 'drizzle-orm'
 import { SMTP_PASSWORD_MASK, SECRET_FIELD_MASK, maskSystemSettingsSecrets } from './secretMask'
+import { findSuperAdminOnlySettingFields } from '~/utils/settingsPermissions'
 import { isValidAstrbotWeeklyConfigInput, normalizeAstrbotWeeklyConfig } from '~~/server/utils/astrbot-weekly-config'
 import { SYSTEM_SETTINGS_DEFAULTS } from '~~/server/utils/system-settings-defaults'
 import { isAstrbotPullMode } from '~~/server/utils/astrbot-pull'
@@ -194,6 +195,18 @@ export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
 
+    // 用户数据、凭据与出站目标类配置仅超级管理员可修改
+    if (user.role !== 'SUPER_ADMIN') {
+      const rejectedFields = findSuperAdminOnlySettingFields(body)
+      if (rejectedFields.length > 0) {
+        console.warn('[SystemSettings] 普通管理员提交超管专属配置已拒绝:', rejectedFields.join(', '))
+        throw createError({
+          statusCode: 403,
+          message: '只有超级管理员可以修改用户数据与凭据相关的配置'
+        })
+      }
+    }
+
     // 验证请求体
     const updateData: any = {}
 
@@ -202,19 +215,14 @@ export default defineEventHandler(async (event) => {
     let settings = settingsResult[0]
 
     if (body.defaultTheme !== undefined || body.enabledThemes !== undefined) {
-      if (user.role !== 'SUPER_ADMIN') {
-        // 主题设置仅超级管理员可修改：普通管理员请求剥离主题字段，其余配置照常处理
-        delete body.defaultTheme
-        delete body.enabledThemes
-      } else {
-        const enabledThemes = body.enabledThemes !== undefined
-          ? validateThemeConfig(body.defaultTheme ?? settings?.defaultTheme ?? 'System', body.enabledThemes)
-          : parseThemeArray(settings?.enabledThemes, DEFAULT_THEMES)
-        const defaultTheme = body.defaultTheme !== undefined ? body.defaultTheme : settings?.defaultTheme || 'System'
-        validateThemeConfig(defaultTheme, JSON.stringify(enabledThemes))
-        if (body.defaultTheme !== undefined) updateData.defaultTheme = defaultTheme
-        updateData.enabledThemes = JSON.stringify(enabledThemes)
-      }
+      // 普通管理员提交主题字段已由上方守卫拦截，此处仅处理超级管理员请求
+      const enabledThemes = body.enabledThemes !== undefined
+        ? validateThemeConfig(body.defaultTheme ?? settings?.defaultTheme ?? 'System', body.enabledThemes)
+        : parseThemeArray(settings?.enabledThemes, DEFAULT_THEMES)
+      const defaultTheme = body.defaultTheme !== undefined ? body.defaultTheme : settings?.defaultTheme || 'System'
+      validateThemeConfig(defaultTheme, JSON.stringify(enabledThemes))
+      if (body.defaultTheme !== undefined) updateData.defaultTheme = defaultTheme
+      updateData.enabledThemes = JSON.stringify(enabledThemes)
     }
 
     if (body.telemetryEnabled !== undefined) {
@@ -237,6 +245,16 @@ export default defineEventHandler(async (event) => {
       updateData.hideStudentInfo = body.hideStudentInfo
     }
 
+    if (body.allowAnonymousSubmission !== undefined) {
+      if (typeof body.allowAnonymousSubmission !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'allowAnonymousSubmission 必须是布尔值'
+        })
+      }
+      updateData.allowAnonymousSubmission = body.allowAnonymousSubmission
+    }
+
     if (body.enablePlayTimeSelection !== undefined) {
       if (typeof body.enablePlayTimeSelection !== 'boolean') {
         throw createError({
@@ -245,6 +263,31 @@ export default defineEventHandler(async (event) => {
         })
       }
       updateData.enablePlayTimeSelection = body.enablePlayTimeSelection
+    }
+
+    if (body.playSlotRequired !== undefined) {
+      if (typeof body.playSlotRequired !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'playSlotRequired 必须是布尔值'
+        })
+      }
+      updateData.playSlotRequired = body.playSlotRequired
+    }
+
+    // 交叉校验：「时段必选」依赖「播出时段选择」总开关，提交值与当前持久化值合并后判定
+    const mergedEnablePlayTimeSelection = body.enablePlayTimeSelection !== undefined
+      ? body.enablePlayTimeSelection
+      : settings?.enablePlayTimeSelection === true
+    const mergedPlaySlotRequired = body.playSlotRequired !== undefined
+      ? body.playSlotRequired
+      : settings?.playSlotRequired === true
+    if (mergedPlaySlotRequired && !mergedEnablePlayTimeSelection) {
+      throw createApiError(
+        400,
+        SERVER_ERROR_CODES.COMMON_INVALID_PARAMS,
+        '启用「时段必选」前需先开启「播出时段选择」'
+      )
     }
 
     if (body.siteTitle !== undefined) {
@@ -366,6 +409,16 @@ export default defineEventHandler(async (event) => {
       updateData.enableSubmissionLimit = body.enableSubmissionLimit
     }
 
+    if (body.enableGlobalSubmissionLimit !== undefined) {
+      if (typeof body.enableGlobalSubmissionLimit !== 'boolean') {
+        throw createError({
+          statusCode: 400,
+          message: 'enableGlobalSubmissionLimit 必须是布尔值'
+        })
+      }
+      updateData.enableGlobalSubmissionLimit = body.enableGlobalSubmissionLimit
+    }
+
     // 点歌券点歌相关设置
     if (body.enableCardCodeRequests !== undefined) {
       if (typeof body.enableCardCodeRequests !== 'boolean') {
@@ -485,6 +538,22 @@ export default defineEventHandler(async (event) => {
         })
       }
       updateData.monthlySubmissionLimit = body.monthlySubmissionLimit
+    }
+
+    // 全站总量限额的三个周期可叠加生效，各自独立校验
+    for (const field of [
+      'globalDailySubmissionLimit',
+      'globalWeeklySubmissionLimit',
+      'globalMonthlySubmissionLimit'
+    ] as const) {
+      if (body[field] === undefined) continue
+      if (body[field] !== null && (!Number.isInteger(body[field]) || body[field] < 0)) {
+        throw createError({
+          statusCode: 400,
+          message: `${field} 必须是非负整数或null`
+        })
+      }
+      updateData[field] = body[field]
     }
 
     if (body.scheduleDaysBeforeEnabled !== undefined) {
@@ -642,26 +711,12 @@ export default defineEventHandler(async (event) => {
         )
       }
 
-      // 一条 ESA 规则只覆盖一个接口，登录接口无场景 ID 时登录页无法初始化验证码
-      if (!nextEsaCaptchaScenes.some((scene) => scene.endpoint === 'login')) {
+      // 验证码统一走公共验证接口 /api/captcha/verify，无任何场景 ID 时前端无法初始化验证码
+      if (nextEsaCaptchaScenes.length === 0) {
         throw createApiError(
           400,
           SERVER_ERROR_CODES.SETTINGS_ESA_CAPTCHA_SCENE_MISSING,
-          '启用阿里云 ESA AI 验证码前，请先为登录接口配置场景 ID'
-        )
-      }
-
-      // 注册入口开启时，注册接口需有自己独立的 ESA 规则与场景 ID
-      const nextAllowRegister =
-        body.allowRegister !== undefined ? body.allowRegister : settings?.allowRegister
-      if (
-        nextAllowRegister === true &&
-        !nextEsaCaptchaScenes.some((scene) => scene.endpoint === 'register')
-      ) {
-        throw createApiError(
-          400,
-          SERVER_ERROR_CODES.SETTINGS_ESA_CAPTCHA_SCENE_MISSING,
-          '开放用户注册时，请为注册接口配置场景 ID，或先关闭注册入口'
+          '启用阿里云 ESA AI 验证码前，请先为公共验证接口配置至少一个场景 ID'
         )
       }
     }

@@ -97,9 +97,18 @@
 
         <!-- 使用Transition组件包裹内容 -->
         <Transition mode="out-in" name="schedule-fade">
-          <div v-if="loading" key="loading" class="loading">
-            <AppSpinner :size="40" />
-            {{ locale.loading }}
+          <div v-if="loading" key="loading" class="schedule-loading">
+            <div class="schedule-loading-skeleton" aria-hidden="true">
+              <div v-for="n in 6" :key="n" class="skeleton-card">
+                <div class="skeleton-card-main">
+                  <div class="skeleton-cover shimmer-block" />
+                  <div class="skeleton-lines">
+                    <div class="skeleton-line shimmer-block" />
+                    <div class="skeleton-line skeleton-line-short shimmer-block" />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div v-else-if="error" key="error" class="error">
@@ -147,17 +156,17 @@
                     :key="schedule.id"
                     :class="{
                       played: schedule.song.played && schedule.song.replayRequestCount === 0,
-                      playing: isCurrentPlaying(schedule.song.id)
+                      playing: isCurrentPlaying(schedule)
                     }"
                     class="song-card"
                   >
                     <div class="song-card-main">
                       <!-- 歌曲封面 -->
-                      <div class="song-cover" @click="togglePlaySong(schedule.song)">
+                      <div class="song-cover" @click="togglePlaySong(schedule)">
                         <template v-if="schedule.song.cover && !failedCovers[schedule.song.cover]">
                           <img
                             :alt="schedule.song.title"
-                            :src="convertToHttps(schedule.song.cover)"
+                            :src="getCoverThumbUrl(schedule.song.cover)"
                             class="cover-image"
                             referrerpolicy="no-referrer"
                             @error="handleImageError(schedule.song)"
@@ -175,11 +184,11 @@
                           class="play-button-overlay"
                         >
                           <button
-                            :title="isCurrentPlaying(schedule.song.id) ? locale.pause : locale.play"
+                            :title="isCurrentPlaying(schedule) ? locale.pause : locale.play"
                             class="play-button"
                           >
                             <Icon
-                              v-if="isCurrentPlaying(schedule.song.id)"
+                              v-if="isCurrentPlaying(schedule)"
                               :size="16"
                               color="white"
                               name="pause"
@@ -228,15 +237,21 @@
                             :title="
                               (locale.replayApplicants || '重播申请人：') +
                               (schedule.song.replayRequesters || [])
-                                .map((r) => r.displayName || r.name)
+                                .map((r) =>
+                                  r.isAnonymous
+                                    ? locale.anonymousRequester
+                                    : (r.displayName || r.name)
+                                )
                                 .join('、')
                             "
                             class="requester replay-requester"
                           >
                             {{ locale.applicant }}{{
                               (schedule.song.replayRequesters || [])[0]
-                                ? (schedule.song.replayRequesters[0].displayName ||
-                                    schedule.song.replayRequesters[0].name) +
+                                ? (schedule.song.replayRequesters[0].isAnonymous
+                                    ? locale.anonymousRequester
+                                    : (schedule.song.replayRequesters[0].displayName ||
+                                        schedule.song.replayRequesters[0].name)) +
                                   (schedule.song.replayRequestCount > 1 ? '...' : '')
                                 : locale.unknown
                             }}
@@ -244,22 +259,25 @@
                           <span
                             v-else
                             :title="
-                              (schedule.song.collaborators && schedule.song.collaborators.length > 0
-                                ? locale.mainRequesterTitle
-                                : locale.requesterTitle) +
-                              schedule.song.requester +
-                              (schedule.song.collaborators && schedule.song.collaborators.length
-                                ? '\n' + locale.collaboratorsTitle +
-                                  schedule.song.collaborators
-                                    .map((c) => c.displayName || c.name)
-                                    .join(', ')
-                                : '')
+                              schedule.song.isAnonymous
+                                ? locale.requesterTitle + locale.anonymousRequester
+                                : (schedule.song.collaborators && schedule.song.collaborators.length > 0
+                                    ? locale.mainRequesterTitle
+                                    : locale.requesterTitle) +
+                                  schedule.song.requester +
+                                  (schedule.song.collaborators && schedule.song.collaborators.length
+                                    ? '\n' + locale.collaboratorsTitle +
+                                      schedule.song.collaborators
+                                        .map((c) => c.displayName || c.name)
+                                        .join(', ')
+                                    : '')
                             "
                             class="requester"
                           >
-                            {{ locale.requester }}{{ schedule.song.requester }}
+                            {{ locale.requester }}{{ schedule.song.isAnonymous ? locale.anonymousRequester : schedule.song.requester }}
                             <span
                               v-if="
+                                !schedule.song.isAnonymous &&
                                 schedule.song.collaborators &&
                                 schedule.song.collaborators.length > 0
                               "
@@ -648,12 +666,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { Music, X, User, RefreshCw, Trash2, Check, Plus, Loader2 } from '@lucide/vue'
 import { useSongs } from '~/composables/useSongs'
 import { useAudioPlayer } from '~/composables/useAudioPlayer'
+import { useServerErrors } from '~/composables/useLocaleText'
+import { formatDateTime } from '~/utils/timeUtils'
 import { useAudioQuality } from '~/composables/useAudioQuality'
 import Icon from '~/components/UI/Icon.vue'
-import AppSpinner from '~/components/UI/Common/AppSpinner.vue'
 import ConfirmDialog from '~/components/UI/ConfirmDialog.vue'
 import CustomSelect from '~/components/UI/Common/CustomSelect.vue'
-import { convertToHttps } from '~/utils/url'
+import { getCoverThumbUrl } from '~/utils/url'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
 import { getMusicUrl as resolveMusicUrl } from '~/utils/musicUrl'
 import { useLocale } from '~/utils/locale'
@@ -682,6 +701,7 @@ const props = defineProps({
 
 // 音频播放相关 - 使用全局音频播放器
 const audioPlayer = useAudioPlayer()
+const { localize: localizeServerError } = useServerErrors()
 const { checkNeteaseLoginStatus: updateGlobalNeteaseStatus, persistNeteaseVipFlag } = useAudioQuality()
 const { currentLocale, songs: songsLocale } = useLocale()
 const locale = computed(() => songsLocale.value?.scheduleList || {})
@@ -1418,136 +1438,62 @@ const handleAddSongsToPlaylist = async () => {
   }
 }
 
-// 切换歌曲播放/暂停
-const togglePlaySong = async (song) => {
-  // 检查是否为当前歌曲且正在播放
-  if (audioPlayer.isCurrentSong(song.id) && audioPlayer.getPlayingStatus().value) {
-    // 如果正在播放，则暂停
-    audioPlayer.pauseSong()
-    return
-  }
+const getScheduleSource = (schedule) => ({
+  date: typeof schedule.playDate === 'string'
+    ? schedule.playDate.slice(0, 10)
+    : formatDateTime(schedule.playDate, 'YYYY-MM-DD'),
+  playTimeId: schedule.playTimeId == null ? null : Number(schedule.playTimeId),
+  includeDrafts: false
+})
 
-  // 如果是当前歌曲但已暂停，则恢复播放
-  if (audioPlayer.isCurrentSong(song.id) && !audioPlayer.getPlayingStatus().value) {
-    // 检查当前全局歌曲是否有URL
-    const currentGlobalSong = audioPlayer.getCurrentSong().value
-    if (
-      currentGlobalSong &&
-      (currentGlobalSong.musicUrl || isBilibiliSong(currentGlobalSong))
-    ) {
-      // 如果有URL或者是哔哩哔哩视频，直接恢复播放
-      audioPlayer.playSong(currentGlobalSong)
+// 按点击排期的实际日期和时段建立播放范围。
+const togglePlaySong = async (schedule) => {
+  const song = schedule?.song
+  if (!song) return
+  const source = getScheduleSource(schedule)
+  if (audioPlayer.isCurrentScheduleItem(schedule, source)) {
+    if (audioPlayer.getPlayingStatus().value) {
+      audioPlayer.pauseSong()
     } else {
-      // 如果没有URL，重新获取
-      if ((song.musicPlatform && song.musicId) || song.playUrl) {
-        try {
-          const url = await getMusicUrl(song)
-          if (url || isBilibiliSong(song)) {
-            const playableSong = {
-              ...song,
-              musicUrl: url || null
-            }
-            audioPlayer.playSong(playableSong)
-          } else {
-            if (window.$showNotification) {
-              window.$showNotification(locale.value.musicUrlUnavailable, 'error')
-            }
-          }
-        } catch (error) {
-          console.error('获取音乐URL失败:', error)
-          if (window.$showNotification) {
-            window.$showNotification(locale.value.musicUrlFailed, 'error')
-          }
-        }
-      }
+      audioPlayer.resumeSong()
     }
     return
   }
 
-  // 如果有平台和ID信息或playUrl，动态获取URL
-  if ((song.musicPlatform && song.musicId) || song.playUrl) {
-    const buildPlaylistForSong = (targetSong) => {
-      const currentTimeSlot = getCurrentTimeSlot(targetSong)
-      let playlist = []
-      let songIndex = 0
-      if (currentTimeSlot && currentTimeSlot.songs) {
-        playlist = currentTimeSlot.songs.map((s) => ({
-          id: s.id,
-          title: s.title,
-          artist: s.artist,
-          cover: s.cover,
-          musicUrl: s.musicUrl || null,
-          musicPlatform: s.musicPlatform,
-          musicId: s.musicId,
-          playUrl: s.playUrl || null,
-          sourceInfo: s.sourceInfo
-        }))
-        songIndex = playlist.findIndex((s) => s.id === targetSong.id)
-        if (songIndex === -1) songIndex = 0
-      }
-      return { playlist, songIndex }
-    }
+  const scopeItems = safeSchedules.value
+    .filter((item) => {
+      if (!item?.song || !item.playDate) return false
+      const itemSource = getScheduleSource(item)
+      return itemSource.date === source.date && itemSource.playTimeId === source.playTimeId
+    })
+    .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
+  const index = scopeItems.indexOf(schedule)
+  if (index < 0) return
+  const items = scopeItems.map((item) => ({ ...item, song: { ...item.song } }))
 
+  if ((song.musicPlatform && song.musicId) || song.playUrl) {
+    const request = audioPlayer.beginPlaybackRequest()
     try {
       const url = await getMusicUrl(song)
+      if (!audioPlayer.isPlaybackRequestCurrent(request)) return
+      const playableSong = { ...song, musicUrl: url || null }
+      items[index].song = playableSong
+      audioPlayer.playScheduleSong(playableSong, items, source, index)
+
       if (url || isBilibiliSong(song)) {
-        const { playlist, songIndex } = buildPlaylistForSong(song)
-
-        const playableSong = {
-          ...song,
-          musicUrl: url || null
-        }
-
-        if (playlist.length > 0 && songIndex >= 0) {
-          playlist[songIndex] = playableSong
-        }
-
-        // 后台预取后续歌曲的播放链接（不阻塞当前播放）
-        ;(async () => {
-          for (let i = songIndex + 1; i < playlist.length; i++) {
-            const s = playlist[i]
-            if (!s.musicUrl && ((s.musicPlatform && s.musicId) || s.playUrl)) {
-              try {
-                s.musicUrl = await getMusicUrl(s)
-              } catch (error) {
-                console.warn(`后台预取失败: ${s.title}`, error)
-                s.musicUrl = null
-              }
-            }
-          }
-        })()
-
-        audioPlayer.playSong(playableSong, playlist, songIndex)
-      } else {
-        if (window.$showNotification) {
-          window.$showNotification(locale.value.musicUrlUnavailable, 'error')
-        }
-        audioPlayer.playSong({ ...song, musicUrl: null }, [], -1)
+        void audioPlayer.prefetchNextSong()
+      } else if (window.$showNotification) {
+        window.$showNotification(locale.value.musicUrlUnavailable, 'error')
       }
     } catch (error) {
+      if (!audioPlayer.isPlaybackRequestCurrent(request)) return
       console.error('获取音乐URL失败:', error)
       if (window.$showNotification) {
-        window.$showNotification(locale.value.musicUrlFailed, 'error')
+        window.$showNotification(localizeServerError(error, locale.value.musicUrlFailed), 'error')
       }
-      const { playlist, songIndex } = buildPlaylistForSong(song)
-      audioPlayer.playSong({ ...song, musicUrl: null }, playlist, songIndex)
+      audioPlayer.playScheduleSong({ ...song, musicUrl: null }, items, source, index)
     }
   }
-}
-
-// 获取歌曲所在的时段
-const getCurrentTimeSlot = (song) => {
-  if (!schedulesByPlayTime.value) return null
-
-  for (const [playTimeId, schedules] of Object.entries(schedulesByPlayTime.value)) {
-    if (schedules.some((schedule) => schedule.song.id === song.id)) {
-      return {
-        id: playTimeId,
-        songs: schedules.map((schedule) => schedule.song)
-      }
-    }
-  }
-  return null
 }
 
 // 动态获取音乐URL
@@ -1584,9 +1530,10 @@ const getMusicUrl = async (song) => {
   return resolveMusicUrl(platform, musicId, undefined, options)
 }
 
-// 判断当前是否正在播放指定ID的歌曲
-const isCurrentPlaying = (songId) => {
-  return audioPlayer.isCurrentPlaying(songId)
+// 判断当前是否正在播放指定排期。
+const isCurrentPlaying = (schedule) => {
+  return audioPlayer.getPlayingStatus().value &&
+    audioPlayer.isCurrentScheduleItem(schedule, getScheduleSource(schedule))
 }
 
 // 格式化播放时间
@@ -1917,19 +1864,131 @@ const vRipple = {
   margin: 0;
 }
 
-/* 加载和错误状态 */
-.loading {
-  padding: 3rem;
-  text-align: center;
-  border-radius: 10px;
+/* 加载骨架屏（光扫过动画） */
+.schedule-loading {
+  padding: 1rem 0;
+}
+
+.schedule-loading-skeleton {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.skeleton-card {
+  width: 320px;
+  max-width: 100%;
+  flex-shrink: 0;
   background: var(--panel-bg);
-  margin: 1rem 0;
-  color: var(--overlay-60);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0px 4px 4px var(--mask-25);
+}
+
+.skeleton-card-main {
+  height: 90px;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.skeleton-cover {
+  width: 55px;
+  height: 55px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.skeleton-lines {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
+  gap: 10px;
+}
+
+.skeleton-line {
+  width: 60%;
+  height: 16px;
+  border-radius: 6px;
+}
+
+.skeleton-line-short {
+  width: 40%;
+  height: 12px;
+}
+
+.shimmer-block {
+  position: relative;
+  overflow: hidden;
+  background: var(--overlay-10);
+}
+
+.shimmer-block::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--shimmer-overlay), transparent);
+  animation: schedule-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes schedule-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-block::after {
+    animation: none;
+  }
+}
+
+/* 移动端骨架屏：与移动端真实排期卡片一致（通栏、圆角、边框、48px 封面） */
+@media (max-width: 768px) {
+  .schedule-loading-skeleton {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .skeleton-card {
+    width: 100%;
+    background: var(--overlay-12);
+    border: 1px solid var(--overlay-20);
+    border-radius: 18px;
+    box-shadow: 0 4px 15px var(--mask-20);
+  }
+
+  .skeleton-card-main {
+    height: auto;
+    min-height: 72px;
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .skeleton-cover {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+  }
+
+  .skeleton-lines {
+    gap: 8px;
+  }
+
+  .skeleton-line {
+    height: 15px;
+  }
+
+  .skeleton-line-short {
+    height: 12px;
+  }
 }
 
 @keyframes spin {

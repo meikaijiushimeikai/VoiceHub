@@ -4,10 +4,12 @@ import { formatDateTime, getBeijingTimeISOString } from '~/utils/timeUtils'
 import { SUBMISSION_NOTE_STATUS } from '~~/server/config/constants'
 import { maskPublicScheduleData,
   stripAnonymousSongIdentifiersFromSchedules,
+  applySubmissionAnonymityToSchedules,
   type PublicScheduleItem
 } from '../../utils/studentMask'
 import { verifyUserAuth } from '../../utils/auth'
 import { formatDisambiguatedName, NAME_DISAMBIGUATION_CTES } from '~~/server/utils/userDisplayName'
+import { parseScheduleDateQuery } from '~~/server/utils/schedule-date-query'
 
 const isSchemaCompatibilityError = (error: unknown) => {
   const value = error as { code?: string; cause?: { code?: string } } | null
@@ -16,7 +18,13 @@ const isSchemaCompatibilityError = (error: unknown) => {
 }
 
 // 可选迁移尚未完成时，只依赖初始表结构返回基础排期，避免首页整体不可用。
-const loadBasicSchedules = async (client: any, semester: string, user: any, isAdmin: boolean) => {
+const loadBasicSchedules = async (
+  client: any,
+  semester: string,
+  user: any,
+  isAdmin: boolean,
+  dateRange: ReturnType<typeof parseScheduleDateQuery>
+) => {
   const params: any[] = []
   const conditions: string[] = []
   const scheduleDraftColumn = await client.unsafe(`
@@ -30,6 +38,10 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
   if (scheduleDraftColumn.length > 0) conditions.push('sch."isDraft" = false')
   if (semester) conditions.push('s.semester = $1')
   if (semester) params.push(semester)
+  if (dateRange) {
+    conditions.push(`sch."playDate" >= $${params.length + 1}`, `sch."playDate" < $${params.length + 2}`)
+    params.push(dateRange.startOfDay.toISOString(), dateRange.endOfDay.toISOString())
+  }
   const rows = await client.unsafe(`
     SELECT
       sch.id,
@@ -100,6 +112,7 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
       hasSubmissionNote: false,
       submissionNote: null,
       submissionNotePublic: false,
+      submissionAnonymous: false,
       preferredPlayTimeId: null,
       requesterId: row.requesterId ? Number(row.requesterId) : null,
       replayRequestCount: 0,
@@ -113,10 +126,11 @@ const loadBasicSchedules = async (client: any, semester: string, user: any, isAd
 }
 
 export default defineEventHandler(async (event) => {
+  const query = getQuery(event)
+  const dateRange = parseScheduleDateQuery(query.date)
   let authenticatedUser: any = null
   let authenticatedIsAdmin = false
   try {
-    const query = getQuery(event)
     const semester = String(query.semester || '').trim()
 
     const authResult = event.context.authRejected
@@ -143,6 +157,10 @@ export default defineEventHandler(async (event) => {
     const beforeEnabled = scheduleRangeResult[0]?.scheduleDaysBeforeEnabled === true
     const afterEnabled = scheduleRangeResult[0]?.scheduleDaysAfterEnabled === true
     let dateRangeCondition = ''
+    if (dateRange) {
+      dateRangeCondition += ` AND sch."playDate" >= $${params.length + 1} AND sch."playDate" < $${params.length + 2}`
+      params.push(dateRange.startOfDay.toISOString(), dateRange.endOfDay.toISOString())
+    }
     if (!isAdmin && (beforeEnabled || afterEnabled)) {
       const today = new Date(`${getBeijingTimeISOString().slice(0, 10)}T00:00:00.000Z`)
       if (beforeEnabled) {
@@ -268,6 +286,7 @@ export default defineEventHandler(async (event) => {
         s."createdAt",
         s."submissionNote",
         s."submissionNotePublic",
+        s."submissionAnonymous",
         s."submissionNotePublicStatus" AS "songSubmissionNotePublicStatus",
         CASE WHEN rm.id IS NOT NULL THEN rm.submission_note ELSE s."submissionNote" END AS "effectiveSubmissionNote",
         CASE WHEN rm.id IS NOT NULL THEN COALESCE(rm.submission_note_public, false) ELSE s."submissionNotePublic" END AS "effectiveSubmissionNotePublic",
@@ -402,6 +421,7 @@ export default defineEventHandler(async (event) => {
           ),
           requesterGrade: row.requesterGrade || null,
           requesterClass: row.requesterClass || null,
+          submissionAnonymous: row.submissionAnonymous === true,
           collaborators,
           voteCount: Number(row.voteCount || 0),
           played: row.songPlayed === true,
@@ -432,6 +452,8 @@ export default defineEventHandler(async (event) => {
     if (shouldHideStudentInfo && !isAdmin) {
       maskPublicScheduleData(formattedSchedules)
     }
+    // 逐条匿名：匿名投稿对所有非管理员统一把投稿人展示为「匿名投稿」
+    applySubmissionAnonymityToSchedules(formattedSchedules, { id: user?.id ?? null, isAdmin, event })
     if (!user) {
       stripAnonymousSongIdentifiersFromSchedules(formattedSchedules)
     }
@@ -443,7 +465,7 @@ export default defineEventHandler(async (event) => {
     if (isSchemaCompatibilityError(error)) {
       try {
         const fallbackSemester = String(getQuery(event).semester || '').trim()
-        return await loadBasicSchedules(client, fallbackSemester, authenticatedUser, authenticatedIsAdmin)
+        return await loadBasicSchedules(client, fallbackSemester, authenticatedUser, authenticatedIsAdmin, dateRange)
       } catch (fallbackError) {
         console.error('基础排期兜底查询失败:', fallbackError)
       }

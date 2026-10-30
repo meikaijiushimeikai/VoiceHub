@@ -45,7 +45,7 @@
           >
             <template v-if="activeSong && activeSong.cover && !coverError">
               <img
-                :src="convertToHttps(activeSong.cover)"
+                :src="getCoverThumbUrl(activeSong.cover)"
                 alt="封面"
                 class="player-cover"
                 referrerpolicy="no-referrer"
@@ -77,7 +77,7 @@
               <AppSpinner v-if="control.isLoadingTrack.value" :size="20" color="white" />
               <Icon
                 v-else
-                :name="control.isPlaying.value ? 'pause' : 'play'"
+                :name="control.isPlaying.value || sync.globalAudioPlayer.scheduleWaiting.value ? 'pause' : 'play'"
                 :size="24"
                 color="white"
               />
@@ -185,11 +185,11 @@
               <span
                 :class="{ disabled: control.hasError.value || control.isLoadingTrack.value }"
                 class="play-pause-btn music-icon"
-                title="播放/暂停"
+                :title="sync.globalAudioPlayer.scheduleWaiting.value ? audioPlayerLocale.scheduleWaiting : audioPlayerLocale.playPause"
                 @click="handleTogglePlay"
               >
                 <AppSpinner v-if="control.isLoadingTrack.value" :size="18" color="white" />
-                <Icon v-else-if="control.isPlaying.value" name="pause" size="24" />
+                <Icon v-else-if="control.isPlaying.value || sync.globalAudioPlayer.scheduleWaiting.value" name="pause" size="24" />
                 <Icon v-else name="play" size="24" />
               </span>
 
@@ -263,7 +263,9 @@
             @loadstart="handleLoadStart"
             @pause="handlePause"
             @play="handlePlay"
+            @stalled="handleNetworkStall"
             @timeupdate="handleTimeUpdate"
+            @waiting="handleNetworkStall"
           />
         </ClientOnly>
       </div>
@@ -315,12 +317,13 @@ import { useAudioQuality } from '~/composables/useAudioQuality'
 import { useAudioPlayerEnhanced } from '~/composables/useAudioPlayerEnhanced'
 import { usePlayerLayout } from '~/composables/usePlayerLayout'
 import { useMediaSession } from '~/composables/useMediaSession'
+import { useWakeLock } from '~/composables/useWakeLock'
 import {
   PLAYER_LAYOUT_MARGIN,
   PLAYER_LAYOUT_MARGIN_MOBILE,
   clampPlayerPosition
 } from '~/utils/playerLayout'
-import { getBilibiliUrl } from '~/utils/url'
+import { getBilibiliUrl, getCoverThumbUrl } from '~/utils/url'
 import { scrobbleSong } from '~/utils/neteaseApi'
 import { useLocale } from '~/utils/locale'
 import { isBilibiliSong } from '~/utils/bilibiliSource'
@@ -328,6 +331,7 @@ import { markPlaybackUrlInvalid } from '~/utils/invalidPlaybackUrls'
 import { useTheme } from '~/composables/useTheme'
 import {
   getCachedMusicUrlSource,
+  getCachedMusicUrlQuality,
   getMusicUrlResult,
   isKnownInvalidQqAudioUrl
 } from '~/utils/musicUrl'
@@ -362,9 +366,10 @@ const emit = defineEmits(['close', 'ended', 'error', 'songChange'])
 // 使用 composables
 const control = useAudioPlayerControl()
 const sync = useAudioPlayerSync()
-const { getQualityLabel, getQuality, getQualityOptions, saveQuality } = useAudioQuality()
+const { getQualityLabel, getQuality, getQualityOptions, saveQuality, getNeteaseQualityLabel } = useAudioQuality()
 const enhanced = useAudioPlayerEnhanced()
 const mediaSession = useMediaSession()
+const wakeLock = useWakeLock()
 // 播放器布局：固定底部 / 自由拖拽（偏好存本浏览器）
 const {
   position: layoutPosition,
@@ -594,7 +599,8 @@ const buildFallbackResolveOptions = (song, excludeSources) => {
   }
 }
 
-const trySwitchPlaybackSource = async () => {
+// options.silent 为 true 时不弹内置换源提示，由调用方按场景自行提示
+const trySwitchPlaybackSource = async (options = { silent: false }) => {
   const song = activeSong.value
   if (!song?.musicPlatform || !song?.musicId || isBilibiliSong(song)) {
     return false
@@ -649,10 +655,10 @@ const trySwitchPlaybackSource = async () => {
       }
     }
 
-    sync.globalAudioPlayer.playSong(updatedSong)
+    sync.globalAudioPlayer.updateCurrentSong(updatedSong)
     emit('songChange', updatedSong)
 
-    if (window.$showNotification) {
+    if (!options.silent && window.$showNotification) {
       window.$showNotification(audioPlayerLocale.value.fallbackSource, 'warning')
     }
 
@@ -662,9 +668,14 @@ const trySwitchPlaybackSource = async () => {
       const element = audioPlayer.value
       // 起播前清掉上一轮的错误态：control.play() 见到 hasError 会直接返回 false，表现为换源成功却停在暂停
       control.hasError.value = false
-      element.addEventListener('loadedmetadata', () => {
-        if (Number.isFinite(element.duration) && resumePosition < element.duration) element.currentTime = resumePosition
-      }, { once: true })
+      element.addEventListener(
+        'loadedmetadata',
+        () => {
+          if (Number.isFinite(element.duration) && resumePosition < element.duration)
+            element.currentTime = resumePosition
+        },
+        { once: true }
+      )
       // 不调用 load()：song.musicUrl 变化会通过 :src 绑定自动走加载算法，
       // 额外一次 load() 会多排一轮 pause/emptied 事件，可能把刚起的播放又改回暂停
       started = await control.play()
@@ -688,6 +699,43 @@ const trySwitchPlaybackSource = async () => {
   } finally {
     isFallbackHandling.value = false
     control.isLoadingTrack.value = false
+  }
+}
+
+// CDN 偶发阶段限速时音频会无限停在 readyState 0/1，按超时换源而不是一直转圈
+const PLAYBACK_STALL_TIMEOUT_MS = 8000
+let stallTimer = null
+
+const clearStallWatch = () => {
+  if (stallTimer) {
+    clearTimeout(stallTimer)
+    stallTimer = null
+  }
+}
+
+const armStallWatch = () => {
+  clearStallWatch()
+  stallTimer = setTimeout(checkPlaybackStall, PLAYBACK_STALL_TIMEOUT_MS)
+}
+
+const checkPlaybackStall = async () => {
+  stallTimer = null
+  const element = audioPlayer.value
+  if (!element || isFallbackHandling.value) return
+  // 已缓冲到可播放或用户已暂停时不处理
+  if (element.readyState >= 3) return
+  if (element.paused && !control.isPlaying.value && !control.isLoadingTrack.value) return
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return
+
+  const switched = await trySwitchPlaybackSource({ silent: true })
+  if (switched) {
+    if (window.$showNotification) {
+      window.$showNotification(audioPlayerLocale.value.slowNetworkRetry, 'warning')
+    }
+    return
+  }
+  if (window.$showNotification) {
+    window.$showNotification(audioPlayerLocale.value.slowNetworkFailed, 'warning')
   }
 }
 
@@ -878,6 +926,7 @@ const handlePlay = () => {
 }
 
 const handlePause = () => {
+  clearStallWatch()
   control.onPause()
 
   if (isSyncingFromGlobal.value) return
@@ -910,6 +959,15 @@ const handlePause = () => {
     playlistIndex: sync.globalAudioPlayer.getCurrentPlaylistIndex().value
   })
 }
+
+// 播放时申请屏幕常亮，暂停/停止/切歌结束时释放
+watch(
+  () => control.isPlaying.value,
+  (playing) => {
+    if (playing) void wakeLock.requestLock()
+    else void wakeLock.releaseLock()
+  }
+)
 
 const handleDurationChange = async () => {
   if (!audioPlayer.value || isFallbackHandling.value) return
@@ -1025,6 +1083,7 @@ const handleLoaded = async () => {
 }
 
 const handleError = async (error) => {
+  clearStallWatch()
   // 忽略主动清空 src 或关闭播放器导致的错误
   const audioEl = audioPlayer.value
   if (
@@ -1055,7 +1114,10 @@ const handleError = async (error) => {
   // 登记后换源重试时解析链路会跳过它，避免反复拿到同一条坏链
   const failedSrc = audioEl.currentSrc || audioEl.src
   const mediaErrorCode = audioEl.error?.code
-  if (mediaErrorCode === MediaError.MEDIA_ERR_DECODE || mediaErrorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+  if (
+    mediaErrorCode === MediaError.MEDIA_ERR_DECODE ||
+    mediaErrorCode === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED
+  ) {
     markPlaybackUrlInvalid(failedSrc)
   }
 
@@ -1158,6 +1220,7 @@ const handleError = async (error) => {
 }
 
 const handleEnded = () => {
+  clearStallWatch()
   if (audioPlayer.value) {
     void tryScrobbleNeteaseSong(
       audioPlayer.value.duration || control.currentTime.value,
@@ -1183,10 +1246,18 @@ const handleEnded = () => {
 
 const handleLoadStart = () => {
   control.onLoadStart()
+  armStallWatch()
 }
 
 const handleCanPlay = () => {
+  clearStallWatch()
   control.onCanPlay()
+}
+
+// 长时缓冲不足（waiting/stalled）时重新计时，网络恢复后由 canplay 清除
+// 不依赖 isPlaying：播放器状态可能滞后，卡住判定统一由 checkPlaybackStall 决定
+const handleNetworkStall = () => {
+  armStallWatch()
 }
 
 // UI 事件处理器
@@ -1282,12 +1353,18 @@ const handleSeekToPosition = (event) => {
 }
 
 // 获取当前歌曲平台的音质文本
+const reportedQuality = computed(() => control.isLoadingTrack.value ? undefined
+  : getCachedMusicUrlQuality(props.song?.musicUrl || audioPlayer.value?.currentSrc || audioPlayer.value?.src))
+// 返回音质仅在接口 level 可识别时覆盖显示；未知音质（含未登录走解锁链路）沿用请求音质
+const actualQualityLabel = computed(() =>
+  ['netease', 'netease-podcast'].includes(props.song?.musicPlatform)
+    ? getNeteaseQualityLabel(reportedQuality.value) : null)
 const currentQualityText = computed(() => {
   if (!props.song || !props.song.musicPlatform) return '音质'
 
   const platform = props.song.musicPlatform
   const quality = getQuality(platform)
-  const label = getQualityLabel(platform, quality)
+  const label = actualQualityLabel.value || getQualityLabel(platform, quality)
 
   // 简化显示文本
   return label.replace(/音质|音乐/, '').trim() || '音质'
@@ -1302,6 +1379,10 @@ const currentPlatformOptions = computed(() => {
 // 检查是否是当前音质
 const isCurrentQuality = (qualityValue) => {
   if (!props.song || !props.song.musicPlatform) return false
+  if (actualQualityLabel.value) {
+    const matched = currentPlatformOptions.value.find(option => option.level === reportedQuality.value)?.value
+    if (matched !== undefined) return matched === qualityValue
+  }
   return getQuality(props.song.musicPlatform) === qualityValue
 }
 
@@ -1359,6 +1440,7 @@ const cyclePlayMode = () => {
       window.$showNotification(audioPlayerLocale.value.loopOneEnabled, 'info')
   } else if (current === 'loopOne') {
     control.setPlayMode('off')
+    if (sync.globalAudioPlayer.scheduleWaiting.value) sync.globalAudioPlayer.pauseSong()
     if (window.$showNotification)
       window.$showNotification(audioPlayerLocale.value.singleEnabled, 'info')
   } else {
@@ -1527,13 +1609,14 @@ watch(
     coverError.value = false
 
     // 避免双向触发 - 仅当是同一首歌时才跳过（防止playNext时block加载新歌）
-    if (isSyncingFromGlobal.value && oldSong && String(newSong.id) === String(oldSong.id)) return
+    if (isSyncingFromGlobal.value && oldSong && String(newSong.id) === String(oldSong.id) &&
+      newSong.schedulePlaybackKey === oldSong.schedulePlaybackKey) return
 
     // 确保组件已经挂载
     if (!isMounted.value) return
 
     // 如果是新歌曲，加载并播放
-    if (!oldSong || newSong.id !== oldSong.id) {
+    if (!oldSong || newSong.id !== oldSong.id || newSong.schedulePlaybackKey !== oldSong.schedulePlaybackKey) {
       const loadSuccess = await control.loadSong(newSong)
       if (loadSuccess) {
         sync.setGlobalPlaylist(newSong, props.playlist)
@@ -1867,6 +1950,7 @@ onMounted(async () => {
       },
       onPause: () => {
         isSyncingFromGlobal.value = true
+        sync.globalAudioPlayer.pauseSong()
         if (control.audioPlayer.value) {
           control.pause()
         }
@@ -1920,7 +2004,7 @@ onMounted(async () => {
         }
       },
       onPause: () => {
-        if (control.isPlaying.value) {
+        if (control.isPlaying.value || sync.globalAudioPlayer.scheduleWaiting.value) {
           handleTogglePlay()
         }
       },
@@ -2080,6 +2164,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  clearStallWatch()
   // 清理音频播放器
   control.cleanup()
 
@@ -2124,12 +2209,6 @@ const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
-}
-
-// 转换为 HTTPS
-const convertToHttps = (url) => {
-  if (!url) return ''
-  return url.replace(/^http:/, 'https:')
 }
 
 // 处理图片错误
